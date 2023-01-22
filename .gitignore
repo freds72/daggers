@@ -1,0 +1,13 @@
+log.txt
+config.txt
+activity_log.txt
+sdl_controllers.txt
+/backup/
+/bbs/
+/carts/demos
+/carts/*.p8.png
+/cdata/
+/cstore/
+*.bin
+/.vscode/
+
