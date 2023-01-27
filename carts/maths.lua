@@ -24,9 +24,11 @@ function v_dotsign(a,b)
 end
 
 function v_scale(v,scale)
-	v[1]*=scale
-	v[2]*=scale
-	v[3]*=scale
+	return {
+		v[1]*scale,
+		v[2]*scale,
+		v[3]*scale
+	}
 end
 function v_add(v,dv,scale)
 	scale=scale or 1
