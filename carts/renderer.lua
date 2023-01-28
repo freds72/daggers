@@ -5,13 +5,13 @@ function init_traversal(ray,maxs,t0,t1)
         local tmax = (maxs - o) / dir 
         if dir < 0 then
             tmin,tmax=tmax,tmin
-        end        
+        end    
         return tmin,tmax
     end
     
     local tmin,tmax=-32000,32000
     for i=1,3 do
-        local tstart,tend = get_bounds(1)
+        local tstart,tend = get_bounds(i)
         -- out?
         if(tstart>t1 or tend<t0) return
         if (tstart > tmin) tmin = tstart
@@ -21,9 +21,9 @@ function init_traversal(ray,maxs,t0,t1)
 end
 
 -- voxel traversal on a sqaure grid
--- [0,maxs]
-function voxel_traversal(ray,maxs,grid)
-    local in_grid,tmin,tmax = init_traversal(ray, maxs, 0, ray.len)
+-- [0,size[
+function voxel_traversal(ray,size,grid)
+    local in_grid,tmin,tmax = init_traversal(ray, size, 0, ray.len)
     if (not in_grid) return
 
     local dir=ray.dir
@@ -33,6 +33,16 @@ function voxel_traversal(ray,maxs,grid)
     local function get_step(d)
         local start,dir=ray_start[d],dir[d]
         local curr_i,end_i = max(start\1),max(ray_end[d]\1)
+        --[[
+        if curr_i<0 and end_i>=size then
+            printh("!!!!!!ERROR!!!!!!!!!")
+            printh("dim: "..d.." invalid index: "..curr_i.." "..end_i)
+            printh("tmin: "..tmin.." tmax:"..tmax)
+            printh("start: "..v_tostr(ray_start).." end: "..v_tostr(ray_end))
+            printh("o:"..v_tostr(ray.origin).." dir: "..v_tostr(ray.dir))
+            stop()
+        end
+        ]]
         local step = 0
         local tdelta = tmax
         local tmax_d = tmax
@@ -52,10 +62,11 @@ function voxel_traversal(ray,maxs,grid)
     local j0,j1,stepy,tdeltay,tmaxy = get_step(2)
     local k0,k1,stepz,tdeltaz,tmaxz = get_step(3)
 
-    --printh("*******************")
-    --printh("i:"..i0..", "..j1.." ["..tdeltax.."]")
-    --printh("j:"..j0..", "..j1.." ["..tdeltay.."]")
-    --printh("k:"..k0..", "..k1.." ["..tdeltaz.."]")
+    -- printh("*******************")
+    -- printh(tmin.." --> "..tmax)
+    -- printh("i:"..i0..", "..j1.." ["..tdeltax.."]")
+    -- printh("j:"..j0..", "..j1.." ["..tdeltay.."]")
+    -- printh("k:"..k0..", "..k1.." ["..tdeltaz.."]")
 
     local dist=0
     local steps={stepx,stepy,stepz}
@@ -64,16 +75,19 @@ function voxel_traversal(ray,maxs,grid)
         if tmaxx < tmaxy and tmaxx < tmaxz then            
             -- x-axis traversal.
             i0 += stepx
+            if(i0<0 or i0>=size) return
             tmaxx += tdeltax
             hit=1
         elseif tmaxy < tmaxz then
             -- y-axis traversal.
             j0 += stepy
+            if(j0<0 or j0>=size) return
             tmaxy += tdeltay
             hit=2
         else
             -- z-axis traversal.
             k0 += stepz
+            if(k0<0 or k0>=size) return
             tmaxz += tdeltaz
             hit=3
         end
@@ -111,23 +125,24 @@ function voxel_traversal(ray,maxs,grid)
 end
 
 function make_cam(x0,y0,scale,fov)
-	local yangle,zangle=0,0
+	local yangle,zangle=-0.25,0
 	local dyangle,dzangle=0,0
     local focal=cos(fov/2)
 	return {
 		pos={0,0,0},
 		control=function(self,lookat,dist)
-			if(btn(0)) dyangle+=1
-			if(btn(1)) dyangle-=1
-			if(btn(2)) dzangle+=1
-			if(btn(3)) dzangle-=1
+			if(btn(0)) dzangle-=1
+			if(btn(1)) dzangle+=1
+			if(btn(2)) dyangle+=1
+			if(btn(3)) dyangle-=1
 			yangle+=dyangle/228--+0.01
 			zangle+=dzangle/228--+0.005
 			-- friction
 			dyangle=dyangle*0.8
 			dzangle=dzangle*0.8
-
-			local m=make_m_from_euler(zangle,yangle,0)
+			local m=m_x_m(
+                make_m_from_euler(0,0,zangle),
+                make_m_from_euler(yangle,0,0))
 			local pos=v_add(lookat,m_fwd(m),dist)            
 
             -- debug
@@ -175,6 +190,9 @@ function _init()
     end
     _grid[2>>16|3>>8|5]=true
     _grid[4>>16|3>>8|5]=true
+    for y=2,4 do
+        _grid[3>>16|y>>8|3]=nil
+    end
 end
 
 function _update()
@@ -182,9 +200,7 @@ function _update()
 
     if btnp(4) then    
         local origin=v_clone(_cam.pos)
-        origin[2]=0.5
         local target=v_add(origin,_cam.fwd,-16)
-        target[2]=0.5
         
         local d=make_v(origin,target)
         local n,l=v_normz(d)
@@ -230,8 +246,6 @@ function _draw()
                     end
                 end
             end
-            local x,y,w=_cam:project(hit.hit)
-            if(w) pset(x,y,8) pset(x+1,y,8) pset(x-1,y,8) pset(x,y-1,8) pset(x,y+1,8)
         end
         local x0,y0,w0=_cam:project(_ray.origin)
         local x1,y1,w1=_cam:project(_ray.target)
@@ -239,7 +253,7 @@ function _draw()
     end
 
     -- 
-    --if btnp(5) then
+    if true then
         local fwd,right,up=_cam.fwd,_cam.right,_cam.up
         local target=v_add(_cam.pos,fwd,sin(0.25/2))
         for i=0,127 do
@@ -254,7 +268,7 @@ function _draw()
                     origin=_cam.pos,
                     dir=n,
                     len=16}    
-                local hit=voxel_traversal(ray,7,_grid)
+                local hit=voxel_traversal(ray,8,_grid)
                 if hit then
                     pset(i,j,2+hit.side)
                 else
@@ -262,5 +276,5 @@ function _draw()
                 end
             end
         end
-    --end
+    end
 end
