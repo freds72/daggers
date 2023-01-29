@@ -28,24 +28,37 @@ local cube={
 }
 
 function draw_cube(cam,o,c,cache,mask)
-    cache=cache or {}
+    local ox,oy,oz=o[1],o[2],o[3]
+    local idx=ox>>16|oy>>8|oz
+    if(not _grid[idx]) return
     local verts={}
-    local idx=o[1]>>16|o[2]>>8|o[3]
+    local m,scale=cam.m,64*cam.fov
+    -- get visible faces (face index + face direction)
     for maski,k in pairs(mask) do
+        -- 
         local sides=cube.faces[maski][k]
-        if sides then
+        -- check adjacent blocks
+        local adj={ox,oy,oz}
+        adj[maski]-=k
+        local adj_i=adj[maski]
+        local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
+        -- outside: draw faces
+        -- or not next to block
+        if adj_i<0 or adj_i>=8 or (not _grid[adj_idx]) then
             for i,vi in pairs(sides) do
-                local idx=idx+cube[vi].idx
+                local vert=cube[vi]
+                local idx=idx+vert.idx
                 local v=cache[idx]
                 if not v then
-                    local p=v_add(o,cube[vi])
-                    local x,y,w=cam:project(p)
-                    v={x=x,y=y}
+                    local x,y,z=vert[1]+ox,vert[2]+oy,vert[3]+oz
+                    x,y,z=m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14],m[3]*x+m[7]*y+m[11]*z+m[15]
+                    local w=scale/z
+                    v={x=64+x*w,y=64-y*w}
                     cache[idx]=v
                 end
                 verts[i]=v
             end
-            --polyline(verts,4,c)
+            --polyline(verts,4,maski+k+1)
             polyfill(verts,4,maski+k+1)
         end
     end
@@ -236,6 +249,14 @@ function _init()
     _cam=make_cam(64,64,64,0.25)
     -- voxel grid    
     _grid={}
+    srand(42)
+    for i=0,7 do
+        for j=0,7 do
+            for k=0,7 do
+                if(rnd()>0.125) _grid[i>>16|j>>8|k]=true
+            end
+        end
+    end
     -- init keys for cube points
     for i=1,#cube do
         local p=cube[i]
@@ -318,15 +339,11 @@ function draw_grid(cam)
         {2,1,-1}
     }
     local lasti=last[majori][minori]
-    assert(lasti!=-1)
 
     local major0,major1=0,7
     if(fwd[majori]<0) major0,major1=major1,major0
-    --local last0,last1=0,7
-    --if(fwd[lasti]<0) last0,last1=last1,last0    
-    local cache={}
-    local o={}
-    local face_mask={}
+    local o,face_mask,cache={},{},{}
+    local cam_minor,cam_last=cam.pos[minori]\1,cam.pos[lasti]\1
     face_mask[majori]=sgn(-fwd[majori])
     for major=major0,major1,sgn(fwd[majori]) do
         -- todo: drop sign based iteration, only use left-to-right/middle/right-to-left
@@ -334,10 +351,12 @@ function draw_grid(cam)
         local draw_last=function()
             local last0,last1=0,7
             local dlast=sgn(fwd[lasti])
-            if(dlast<0) last0,last1=last1,last0    
+            local face_sign=sgn(last0-cam_last)
+            if(dlast<0) last0,last1,face_sign=last1,last0,sgn(last1-cam_last)   
             local fix
+            face_mask[lasti]=face_sign
             for last=last0,last1,dlast do
-                if last==cam.pos[lasti]\1 then
+                if last==cam_last then
                     fix=last
                     -- skip
                     last+=dlast
@@ -347,19 +366,19 @@ function draw_grid(cam)
                         last0,last1=last1,last
                     end
                     dlast=-dlast
+                    face_sign=-face_sign
                     break
                 end
 
                 o[lasti]=last                
-                face_mask[lasti]=sgn(last-cam.pos[lasti])
                 --printh("normal: "..last)
                 draw_cube(cam,o,5,cache,face_mask)
             end    
             if fix then        
                 if last0>=0 and last0<8 and last1>=0 and last1<8 then                
+                    face_mask[lasti]=face_sign   
                     for last=last0,last1,dlast do
                         o[lasti]=last        
-                        face_mask[lasti]=sgn(last-cam.pos[lasti])        
                         draw_cube(cam,o,5,cache,face_mask)
                     end   
                 end         
@@ -372,10 +391,12 @@ function draw_grid(cam)
         -- 
         local minor0,minor1=0,7
         local dminor=sgn(fwd[minori])
-        if(dminor<0) minor0,minor1=minor1,minor0
+        local minor_sign=sgn(minor0-cam_minor)
+        if(dminor<0) minor0,minor1,minor_sign=minor1,minor0,sgn(minor1-cam_minor)
         local fix
+        face_mask[minori]=minor_sign
         for minor=minor0,minor1,dminor do
-            if minor==cam.pos[minori]\1 then
+            if minor==cam_minor then
                 fix=minor
                 -- skip
                 minor+=dminor
@@ -385,19 +406,19 @@ function draw_grid(cam)
                     minor0,minor1=minor1,minor
                 end
                 dminor=-dminor
+                minor_sign=-minor_sign
                 -- printh("reverse! ("..minor..") ["..minor0..", "..minor1.."] @"..dminor)
                 break
             end        
             o[minori]=minor
-            face_mask[minori]=sgn(minor-cam.pos[minori])
             draw_last()
         end
 
         if fix then 
             if minor0>=0 and minor0<8 and minor1>=0 and minor1<8 then
+                face_mask[minori]=minor_sign
                 for minor=minor0,minor1,dminor do
                     o[minori]=minor
-                    face_mask[minori]=sgn(minor-cam.pos[minori])
                     draw_last()
                 end            
             end
