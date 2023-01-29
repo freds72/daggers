@@ -1,3 +1,58 @@
+-- draw cube help
+local cube={
+    {0,0,0},
+    {1,0,0},
+    {1,1,0},
+    {0,1,0},
+    {0,0,1},
+    {1,0,1},
+    {1,1,1},
+    {0,1,1},
+    faces={
+        -- x
+        {
+            [1]={1,4,8,5},
+            [-1]={2,3,7,6}
+        },
+        -- y
+        {
+            [1]={1,2,6,5},
+            [-1]={3,4,8,7}
+        },
+        -- z
+        {
+            [1]={1,2,3,4},
+            [-1]={5,6,7,8}
+        }
+    }
+}
+
+function draw_cube(cam,o,c,cache,mask)
+    cache=cache or {}
+    local verts={}
+    local idx=o[1]>>16|o[2]>>8|o[3]
+    for maski,k in pairs(mask) do
+        local sides=cube.faces[maski][k]
+        if sides then
+            for i,vi in pairs(sides) do
+                local idx=idx+cube[vi].idx
+                local v=cache[idx]
+                if not v then
+                    local p=v_add(o,cube[vi])
+                    local x,y,w=cam:project(p)
+                    v={x=x,y=y}
+                    cache[idx]=v
+                end
+                verts[i]=v
+            end
+            --polyline(verts,4,c)
+            polyfill(verts,4,maski+k+1)
+        end
+    end
+    if(btn(5)) flip()
+end
+
+-- voxel functions
 function init_traversal(ray,maxs,t0,t1)
     local function get_bounds(d)
         local o,dir=ray.origin[d],ray.dir[d]
@@ -119,8 +174,6 @@ function voxel_traversal(ray,size,grid)
                 hit=pos,
                 data=data}        
         end
-        dist+=1
-        if(dist>24) return
     end
 end
 
@@ -129,6 +182,7 @@ function make_cam(x0,y0,scale,fov)
 	local dyangle,dzangle=0,0
     local focal=cos(fov/2)
 	return {
+        fov=focal,
 		pos={0,0,0},
 		control=function(self,lookat,dist)
 			if(btn(0)) dzangle-=1
@@ -168,7 +222,7 @@ function make_cam(x0,y0,scale,fov)
 		project=function(self,v)
             local v=m_x_v(self.m,v)
             local x,y,z=v[1],v[2],v[3]
-            if(z>0) return
+            if(z>-1) return
             local w=focal/z
             return x0+scale*x*w,y0-scale*y*w,w
 		end
@@ -176,46 +230,187 @@ function make_cam(x0,y0,scale,fov)
 end
 
 function _init()
+    -- mouse
     poke(0x5f2d,1)
 
     _cam=make_cam(64,64,64,0.25)
     -- voxel grid    
     _grid={}
-    for i=2,4 do
-        for j=2,4 do
-            for k=2,4 do
-                _grid[i>>16|j>>8|k]=true
-            end
-        end
-    end
-    _grid[2>>16|3>>8|5]=true
-    _grid[4>>16|3>>8|5]=true
-    for y=2,4 do
-        _grid[3>>16|y>>8|3]=nil
+    -- init keys for cube points
+    for i=1,#cube do
+        local p=cube[i]
+        p.idx=p[1]>>16|p[2]>>8|p[3]
     end
 end
 
+local _layer=0
+local _raytrace
+local _lmb
+local _color=0
 function _update()
     _cam:control({4,4,4},8)
 
-    if btnp(4) then    
-        local origin=v_clone(_cam.pos)
-        local target=v_add(origin,_cam.fwd,-16)
+    local ti,tj=-(stat(32)-64)/(64*_cam.fov),(stat(33)-64)/(64*_cam.fov)
+    local fwd,right,up=_cam.fwd,_cam.right,_cam.up
+    local target=v_add(_cam.pos,fwd,-1)
+    target=v_add(target,right,ti)
+    target=v_add(target,up,tj)
+    --local origin=v_clone(_cam.pos)
+    
+    local d=make_v(_cam.pos,target)
+    local n,l=v_normz(d)
+    local ray={
+        origin=_cam.pos,
+        target=target,
+        dir=n,
+        len=16}    
+
+    local wheel=stat(36)
+    _layer=mid(_layer+wheel\1,0,7)
+
+    local grid={}
+    for i=0,7 do
+        for j=0,7 do
+            grid[i>>16|j>>8|_layer]=true
+        end
+    end
+
+    _current_voxel=voxel_traversal(ray,8,grid)
         
-        local d=make_v(origin,target)
-        local n,l=v_normz(d)
-        _ray={
-            origin=origin,
-            target=target,
-            dir=n,
-            len=l}    
+    local lmb=stat(34)&1==1
+    if _current_voxel then
+        local o=_current_voxel.origin
+        local idx=o[1]>>16|o[2]>>8|o[3]
+        if lmb or (not lmb and _lmb) then
+            -- click!
+            _grid[idx]=true
+        end
+    end
+    _lmb=lmb
+
+    if btnp(5) then
+        --_raytrace=not _raytrace
+    end
+end
+
+function draw_grid(cam)    
+    local fwd=cam.fwd
+    local majord,majori=-32000,1
+    for i=1,3 do
+        local d=abs(_cam.fwd[i])
+        if d>majord then
+            majori,majord=i,d
+        end
+    end
+
+    local minord,minori=-32000,1
+    for i=1,3 do
+        if i!=majori then
+            local d=abs(_cam.fwd[i])
+            if d>minord then
+                minori,minord=i,d
+            end
+        end
+    end
+    local last={
+        {-1,3,2},
+        {3,-1,1},
+        {2,1,-1}
+    }
+    local lasti=last[majori][minori]
+    assert(lasti!=-1)
+
+    local major0,major1=0,7
+    if(fwd[majori]<0) major0,major1=major1,major0
+    --local last0,last1=0,7
+    --if(fwd[lasti]<0) last0,last1=last1,last0    
+    local cache={}
+    local o={}
+    local face_mask={}
+    face_mask[majori]=sgn(-fwd[majori])
+    for major=major0,major1,sgn(fwd[majori]) do
+        -- todo: drop sign based iteration, only use left-to-right/middle/right-to-left
+        o[majori]=major
+        local draw_last=function()
+            local last0,last1=0,7
+            local dlast=sgn(fwd[lasti])
+            if(dlast<0) last0,last1=last1,last0    
+            local fix
+            for last=last0,last1,dlast do
+                if last==cam.pos[lasti]\1 then
+                    fix=last
+                    -- skip
+                    last+=dlast
+                    if dlast>0 then
+                        last0,last1=last1,last
+                    else
+                        last0,last1=last1,last
+                    end
+                    dlast=-dlast
+                    break
+                end
+
+                o[lasti]=last                
+                face_mask[lasti]=sgn(last-cam.pos[lasti])
+                --printh("normal: "..last)
+                draw_cube(cam,o,5,cache,face_mask)
+            end    
+            if fix then        
+                if last0>=0 and last0<8 and last1>=0 and last1<8 then                
+                    for last=last0,last1,dlast do
+                        o[lasti]=last        
+                        face_mask[lasti]=sgn(last-cam.pos[lasti])        
+                        draw_cube(cam,o,5,cache,face_mask)
+                    end   
+                end         
+                o[lasti]=fix       
+                face_mask[lasti]=nil
+                draw_cube(cam,o,5,cache,face_mask)
+            end  
+            --if(btn(5)) flip()             
+        end
+        -- 
+        local minor0,minor1=0,7
+        local dminor=sgn(fwd[minori])
+        if(dminor<0) minor0,minor1=minor1,minor0
+        local fix
+        for minor=minor0,minor1,dminor do
+            if minor==cam.pos[minori]\1 then
+                fix=minor
+                -- skip
+                minor+=dminor
+                if dminor>0 then
+                    minor0,minor1=minor1,minor
+                else
+                    minor0,minor1=minor1,minor
+                end
+                dminor=-dminor
+                -- printh("reverse! ("..minor..") ["..minor0..", "..minor1.."] @"..dminor)
+                break
+            end        
+            o[minori]=minor
+            face_mask[minori]=sgn(minor-cam.pos[minori])
+            draw_last()
+        end
+
+        if fix then 
+            if minor0>=0 and minor0<8 and minor1>=0 and minor1<8 then
+                for minor=minor0,minor1,dminor do
+                    o[minori]=minor
+                    face_mask[minori]=sgn(minor-cam.pos[minori])
+                    draw_last()
+                end            
+            end
+            o[minori]=fix
+            face_mask[minori]=nil
+            draw_last()
+        end         
     end
 end
 
 function _draw()
     cls()
-
-
+    
     local axes={"x","y","z"}    
     local x0,y0,w0=_cam:project({0,0,0})    
     for i,axis in pairs(axes) do
@@ -226,42 +421,57 @@ function _draw()
         if(w and w0) line(x0,y0,x,y,6)
     end
 
-    for i=0,7 do
-        for j=0,7 do
-            for k=0,7 do
-                local x,y,w=_cam:project({i,j,k})
-                if(w) pset(x,y,1)
+    --[[
+    local cache={}
+    local k=_layer
+    for i=0,8 do
+        for j=0,8 do
+            local idx=i>>16|j>>8|k
+            if _grid[idx] then
+                draw_cube(_cam,{i,j,k},4,cache)
             end
         end
     end
+    ]]
+    draw_grid(_cam)
 
-    if _ray then
-        local hit=voxel_traversal(_ray,7,_grid)
-        if hit then
-            for i=0,1 do
-                for j=0,1 do
-                    for k=0,1 do                        
-                        local x,y,w=_cam:project(v_add(hit.origin,{i,j,k}))
-                        if(w) pset(x,y,8)
-                    end
-                end
-            end
+    -- draw selection
+    if _current_voxel then
+        fillp(0xa5a5.8)
+        --draw_cube(_cam,_current_voxel.origin,7)
+        fillp()
+    end
+
+    -- banner
+    rectfill(0,0,127,6,8)    
+    local txt="-"
+    if _current_voxel then
+        local o=_current_voxel.origin
+        txt=o[1].." "..o[2].." "..o[3]        
+    end
+    print("\18:"..txt,1,1,7)
+    -- colors
+    for i=0,15 do
+        local x=i*4+63
+        rectfill(x,2,x+2,4,i)
+        if i==_color then
+            rect(x-1,1,x+3,5,7)
         end
-        local x0,y0,w0=_cam:project(_ray.origin)
-        local x1,y1,w1=_cam:project(_ray.target)
-        if(w0 and w1) line(x0,y0,x1,y1,2)
     end
 
     -- 
-    if true then
+    if _raytrace then
         local fwd,right,up=_cam.fwd,_cam.right,_cam.up
-        local target=v_add(_cam.pos,fwd,sin(0.25/2))
+        local target=v_add(_cam.pos,fwd,-1)
+        local fov=64*_cam.fov
         for i=0,127 do
-            local ti=-(i-64)/64
-            local target=v_add(target,right,ti)
+            local ti=-(i-64)/fov
             for j=0,127 do
-                local tj=(j-64)/64
-                local target=v_add(target,up,tj)
+                local tj=(j-64)/fov
+                local target={
+                    target[1]+right[1]*ti+up[1]*tj,
+                    target[2]+right[2]*ti+up[2]*tj,
+                    target[3]+right[3]*ti+up[3]*tj}
                 local d=make_v(_cam.pos,target)
                 local n,l=v_normz(d)
                 local ray={
@@ -271,10 +481,11 @@ function _draw()
                 local hit=voxel_traversal(ray,8,_grid)
                 if hit then
                     pset(i,j,2+hit.side)
-                else
-                    --pset(i,j,1)
                 end
             end
         end
     end
+
+    local mx,my=stat(32),stat(33)
+    spr(0,mx,my)
 end
