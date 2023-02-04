@@ -88,7 +88,7 @@ function draw_sprite(cam,o,s)
     -- position in middle of tile
     local x,y,w=cam:project({ox+0.5,oy+0.5,oz})
     if w then
-        w*=-64
+        w*=-64*cam.fov
         local sx,sy=x-w/2,y-w
         sspr((s&15)<<3,(s\16)<<3,8,8,sx,sy,w+sx%1,w+sy%1)
     end
@@ -515,38 +515,35 @@ function _init()
     -- create ui and callbacks
     _main=main_window()
     local banner=_main:add(make_static(8),0,0,127,7)
-    local pickers=_main:add(make_static(8),63,0,65,7)
-    -- solid color blocks
+    local pickers=banner:add(make_list(64,8,8,bounded_binding(_editor_state,"selected_color",0,18)),64,0,80,7)
     for i=0,15 do
-        pickers:add(make_color_picker(i,binding(_editor_state,"selected_color")),63+i*4,2,3,3)
-    end
-    pickers:show(false)
+        pickers:add(make_color_picker(i,binding(_editor_state,"selected_color")))
+    end   
     -- sprite blocks
-    local sprite_pickers=_main:add(make_static(8),63,0,65,7)
-    for i=0,1 do
-        sprite_pickers:add(make_sprite_picker(32+i,32+i,binding(_editor_state,"selected_color")),63+i*4,2,3,3)
+    for i=0,2 do
+        pickers:add(make_sprite_picker(16+i,32+i,binding(_editor_state,"selected_color")))
     end
+    -- +-
+    _main:add(make_button(21,binding(function() 
+        _editor_state.selected_color=max(0,_editor_state.selected_color-8)        
+    end)),59,0,4,4)
+    _main:add(make_button(22,binding(function() 
+        _editor_state.selected_color=min(#pickers-1,_editor_state.selected_color+8)      
+    end)),59,4,4,4)
 
-    _main:add(make_voxel_editor(),0,8,127,119)
-    
     -- save
     _main:add(make_button(16,binding(function() end)),1,0,7)
     -- play
     _main:add(make_button(17,binding(function() end)),9,0)
     -- level id
     _main:add(make_static(2,binding(_editor_state,"level")),15,0,6,7)
-    -- +-
-    _main:add(make_button(21,binding(function() 
-        _editor_state.level=min(9,_editor_state.level+1)      
-    end)),22,0,4,4)
-    _main:add(make_button(22,binding(function() 
-        _editor_state.level=max(1,_editor_state.level-1)        
-    end)),22,4,4,4)
-
     -- edit/select/fill
     for i,s in ipairs({19,18,20}) do
-        _main:add(make_radio_button(s,i,binding(_editor_state,"edit_mode")),30+i*8,0)
+        _main:add(make_radio_button(s,i,binding(_editor_state,"edit_mode")),29+i*8,0)
     end
+
+    -- main editor
+    _main:add(make_voxel_editor(),0,8,127,119)
     
     -- demo voxels
     srand(42)

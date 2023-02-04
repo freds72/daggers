@@ -42,7 +42,7 @@ function is_window(class)
 end
 
 -- main window: handles cursor layer
-function main_window(cursor)
+function main_window(cursor,clear)
     cursor=cursor or 0
     local mx,my
     local mstate={}
@@ -91,7 +91,7 @@ function main_window(cursor)
         })    
     end
     _draw=function()
-        cls()
+        cls(clear)
         win:onmessage({
             name="draw"
         })
@@ -171,12 +171,13 @@ function make_color_picker(c,binding)
     return is_button({
         draw=function(self)   
             local r=self.rect
-            rectfill(r.x,r.y,r.x+r.w,r.y+r.h,c)  
+            rectfill(r.x,r.y,r.x+r.w-1,r.y+r.h-1,c)  
         end,
         overlay=function(self)
             if binding:get()==c then
                 local r=self.rect
-                rect(r.x-1,r.y-1,r.x+r.w+1,r.y+r.h+1,7)
+                rect(r.x+1,r.y+1,r.x+r.w-2,r.y+r.h-2,0)
+                rect(r.x,r.y,r.x+r.w-1,r.y+r.h-1,7)
             end
         end,
         clicked=function(self,msg)              
@@ -197,13 +198,61 @@ function make_sprite_picker(c,s,binding)
         overlay=function(self)
             if binding:get()==c then
                 local r=self.rect
-                rect(r.x-1,r.y-1,r.x+r.w+1,r.y+r.h+1,7)
+                fillp(0xa5a5.8)
+                rect(r.x,r.y,r.x+r.w-1,r.y+r.h-1,7)
+                fillp()
             end
         end,
         clicked=function(self,msg)              
             binding:set(c)
         end
     })
+end
+
+function make_list(width,w,h,binding)
+    w=w or 8
+    h=h or 8
+    -- number of items per row
+    local n=width\w
+    assert(n!=0,"list too small")
+    local win=is_window({
+        add=function(self,child)
+            local r=self.rect
+            -- assign rect in grid
+            child.rect={x=r.x+(#self%n)*w,y=r.y+(#self\n)*h,w=w,h=h}
+            child.parent=self
+            return add(self,child)
+        end,
+        mousemove=function(self,msg)        
+            local r=self.rect
+            local focus=msg.mx>=r.x and msg.mx<=r.x+r.w and msg.my>=r.y and msg.my<=r.y+r.h
+            if focus and msg.wheel!=0 then
+                local i0=binding:get()            
+                binding:set(i0-msg.wheel*n)
+                msg.handled=true
+            end
+        end,
+        onmessage=function(self,msg)
+            -- inactive window
+            if(self.hide) return
+            local fn=self[msg.name]
+            if(fn) fn(self,msg)
+            if(msg.handled) return
+            -- cascade to child
+            if #self>0 then
+                local i0=binding:get()\n
+                if(msg.my) msg.my+=i0*h
+                camera(0,i0*h)
+                for i=i0*n+1,min((i0+1)*n,#self) do
+                    local child=self[i]
+                    child:onmessage(msg)
+                    if(msg.handled) break
+                end
+                camera()
+            end
+        end
+    })
+    return win
 end
 
 -- static banner (optional text & color via binding)
@@ -234,6 +283,18 @@ function binding(env,prop)
         end
     }
 end
+-- binding with a range
+function bounded_binding(env,prop,lower,upper)
+    return {
+        set=function(self,value)
+            env[prop]=mid(value,lower,upper)
+        end,
+        get=function(self)
+            return env[prop]
+        end
+    }
+end
+
 -- no-op binding
 _nop_binding={}
 function _nop_binding:set() end
