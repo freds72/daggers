@@ -40,7 +40,11 @@ function polyfill(p,np,c)
 			--sub-pixel correction
 			rx+=(y-y0)*rdx
 		end
+		-- no overdraw but a bit more costly
+		--local x0,x1=rx\1,lx\1-1
+		--if x1>=x0 then
 		rectfill(rx,y,lx,y)
+		--end
 		lx+=ldx
 		rx+=rdx
 	end
