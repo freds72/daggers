@@ -105,6 +105,14 @@ function main_window(cursor,clear)
             })
         end
         kstate=keys
+
+        -- drag&drop?
+        if stat(120) then
+            win:onmessage({
+                name="ondrop",
+                address=0x800
+            })
+        end
     end
     _draw=function()
         cls(clear)

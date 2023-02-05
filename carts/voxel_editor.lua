@@ -404,7 +404,7 @@ end
 
 -- custom ui elements
 function make_voxel_editor()   
-	local yangle,zangle=-0.25,0
+	local yangle,zangle=-0.125,0
 	local dyangle,dzangle=0,0
 
     local layer=0 
@@ -428,12 +428,12 @@ function make_voxel_editor()
     end
     return is_window({
         draw=function(self)
+            -- todo: layer offset by +0 +1 if camera is under
             local r=self.rect
             clip(r.x,r.y,r.w,r.h)
             draw_grid(cam)
 
-            -- draw layer selection
-
+            -- draw layer selection            
             local pts={}
             for i,p in pairs(quad) do
                 p=v_scale(p,_grid_size)
@@ -450,10 +450,33 @@ function make_voxel_editor()
                 if(w1 and w0) line(x0,y0,x1,y1,6)
                 x0,y0,w0=x1,y1,w1
             end
-            if(ymax) print(layer,xmax+2,ymax-2,7)     
+            if(ymax) print(layer,xmax+2,ymax-2,7)   
+            
+            -- draw cursor if any
+            if current_voxel then
+                local pts={}
+                for i,p in pairs(quad) do
+                    p=v_add(p,current_voxel.origin)
+                    p[3] = layer
+                    pts[i]=p
+                end
+                --fillp(0xa5a5.8)
+                local p0=pts[4]
+                local x0,y0,w0=cam:project(p0)    
+                for i=1,4 do
+                    local p1=pts[i]
+                    local x1,y1,w1=cam:project(p1)
+                    if(w1 and x1>xmax) xmax,ymax=x1,y1
+                    if(w1 and w0) line(x0,y0,x1,y1,7)
+                    x0,y0,w0=x1,y1,w1
+                end    
+                fillp()
+            end
+            
             clip()       
         end,
         mousemove=function(self,msg)
+            local rotation_mode
             if msg.mmb then
                 poke(0x5f2d, 0x1+0x4)
                 -- hide cursor
@@ -462,6 +485,8 @@ function make_voxel_editor()
                 })
                 dyangle+=msg.mdy
                 dzangle-=msg.mdx
+                rotation_mode=true
+                current_voxel=nil
             else
                 poke(0x5f2d, 0x1)
             end
@@ -478,47 +503,49 @@ function make_voxel_editor()
             cam:control({xyz,xyz,layer},yangle,zangle,_grid_size)
             
             -- selection
-            local ti,tj=cam:unproject(msg.mx,msg.my)
-            local fwd,right,up=cam.fwd,cam.right,cam.up
-            local target=v_add(cam.pos,fwd,-1)
-            target=v_add(target,right,ti)
-            target=v_add(target,up,tj)
-            --local origin=v_clone(cam.pos)
-            
-            local d=make_v(cam.pos,target)
-            local n,l=v_normz(d)
-            local ray={
-                origin=cam.pos,
-                target=target,
-                dir=n,
-                len=16}    
+            if not rotation_mode then
+                local ti,tj=cam:unproject(msg.mx,msg.my)
+                local fwd,right,up=cam.fwd,cam.right,cam.up
+                local target=v_add(cam.pos,fwd,-1)
+                target=v_add(target,right,ti)
+                target=v_add(target,up,tj)
+                --local origin=v_clone(cam.pos)
+                
+                local d=make_v(cam.pos,target)
+                local n,l=v_normz(d)
+                local ray={
+                    origin=cam.pos,
+                    target=target,
+                    dir=n,
+                    len=16}    
 
-            local grid={}
-            for i=0,_grid_size-1 do
-                for j=0,_grid_size-1 do
-                    grid[i>>16|j>>8|layer]=true
+                local grid={}
+                for i=0,_grid_size-1 do
+                    for j=0,_grid_size-1 do
+                        grid[i>>16|j>>8|layer]=true
+                    end
                 end
-            end
+            
+                current_voxel=voxel_traversal(ray,_grid_size,grid)
         
-            current_voxel=voxel_traversal(ray,_grid_size,grid)
-    
-            if current_voxel then
-                local o=current_voxel.origin
-                local idx=o[1]>>16|o[2]>>8|o[3]
-                self:send({
-                    name="cursor",
-                    cursor="aim"
-                })
-                if msg.lmbp then
-                    -- click!
-                    local col=_editor_state.selected_color
-                    -- previous state for undo
-                    add(undo_stack,{idx=idx,col=_grid[idx] or _sprite_grid[idx] or 0})
-                    apply(idx,col)
-                elseif msg.rmbp then
+                if current_voxel then
+                    local o=current_voxel.origin
+                    local idx=o[1]>>16|o[2]>>8|o[3]
+                    self:send({
+                        name="cursor",
+                        cursor="aim"
+                    })
+                    if msg.lmbp then
+                        -- click!
+                        local col=_editor_state.selected_color
+                        -- previous state for undo
+                        add(undo_stack,{idx=idx,col=_grid[idx] or _sprite_grid[idx] or 0})
+                        apply(idx,col)
+                    elseif msg.rmbp then
 
-                    _editor_state.selected_color=_grid[idx] or _sprite_grid[idx] or 0
-                end            
+                        _editor_state.selected_color=_grid[idx] or _sprite_grid[idx] or 0
+                    end            
+                end
             end
         end,
         undo=function(self,msg)      
@@ -527,6 +554,44 @@ function make_voxel_editor()
             local prev=undo_stack[#undo_stack]
             undo_stack[#undo_stack]=nil
             apply(prev.idx,prev.col)
+        end,
+        save=function(self,msg)
+            -- get size        
+            local mem,size=0x4,0
+            local function poke_coords(idx,col)
+                poke4(mem,idx|col<<8)
+                mem+=4
+            end
+            for idx,col in pairs(_grid) do
+                size+=1
+                poke_coords(idx,col)
+            end
+            for idx,col in pairs(_sprite_grid) do
+                size+=1
+                poke_coords(idx,col)
+            end
+            poke4(0x0,size)
+            cstore(0,0,(size+1)*4,msg.filename)
+            reload()              
+        end,
+        load=function(self,msg)            
+            _grid={}
+            _sprite_grid={}
+            undo_stack={}
+            reload(0,0,0x4300,msg.filename)
+            local mem,size=0x4,peek4(0x0)
+            for i=1,size do
+                local v=peek4(mem)
+                local idx=v&0x00ff.ffff
+                local col=(v&0xff00)>>>8
+                if col>15 then
+                    _sprite_grid[idx]=col
+                else
+                    _grid[idx]=col
+                end
+                mem+=4
+            end
+            reload()
         end
     })
 end
@@ -552,22 +617,34 @@ function _init()
         _editor_state.selected_color=min(#pickers-1,_editor_state.selected_color+8)      
     end)),60,4,3,4)
 
+    -- load
+    _main:add(make_button(17,binding(function() 
+        _main:send({
+            name="load",
+            filename="level_".._editor_state.level..".p8"
+        })
+    end)),1,0,7)
     -- save
-    _main:add(make_button(16,binding(function() end)),1,0,7)
-    -- play
-    _main:add(make_button(17,binding(function() end)),9,0)
+    _main:add(make_button(16,binding(function()
+        _main:send({
+            name="save",
+            filename="level_".._editor_state.level..".p8"
+        })
+    end)),9,0)
     -- level id
-    _main:add(make_static(2,binding(_editor_state,"level")),15,0,6,7)
+    _main:add(make_static(2,binding(_editor_state,"level")),17,0,6,7)
+    -- +-
+    _main:add(make_button(21,binding(function()
+        _editor_state.level=mid(_editor_state.level+1,1,9)
+    end)),25,0,3,4)
+    _main:add(make_button(22,binding(function()
+        _editor_state.level=mid(_editor_state.level-1,1,9)        
+    end)),25,4,3,4)
+
     -- edit/select/fill
     for i,s in ipairs({19,18,20}) do
         _main:add(make_radio_button(s,i,binding(_editor_state,"edit_mode")),27+i*8,0,6)
     end
-    -- undo
-    _main:add(make_button(3,binding(function() 
-        _main:send({
-            name="undo"
-        })
-    end)),25,0,6)
 
     -- main editor
     _main:add(make_voxel_editor(),0,8,127,119)
