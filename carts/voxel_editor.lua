@@ -13,7 +13,12 @@ _editor_state={
 
 _grid={}
 _sprite_grid={}
+_sprite_by_id={}
 _grid_size=8
+
+-- records non-empty slices per dimension x per-coordinates
+-- if _grid_occupancy[3][25] --> at least 1 cube on slice z=25
+_grid_occupancy={{},{},{}}
 
 -- draw cube help
 local cube={
@@ -62,7 +67,7 @@ function draw_cube(cam,o,idx,c,cache,mask)
         local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
         -- outside: draw faces
         -- or not next to block
-        if adj_i<0 or adj_i>=8 or (not _grid[adj_idx]) then
+        if adj_i<0 or adj_i>=_grid_size or (not _grid[adj_idx]) then
             for i,vert in pairs(side) do
                 local idx=idx+vert.idx
                 local v=cache[idx]
@@ -89,6 +94,8 @@ function draw_sprite(cam,o,s)
     local x,y,w=cam:project({ox+0.5,oy+0.5,oz})
     if w then
         w*=-64*cam.fov
+        -- convert between sprite id and real image
+        s=_sprite_by_id[s]
         local sx,sy=x-w/2,y-w
         sspr((s&15)<<3,(s\16)<<3,8,8,sx,sy,w+sx%1,w+sy%1)
     end
@@ -260,16 +267,16 @@ function draw_grid(cam,layer)
     }
     local lasti=last[majori][minori]
 
-    local major0,major1=0,7
+    local major0,major1=0,_grid_size-1
     if(fwd[majori]<0) major0,major1=major1,major0
     local o,face_mask,cache={},{},{}
     local cam_minor,cam_last=cam.pos[minori]\1,cam.pos[lasti]\1
     face_mask[majori]=sgn(-fwd[majori])
-    for major=major0,major1,sgn(fwd[majori]) do
+    for major=major0,major1,sgn(fwd[majori]) do        
         -- todo: drop sign based iteration, only use left-to-right/middle/right-to-left
         o[majori]=major
         local draw_last=function()
-            local last0,last1=0,7
+            local last0,last1=0,_grid_size-1
             local dlast=sgn(fwd[lasti])
             local face_sign=sgn(last0-cam_last)
             if(dlast<0) last0,last1,face_sign=last1,last0,sgn(last1-cam_last)   
@@ -295,7 +302,7 @@ function draw_grid(cam,layer)
                 draw_block(cam,o,cache,face_mask)
             end    
             if fix then        
-                if last0>=0 and last0<8 and last1>=0 and last1<8 then                
+                if last0>=0 and last0<_grid_size and last1>=0 and last1<_grid_size then                
                     face_mask[lasti]=face_sign   
                     for last=last0,last1,dlast do
                         o[lasti]=last        
@@ -309,7 +316,7 @@ function draw_grid(cam,layer)
             --if(btn(5)) flip()             
         end
         -- 
-        local minor0,minor1=0,7
+        local minor0,minor1=0,_grid_size-1
         local dminor=sgn(fwd[minori])
         local minor_sign=sgn(minor0-cam_minor)
         if(dminor<0) minor0,minor1,minor_sign=minor1,minor0,sgn(minor1-cam_minor)
@@ -335,7 +342,7 @@ function draw_grid(cam,layer)
         end
 
         if fix then 
-            if minor0>=0 and minor0<8 and minor1>=0 and minor1<8 then
+            if minor0>=0 and minor0<_grid_size and minor1>=0 and minor1<_grid_size then
                 face_mask[minori]=minor_sign
                 for minor=minor0,minor1,dminor do
                     o[minori]=minor
@@ -408,7 +415,17 @@ function make_voxel_editor()
         {1,1,0},
         {0,1,0}
     }
-
+    local undo_stack={}
+    local function apply(idx,col)
+        if col==0 then
+            _grid[idx]=nil
+            _sprite_grid[idx]=nil
+        elseif col<16 then                    
+            _grid[idx]=col
+        else
+            _sprite_grid[idx]=col
+        end
+    end
     return is_window({
         draw=function(self)
             local r=self.rect
@@ -455,7 +472,7 @@ function make_voxel_editor()
             dyangle=dyangle*0.7
             dzangle=dzangle*0.7
 
-            layer=mid(layer+msg.wheel,0,256)
+            layer=mid(layer+msg.wheel,0,_grid_size-1)
 
             local xyz=_grid_size/2
             cam:control({xyz,xyz,layer},yangle,zangle,_grid_size)
@@ -477,13 +494,13 @@ function make_voxel_editor()
                 len=16}    
 
             local grid={}
-            for i=0,7 do
-                for j=0,7 do
+            for i=0,_grid_size-1 do
+                for j=0,_grid_size-1 do
                     grid[i>>16|j>>8|layer]=true
                 end
             end
         
-            current_voxel=voxel_traversal(ray,8,grid)
+            current_voxel=voxel_traversal(ray,_grid_size,grid)
     
             if current_voxel then
                 local o=current_voxel.origin
@@ -495,19 +512,22 @@ function make_voxel_editor()
                 if msg.lmbp then
                     -- click!
                     local col=_editor_state.selected_color
-                    if col==0 then
-                        _grid[idx]=nil
-                        _sprite_grid[idx]=nil
-                    elseif col<16 then                    
-                        _grid[idx]=col
-                    else
-                        _sprite_grid[idx]=col
-                    end
+                    -- previous state for undo
+                    add(undo_stack,{idx=idx,col=_grid[idx] or _sprite_grid[idx] or 0})
+                    apply(idx,col)
                 elseif msg.rmbp then
+
                     _editor_state.selected_color=_grid[idx] or _sprite_grid[idx] or 0
                 end            
             end
-        end        
+        end,
+        undo=function(self,msg)      
+            -- nothing to undo 
+            if(#undo_stack==0) return
+            local prev=undo_stack[#undo_stack]
+            undo_stack[#undo_stack]=nil
+            apply(prev.idx,prev.col)
+        end
     })
 end
 
@@ -522,14 +542,15 @@ function _init()
     -- sprite blocks
     for i=0,2 do
         pickers:add(make_sprite_picker(16+i,32+i,binding(_editor_state,"selected_color")))
+        _sprite_by_id[16+i]=32+i
     end
     -- +-
     _main:add(make_button(21,binding(function() 
         _editor_state.selected_color=max(0,_editor_state.selected_color-8)        
-    end)),59,0,4,4)
+    end)),60,0,3,4)
     _main:add(make_button(22,binding(function() 
         _editor_state.selected_color=min(#pickers-1,_editor_state.selected_color+8)      
-    end)),59,4,4,4)
+    end)),60,4,3,4)
 
     -- save
     _main:add(make_button(16,binding(function() end)),1,0,7)
@@ -539,17 +560,23 @@ function _init()
     _main:add(make_static(2,binding(_editor_state,"level")),15,0,6,7)
     -- edit/select/fill
     for i,s in ipairs({19,18,20}) do
-        _main:add(make_radio_button(s,i,binding(_editor_state,"edit_mode")),29+i*8,0)
+        _main:add(make_radio_button(s,i,binding(_editor_state,"edit_mode")),27+i*8,0,6)
     end
+    -- undo
+    _main:add(make_button(3,binding(function() 
+        _main:send({
+            name="undo"
+        })
+    end)),25,0,6)
 
     -- main editor
     _main:add(make_voxel_editor(),0,8,127,119)
     
     -- demo voxels
     srand(42)
-    for i=0,7 do
-        for j=0,7 do
-            if(rnd()>0.125) _grid[i>>16|j>>8|0]=11
+    for i=0,_grid_size-1 do
+        for j=0,_grid_size-1 do
+            --if(rnd()>0.125) _grid[i>>16|j>>8|0]=11
         end
     end
 

@@ -46,6 +46,7 @@ function main_window(cursor,clear)
     cursor=cursor or 0
     local mx,my
     local mstate={}
+    local kstate={}
 
     -- known cursors
     local cursors={
@@ -88,7 +89,22 @@ function main_window(cursor,clear)
             wheel=stat(36),
             mdx=stat(38),
             mdy=stat(39)
-        })    
+        })  
+        
+        -- capture keys
+        local keys={}
+        while stat(30) do
+            local k=stat(31)
+            keys[k]=true
+        end
+        
+        -- ctrl+z = セ !!!
+        if kstate["セ"] and not keys["セ"] then            
+            win:onmessage({
+                name="undo"
+            })
+        end
+        kstate=keys
     end
     _draw=function()
         cls(clear)
@@ -241,6 +257,7 @@ function make_list(width,w,h,binding)
             -- cascade to child
             if #self>0 then
                 local i0=binding:get()\n
+                local my=msg.my
                 if(msg.my) msg.my+=i0*h
                 camera(0,i0*h)
                 for i=i0*n+1,min((i0+1)*n,#self) do
@@ -249,6 +266,7 @@ function make_list(width,w,h,binding)
                     if(msg.handled) break
                 end
                 camera()
+                msg.my=my
             end
         end
     })
