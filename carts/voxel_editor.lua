@@ -49,13 +49,29 @@ local cube={
     }
 }
 
+local dither_pat={[0]=0b1111111111111111,0b0111111111111111,0b0111111111011111,0b0101111111011111,0b0101111101011111,0b0101101101011111,0b0101101101011110,0b0101101001011110,0b0101101001011010,0b0001101001011010,0b0001101001001010,0b0000101001001010,0b0000101000001010,0b0000001000001010,0b0000001000001000,0b0000000000000000}
 function draw_cube(cam,o,idx,c,cache,mask)
     local ox,oy,oz=o[1],o[2],o[3]
     local colors=cube.colors[c]
     local verts={}
-    local m,scale=cam.m,64*cam.fov
+    local m,fov=cam.m,cam.fov
     -- get visible faces (face index + face direction)
     fillp(((ox+oy)&1)*0xffff)
+
+    local extents={}
+    --fillp()
+    for i=1,3 do
+        extents[i]={lo=max(cam.lookat[i]\1-4),hi=max(7,cam.lookat[i]\1+4)}
+    end
+    for i=1,2 do
+        if extents[i].lo==o[i]\1 then
+            fillp(dither_pat[15-flr(16*(cam.lookat[i]%1))]|0b0.100)
+        end
+        if extents[i].hi==o[i]\1 then
+            fillp(dither_pat[flr(16*(cam.lookat[i]%1))]|0b0.100)
+        end
+    end
+    
     for maski,k in pairs(mask) do
         -- 
         local side=cube.faces[maski][k]
@@ -68,35 +84,62 @@ function draw_cube(cam,o,idx,c,cache,mask)
         -- outside: draw faces
         -- or not next to block
         if adj_i<0 or adj_i>=_grid_size or (not _grid[adj_idx]) then
+            local outcode,clipcode=0xffff,0
             for i,vert in pairs(side) do
                 local idx=idx+vert.idx
                 local v=cache[idx]
                 if not v then
-                    local x,y,z=vert[1]+ox,vert[2]+oy,vert[3]+oz
-                    x,y,z=m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14],m[3]*x+m[7]*y+m[11]*z+m[15]
-                    local w=scale/z
-                    v={x=64+x*w,y=70-y*w}
+                    local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
+                    --x=mid(x,extents[1].lo,extents[1].hi)
+                    --y=mid(y,extents[2].lo,extents[2].hi)
+                    --z=mid(z,extents[3].lo,extents[3].hi)
+                    local ax,ay,az=m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14],m[3]*x+m[7]*y+m[11]*z+m[15]
+                    
+                    -- todo: arrghhh!!
+                    az=-az
+                    if az<0.1 then code=2 end
+                    if fov*ax>az then code+=4
+                    elseif fov*ax<-az then code+=8 end
+                    if fov*ay>az then code+=16
+                    elseif fov*ay<-az then code+=32 end
+                    az=-az
+                    local w=fov/az
+                    v={ax,ay,az,x=64+64*ax*w,y=70-64*ay*w,outcode=code}
                     cache[idx]=v
                 end
                 verts[i]=v
+                outcode&=v.outcode
+                clipcode+=v.outcode&2
             end
             --polyline(verts,4,maski+k+1)
-            polyfill(verts,4,col)
+            if outcode==0 then 
+                local np=4
+                if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
+                if(np>2) polyfill(verts,np,col)
+            end
         end
     end
+    fillp()
 end
 
-function draw_sprite(cam,o,s)
+function draw_sprite(cam,o,s,shadow)
     local ox,oy,oz=o[1],o[2],o[3]
-    local m,scale=cam.m,64*cam.fov
-
     -- position in middle of tile
     local x,y,w=cam:project({ox+0.5,oy+0.5,oz})
     if w then
-        w*=-64*cam.fov
+        w*=-64
         -- convert between sprite id and real image
         s=_sprite_by_id[s]
         local sx,sy=x-w/2,y-w
+        if shadow then
+            local ref=v_add({ox+0.5,oy+0.5,oz},cam.pos,-1)
+            local dx,dy=ref[1],ref[2]
+            local zangle=atan2(dx,dy)
+            local len=dx*cos(zangle)+dy*sin(zangle)
+            local yangle=atan2(len,ref[3])
+            local h=-w*sin(yangle)
+            ovalfill(sx,y-h/2,sx+w,y+h/2,1)
+        end        
         sspr((s&15)<<3,(s\16)<<3,8,8,sx,sy,w+sx%1,w+sy%1)
     end
 end
@@ -241,7 +284,7 @@ function voxel_traversal(ray,size,grid)
     end
 end
 
-function draw_grid(cam,layer)    
+function draw_grid(cam)    
     local fwd=cam.fwd
     local majord,majori=-32000,1
     for i=1,3 do
@@ -267,7 +310,12 @@ function draw_grid(cam,layer)
     }
     local lasti=last[majori][minori]
 
-    local major0,major1=0,_grid_size-1
+    local extents={}
+    for i=1,3 do
+        extents[i]={lo=max(cam.lookat[i]\1-4),hi=max(7,cam.lookat[i]\1+3)}
+    end
+
+    local major0,major1=extents[majori].lo,extents[majori].hi
     if(fwd[majori]<0) major0,major1=major1,major0
     local o,face_mask,cache={},{},{}
     local cam_minor,cam_last=cam.pos[minori]\1,cam.pos[lasti]\1
@@ -276,7 +324,7 @@ function draw_grid(cam,layer)
         -- todo: drop sign based iteration, only use left-to-right/middle/right-to-left
         o[majori]=major
         local draw_last=function()
-            local last0,last1=0,_grid_size-1
+            local last0,last1=extents[lasti].lo,extents[lasti].hi
             local dlast=sgn(fwd[lasti])
             local face_sign=sgn(last0-cam_last)
             if(dlast<0) last0,last1,face_sign=last1,last0,sgn(last1-cam_last)   
@@ -316,7 +364,7 @@ function draw_grid(cam,layer)
             --if(btn(5)) flip()             
         end
         -- 
-        local minor0,minor1=0,_grid_size-1
+        local minor0,minor1=extents[minori].lo,extents[minori].hi
         local dminor=sgn(fwd[minori])
         local minor_sign=sgn(minor0-cam_minor)
         if(dminor<0) minor0,minor1,minor_sign=minor1,minor0,sgn(minor1-cam_minor)
@@ -367,7 +415,9 @@ function make_cam(x0,y0,scale,fov)
 			local m=m_x_m(
                 make_m_from_euler(0,0,zangle),
                 make_m_from_euler(yangle,0,0))
-			local pos=v_add(lookat,m_fwd(m),dist)            
+			local pos=v_add(lookat,m_fwd(m),dist)   
+
+            self.lookat=v_clone(lookat)
 
             -- debug
             self.fwd=m_fwd(m)
@@ -398,7 +448,30 @@ function make_cam(x0,y0,scale,fov)
 		end,
         unproject=function(self,x,y)
             return -(x-x0)/(scale*focal),(y-y0)/(scale*focal)
-        end
+        end,
+        z_poly_clip=function(self,v,nv)
+            local res,v0={},v[nv]
+            local d0=v0[3]-0.1
+            for i=1,nv do
+                local side=d0>0
+                if side then
+                    res[#res+1]=v0
+                end
+                local v1=v[i]
+                local d1=v1[3]-0.1
+                -- not same sign?
+                if (d1>0)!=side then
+                    local nv=v_lerp(v0,v1,d0/(d0-d1))
+                    -- project against near plane
+                    nv.x=x0+scale*nv[1]*focal/0.1
+                    nv.y=y0-scale*nv[2]*focal/0.1
+                    res[#res+1]=nv
+                end
+                v0=v1
+                d0=d1
+            end
+            return res,#res
+        end        
 	}
 end
 
@@ -437,7 +510,7 @@ function make_voxel_editor()
             local pts={}
             for i,p in pairs(quad) do
                 p=v_scale(p,_grid_size)
-                p[3] = layer
+                p[3] = layer+1
                 pts[i]=p
             end
             local xmax,ymax=-32000
@@ -457,7 +530,7 @@ function make_voxel_editor()
                 local pts={}
                 for i,p in pairs(quad) do
                     p=v_add(p,current_voxel.origin)
-                    p[3] = layer
+                    p[3]=layer+1
                     pts[i]=p
                 end
                 --fillp(0xa5a5.8)
@@ -471,8 +544,7 @@ function make_voxel_editor()
                     x0,y0,w0=x1,y1,w1
                 end    
                 fillp()
-            end
-            
+            end            
             clip()       
         end,
         mousemove=function(self,msg)
@@ -605,7 +677,7 @@ function _init()
         pickers:add(make_color_picker(i,binding(_editor_state,"selected_color")))
     end   
     -- sprite blocks
-    for i=0,2 do
+    for i=0,3 do
         pickers:add(make_sprite_picker(16+i,32+i,binding(_editor_state,"selected_color")))
         _sprite_by_id[16+i]=32+i
     end
@@ -641,6 +713,11 @@ function _init()
         _editor_state.level=mid(_editor_state.level-1,1,9)        
     end)),25,4,3,4)
 
+    -- play
+    _main:add(make_button(4,binding(function()
+        game_state()
+    end)),29,0,6)
+
     -- edit/select/fill
     for i,s in ipairs({19,18,20}) do
         _main:add(make_radio_button(s,i,binding(_editor_state,"edit_mode")),27+i*8,0,6)
@@ -651,9 +728,9 @@ function _init()
     
     -- demo voxels
     srand(42)
-    for i=0,_grid_size-1 do
-        for j=0,_grid_size-1 do
-            --if(rnd()>0.125) _grid[i>>16|j>>8|0]=11
+    for i=0,4*_grid_size-1 do
+        for j=0,4*_grid_size-1 do
+            if(rnd()>0.5) _grid[i>>16|j>>8|0]=11
         end
     end
 
