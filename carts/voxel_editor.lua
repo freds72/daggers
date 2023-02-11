@@ -58,6 +58,7 @@ function draw_cube(cam,o,idx,c,cache,mask)
     -- get visible faces (face index + face direction)
     fillp(((ox+oy)&1)*0xffff)
 
+    --[[
     local extents={}
     --fillp()
     for i=1,3 do
@@ -71,7 +72,8 @@ function draw_cube(cam,o,idx,c,cache,mask)
             fillp(dither_pat[flr(16*(cam.lookat[i]%1))]|0b0.100)
         end
     end
-    
+    ]]
+
     for maski,k in pairs(mask) do
         -- 
         local side=cube.faces[maski][k]
@@ -112,6 +114,7 @@ function draw_cube(cam,o,idx,c,cache,mask)
                 clipcode+=v.outcode&2
             end
             --polyline(verts,4,maski+k+1)
+            --polyfill(verts,4,col)
             if outcode==0 then 
                 local np=4
                 if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
@@ -119,7 +122,7 @@ function draw_cube(cam,o,idx,c,cache,mask)
             end
         end
     end
-    fillp()
+    fillp()    
 end
 
 function draw_sprite(cam,o,s,shadow)
@@ -157,6 +160,7 @@ function draw_block(cam,o,cache,mask)
         -- sprite 
         draw_sprite(cam,o,id)
     end
+    if(btn(4)) flip()
 end
 
 -- voxel functions
@@ -315,94 +319,88 @@ function draw_grid(cam)
         extents[i]={lo=max(cam.lookat[i]\1-4),hi=max(7,cam.lookat[i]\1+3)}
     end
 
-    local major0,major1=extents[majori].lo,extents[majori].hi
-    if(fwd[majori]<0) major0,major1=major1,major0
     local o,face_mask,cache={},{},{}
     local cam_minor,cam_last=cam.pos[minori]\1,cam.pos[lasti]\1
-    face_mask[majori]=sgn(-fwd[majori])
-    for major=major0,major1,sgn(fwd[majori]) do        
-        -- todo: drop sign based iteration, only use left-to-right/middle/right-to-left
-        o[majori]=major
-        local draw_last=function()
-            local last0,last1=extents[lasti].lo,extents[lasti].hi
-            local dlast=sgn(fwd[lasti])
-            local face_sign=sgn(last0-cam_last)
-            if(dlast<0) last0,last1,face_sign=last1,last0,sgn(last1-cam_last)   
-            local fix
-            face_mask[lasti]=face_sign
-            for last=last0,last1,dlast do
-                if last==cam_last then
-                    fix=last
-                    -- skip
-                    last+=dlast
-                    if dlast>0 then
-                        last0,last1=last1,last
-                    else
-                        last0,last1=last1,last
-                    end
-                    dlast=-dlast
-                    face_sign=-face_sign
-                    break
-                end
 
-                o[lasti]=last                
-                --printh("normal: "..last)
-                draw_block(cam,o,cache,face_mask)
-            end    
-            if fix then        
-                if last0>=0 and last0<_grid_size and last1>=0 and last1<_grid_size then                
-                    face_mask[lasti]=face_sign   
-                    for last=last0,last1,dlast do
-                        o[lasti]=last        
-                        draw_block(cam,o,cache,face_mask)
-                    end   
-                end         
-                o[lasti]=fix       
-                face_mask[lasti]=nil
-                draw_block(cam,o,cache,face_mask)
-            end  
-            --if(btn(5)) flip()             
+    local last0,last1=extents[lasti].lo,extents[lasti].hi
+    local last_fix=cam.pos[lasti]\1
+    local lastc=last_fix
+    if lastc<last0 then
+        lastc,last_fix=last0-1
+    elseif lastc>last1 then
+        lastc,last_fix=last1+1
+    end      
+    local draw_last=function()
+        face_mask[lasti]=-1
+        for last=last0,lastc-1 do        
+            o[lasti]=last
+            draw_block(cam,o,cache,face_mask)
         end
-        -- 
-        local minor0,minor1=extents[minori].lo,extents[minori].hi
-        local dminor=sgn(fwd[minori])
-        local minor_sign=sgn(minor0-cam_minor)
-        if(dminor<0) minor0,minor1,minor_sign=minor1,minor0,sgn(minor1-cam_minor)
-        local fix
-        face_mask[minori]=minor_sign
-        for minor=minor0,minor1,dminor do
-            if minor==cam_minor then
-                fix=minor
-                -- skip
-                minor+=dminor
-                if dminor>0 then
-                    minor0,minor1=minor1,minor
-                else
-                    minor0,minor1=minor1,minor
-                end
-                dminor=-dminor
-                minor_sign=-minor_sign
-                -- printh("reverse! ("..minor..") ["..minor0..", "..minor1.."] @"..dminor)
-                break
-            end        
+        -- flip side
+        face_mask[lasti]=1
+        for last=last1,lastc+1,-1 do        
+            o[lasti]=last
+            draw_block(cam,o,cache,face_mask)
+        end
+        if last_fix then
+            face_mask[lasti]=nil
+            o[lasti]=lastc
+            draw_block(cam,o,cache,face_mask)
+        end
+    end     
+
+    local minor0,minor1=extents[minori].lo,extents[minori].hi
+    local minor_fix=cam.pos[minori]\1
+    local minorc=minor_fix
+    if minorc<minor0 then
+        minorc,minor_fix=minor0-1
+    elseif minorc>minor1 then
+        minorc,minor_fix=minor1+1
+    end      
+    local draw_minor=function()
+        face_mask[minori]=-1
+        for minor=minor0,minorc-1 do        
             o[minori]=minor
             draw_last()
         end
-
-        if fix then 
-            if minor0>=0 and minor0<_grid_size and minor1>=0 and minor1<_grid_size then
-                face_mask[minori]=minor_sign
-                for minor=minor0,minor1,dminor do
-                    o[minori]=minor
-                    draw_last()
-                end            
-            end
-            o[minori]=fix
-            face_mask[minori]=nil
+        -- flip side
+        face_mask[minori]=1
+        for minor=minor1,minorc+1,-1 do        
+            o[minori]=minor
             draw_last()
-        end         
+        end
+        if minor_fix then
+            face_mask[minori]=nil
+            o[minori]=minorc
+            draw_last()
+        end
+    end    
+
+    -- main render loop
+    local major0,major1=extents[majori].lo,extents[majori].hi
+    local major_fix=cam.pos[majori]\1
+    local majorc=major_fix
+    if majorc<major0 then
+        majorc,major_fix=major0-1
+	elseif majorc>major1 then
+		majorc,major_fix=major1+1
     end
-    fillp()
+    face_mask[majori]=-1
+    for major=major0,majorc-1 do        
+        o[majori]=major
+        draw_minor()
+    end
+    -- flip side
+    face_mask[majori]=1
+    for major=major1,majorc+1,-1 do        
+        o[majori]=major
+        draw_minor()
+    end
+    if major_fix then
+        face_mask[majori]=nil
+        o[majori]=majorc
+        draw_minor()
+    end
 end
 
 -- camera
@@ -480,7 +478,7 @@ function make_voxel_editor()
 	local yangle,zangle=-0.125,0
 	local dyangle,dzangle=0,0
 
-    local layer=0 
+    local layer=3
     local cam=make_cam(64,64+6,64,0.20)
     local quad={
         {0,0,0},
@@ -572,7 +570,7 @@ function make_voxel_editor()
             layer=mid(layer+msg.wheel,0,_grid_size-1)
 
             local xyz=_grid_size/2
-            cam:control({xyz,xyz,layer},yangle,zangle,_grid_size)
+            cam:control({xyz,xyz,layer},yangle,zangle,_grid_size*1.2)
             
             -- selection
             if not rotation_mode then
@@ -728,9 +726,11 @@ function _init()
     
     -- demo voxels
     srand(42)
-    for i=0,4*_grid_size-1 do
-        for j=0,4*_grid_size-1 do
-            if(rnd()>0.5) _grid[i>>16|j>>8|0]=11
+    for i=0,_grid_size-1 do
+        for j=0,_grid_size-1 do
+            for k=0,_grid_size-1 do
+                if(rnd()>0.25) _grid[i>>16|j>>8|k]=11
+            end
         end
     end
 
