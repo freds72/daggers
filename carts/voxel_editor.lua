@@ -82,7 +82,7 @@ function draw_cube(cam,o,idx,c,cache,mask)
             local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
             -- outside: draw faces
             -- or not next to block
-            if adj_i<0 or adj_i>=255 or (not _grid[adj_idx]) then
+            if adj_i<0 or adj_i>=8 or (not _grid[adj_idx]) then
                 local outcode,clipcode=0xffff,0
                 for i=1,4 do
                     local vert=side[i]
@@ -286,7 +286,7 @@ function voxel_traversal(ray,size,grid)
     end
 end
 
-function draw_grid(cam)    
+function collect_blocks(cam,visible_blocks)    
     local fwd=cam.fwd
     local majord,majori=-32000,1
     for i=1,3 do
@@ -317,9 +317,7 @@ function draw_grid(cam)
         extents[i]={lo=max(cam.lookat[i]\1-4),hi=max(7,cam.lookat[i]\1+3)}
     end
 
-    local cache={}
     local cam_minor,cam_last=cam.pos[minori]\1,cam.pos[lasti]\1
-    local visible_blocks={}
 
     local last0,last1=extents[lasti].lo,extents[lasti].hi
     local last_fix=cam_last
@@ -336,6 +334,7 @@ function draw_grid(cam)
             local idx=idx|last>>>last_shift
             local id=_grid[idx] or _sprite_grid[idx]
             if id then
+                add(visible_blocks,id)
                 add(visible_blocks,face_mask|(0x01.0101&last_mask))            
                 add(visible_blocks,idx)
             end
@@ -345,6 +344,7 @@ function draw_grid(cam)
             local idx=idx|last>>>last_shift
             local id=_grid[idx] or _sprite_grid[idx]
             if id then
+                add(visible_blocks,id)
                 add(visible_blocks,face_mask|(0x02.0202&last_mask))            
                 add(visible_blocks,idx)
             end
@@ -353,6 +353,7 @@ function draw_grid(cam)
             local idx=idx|lastc>>>last_shift
             local id=_grid[idx] or _sprite_grid[idx]
             if id then
+                add(visible_blocks,id)
                 add(visible_blocks,face_mask)            
                 add(visible_blocks,idx)
             end
@@ -405,12 +406,83 @@ function draw_grid(cam)
     if major_fix then
         draw_minor(0,majorc>>>major_shift)
     end
+end
+
+function draw_grid(cam)
+    local visible_blocks={}
+    local m,fov=cam.m,cam.fov
+
+    -- viz blocks
+    collect_blocks(cam,visible_blocks)
+
+    local masks={0x0.00ff,0x0.ff,0xff}
+    local grid=_grid
+    local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
+    local cache,verts,faces={},{},cube.faces
 
     -- render in order
-    for i=1,#visible_blocks,2 do
-        local idx=visible_blocks[i+1]
+    for i=1,#visible_blocks,3 do
+        local id,current_mask,idx=visible_blocks[i],visible_blocks[i+1],visible_blocks[i+2]
+        -- convert to coord offsets
+        local ox,oy,oz=(idx&0x0.00ff)<<16,(idx&0x0.ff)<<8,idx\1
         -- printh("mask: "..tostr(visible_blocks[i],1).." idx: "..tostr(idx,1))
-        draw_block(cam,{(idx&0x0.00ff)<<16,(idx&0x0.ff)<<8,idx\1},cache,visible_blocks[i])
+        if id<16 then 
+            -- solid block
+            local adj={ox,oy,oz}
+            for maski,mask in pairs(masks) do
+                -- 
+                local side=faces[current_mask&mask]
+                if side then            
+                    --local col=colors[maski][k]
+                    -- check adjacent blocks
+                    -- todo: create a complement index base on face mask
+                    local backup=adj[maski]
+                    local adj_i=adj[maski]+side.k
+                    adj[maski]=adj_i
+                    local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
+                    adj[maski]=backup
+                    -- outside: draw faces
+                    -- or not next to block
+                    if adj_i<0 or adj_i>=8 or (not grid[adj_idx]) then
+                        local outcode,clipcode=0xffff,0
+                        for i=1,4 do
+                            local vert=side[i]
+                            local idx=idx+vert.idx
+                            local v=cache[idx]
+                            if not v then
+                                local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
+                                --x=mid(x,extents[1].lo,extents[1].hi)
+                                --y=mid(y,extents[2].lo,extents[2].hi)
+                                --z=mid(z,extents[3].lo,extents[3].hi)
+                                local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+                                
+                                if az>-0.1 then code=2 end
+                                if fov*ax>-az then code+=4
+                                elseif fov*ax<az then code+=8 end
+                                if fov*ay>-az then code+=16
+                                elseif fov*ay<az then code+=32 end
+                                local w=fov/az
+                                v={ax,ay,az,x=64+64*ax*w,y=70-64*ay*w,outcode=code}
+                                cache[idx]=v
+                            end
+                            verts[i]=v
+                            outcode&=v.outcode
+                            clipcode+=v.outcode&2
+                        end
+                        --polyline(verts,4,maski+k+1)
+                        -- polyfill(verts,4,maski+k+1)
+                        if outcode==0 then 
+                            local np=4
+                            if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
+                            if(np>2) polyfill(verts,np,i+1)
+                        end
+                    end
+                end
+            end
+        else
+            -- sprite 
+            --draw_sprite(cam,o,id)
+        end    
     end  
 end
 
@@ -738,7 +810,6 @@ function _init()
     
     -- demo voxels
     srand(42)
-    --[[
     for i=0,4*_grid_size-1 do
         for j=0,4*_grid_size-1 do
             for k=0,7 do
@@ -746,8 +817,7 @@ function _init()
             end
         end
     end
-    ]]
-    _grid[4>>16|4>>8|0]=11
+    --_grid[4>>16|4>>8|0]=11
 
     -- init keys for cube points
     for i=1,#cube do
