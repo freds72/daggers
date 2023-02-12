@@ -429,15 +429,17 @@ function draw_grid(cam)
         if id<16 then 
             -- solid block
             local adj={ox,oy,oz}
+            local colors=cube.colors[id]
+            fillp(((ox+oy)&1)*0xffff)
             for maski,mask in pairs(masks) do
-                -- 
-                local side=faces[current_mask&mask]
+                local active_side=current_mask&mask
+                local side=faces[active_side]
                 if side then            
-                    --local col=colors[maski][k]
+                    local col=colors[active_side]
                     -- check adjacent blocks
                     -- todo: create a complement index base on face mask
                     local backup=adj[maski]
-                    local adj_i=adj[maski]+side.k
+                    local adj_i=backup+side.k
                     adj[maski]=adj_i
                     local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
                     adj[maski]=backup
@@ -474,16 +476,35 @@ function draw_grid(cam)
                         if outcode==0 then 
                             local np=4
                             if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
-                            if(np>2) polyfill(verts,np,i+1)
+                            if(np>2) polyfill(verts,np,col)
                         end
                     end
                 end
             end
         else
             -- sprite 
-            --draw_sprite(cam,o,id)
+            -- position in middle of tile
+            local x,y,z=ox+0.5,oy+0.5,oz
+            local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+            if az<-0.1 then                
+                local w=-64*fov/az 
+                -- convert between sprite id and real image
+                local s=_sprite_by_id[id]
+                local sx,sy=64-ax*w-w/2,70+ay*w-w
+                if shadow then
+                    local ref=v_add({ox+0.5,oy+0.5,oz},cam.pos,-1)
+                    local dx,dy=ref[1],ref[2]
+                    local zangle=atan2(dx,dy)
+                    local len=dx*cos(zangle)+dy*sin(zangle)
+                    local yangle=atan2(len,ref[3])
+                    local h=-w*sin(yangle)
+                    ovalfill(sx,y-h/2,sx+w,y+h/2,1)
+                end        
+                sspr((s&15)<<3,(s\16)<<3,8,8,sx,sy,w+sx%1,w+sy%1)
+            end
         end    
     end  
+    fillp()
 end
 
 -- camera
@@ -560,9 +581,10 @@ end
 function make_voxel_editor()   
 	local yangle,zangle=-0.25,0---0.125,0
 	local dyangle,dzangle=0,0
-
+    local offsetx,offsety=0,0
     local layer=3
     local cam=make_cam(64,64+6,64,0.25)
+    local cam2=make_cam(64,64+6,64,0.25)
     local quad={
         {0,0,0},
         {1,0,0},
@@ -592,7 +614,7 @@ function make_voxel_editor()
             for i,p in pairs(quad) do
                 p=v_scale(p,_grid_size)
                 p[3] = layer+1
-                pts[i]=p
+                pts[i]=v_add(p,{offsetx,offsety,0},1)
             end
             local xmax,ymax=-32000
             local p0=pts[4]
@@ -612,7 +634,7 @@ function make_voxel_editor()
                 for i,p in pairs(quad) do
                     p=v_add(p,current_voxel.origin)
                     p[3]=layer+1
-                    pts[i]=p
+                    pts[i]=v_add(p,{offsetx,offsety,0},1)
                 end
                 --fillp(0xa5a5.8)
                 local p0=pts[4]
@@ -653,22 +675,30 @@ function make_voxel_editor()
             layer=mid(layer+msg.wheel,0,_grid_size-1)
 
             local xyz=_grid_size/2
+            local dx,dy=0,0
+            if(btnp(0)) dx=1
+            if(btnp(1)) dx=-1
+            if(btnp(2)) dy=1
+            if(btnp(3)) dy=-1
+            offsetx=mid(offsetx+dx,0,255)
+            offsety=mid(offsety+dy,0,255)
             --cam:control({xyz,xyz,layer},yangle,zangle,_grid_size*1.2)
-            cam:control({xyz,xyz,layer},yangle,zangle,_grid_size)
+            cam:control({offsetx+xyz,offsety+xyz,layer},yangle,zangle,_grid_size)
+            cam2:control({xyz,xyz,layer},yangle,zangle,_grid_size)
 
             -- selection
             if not rotation_mode then
-                local ti,tj=cam:unproject(msg.mx,msg.my)
-                local fwd,right,up=cam.fwd,cam.right,cam.up
-                local target=v_add(cam.pos,fwd,-1)
+                local ti,tj=cam2:unproject(msg.mx,msg.my)
+                local fwd,right,up=cam2.fwd,cam2.right,cam2.up
+                local target=v_add(cam2.pos,fwd,-1)
                 target=v_add(target,right,ti)
                 target=v_add(target,up,tj)
                 --local origin=v_clone(cam.pos)
                 
-                local d=make_v(cam.pos,target)
+                local d=make_v(cam2.pos,target)
                 local n,l=v_normz(d)
                 local ray={
-                    origin=cam.pos,
+                    origin=cam2.pos,
                     target=target,
                     dir=n,
                     len=16}    
@@ -685,6 +715,7 @@ function make_voxel_editor()
                 if current_voxel then
                     local o=current_voxel.origin
                     local idx=o[1]>>16|o[2]>>8|o[3]
+                    idx+=offsetx>>16|offsety>>8
                     self:send({
                         name="cursor",
                         cursor="aim"
@@ -731,7 +762,8 @@ function make_voxel_editor()
         load=function(self,msg)            
             _grid={}
             _sprite_grid={}
-            undo_stack={}
+            undo_stack={}            
+            offsetx,offsety=0,0
             reload(0,0,0x4300,msg.filename)
             local mem,size=0x4,peek4(0x0)
             for i=1,size do
@@ -812,7 +844,7 @@ function _init()
     srand(42)
     for i=0,4*_grid_size-1 do
         for j=0,4*_grid_size-1 do
-            for k=0,7 do
+            for k=0,1 do
                 if(rnd()>0.125) _grid[i>>16|j>>8|k]=11
             end
         end
@@ -841,24 +873,18 @@ function _init()
         local bottom_color=sget(59,base_color)
         side_color_bright=side_color_bright|side_color_bright<<4
         side_color_dark=side_color_dark|side_color_dark<<4
-        colors[base_color]={            
+        colors[base_color]={
             -- x side
-            {
-                [-1]=side_color_bright,
-                [1]=side_color_bright
-            },
+            [0x0.0001]=side_color_bright,
+            [0x0.0002]=side_color_bright,
             -- y sides
-            {
-                [-1]=side_color_dark,
-                [1]=side_color_dark
-            },
+            [0x0.01]=side_color_dark,
+            [0x0.02]=side_color_dark,
             -- z top/bottom
-            {
-                -- top
-                [-1]=base_color|sget(57,base_color)<<4,
-                -- bottom
-                [1]=bottom_color|bottom_color<<4
-            }
+            -- top
+            [0x01]=base_color|sget(57,base_color)<<4,
+            -- bottom
+            [0x02]=bottom_color|bottom_color<<4
         }
     end
     cube.colors=colors
