@@ -32,20 +32,14 @@ local cube={
     {0,1,1},
     faces={
         -- x
-        {
-            [1]={1,4,8,5},
-            [-1]={3,2,6,7}
-        },
+            [0x0.0002]={k=-1,1,4,8,5},
+            [0x0.0001]={k=1,3,2,6,7},
         -- y
-        {
-            [1]={1,5,6,2},
-            [-1]={4,3,7,8}
-        },
+            [0x0.02]={k=-1,1,5,6,2},
+            [0x0.01]={k=1,4,3,7,8},
         -- z
-        {
-            [1]={1,2,3,4},
-            [-1]={6,5,8,7}
-        }
+            [0x02]={k=-1,1,2,3,4},
+            [0x01]={k=1,6,5,8,7},
     }
 }
 
@@ -56,8 +50,9 @@ function draw_cube(cam,o,idx,c,cache,mask)
     local verts={}
     local m,fov=cam.m,cam.fov
     -- get visible faces (face index + face direction)
-    fillp(((ox+oy)&1)*0xffff)
+    --fillp(((ox+oy)&1)*0xffff)
 
+    --[[
     local extents={}
     --fillp()
     for i=1,3 do
@@ -71,56 +66,62 @@ function draw_cube(cam,o,idx,c,cache,mask)
             fillp(dither_pat[flr(16*(cam.lookat[i]%1))]|0b0.100)
         end
     end
-    
-    for maski,k in pairs(mask) do
+    ]]
+
+    for i=0,2 do
         -- 
-        local side=cube.faces[maski][k]
-        local col=colors[maski][k]
-        -- check adjacent blocks
-        local adj={ox,oy,oz}
-        adj[maski]-=k
-        local adj_i=adj[maski]
-        local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
-        -- outside: draw faces
-        -- or not next to block
-        if adj_i<0 or adj_i>=_grid_size or (not _grid[adj_idx]) then
-            local outcode,clipcode=0xffff,0
-            for i,vert in pairs(side) do
-                local idx=idx+vert.idx
-                local v=cache[idx]
-                if not v then
-                    local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
-                    --x=mid(x,extents[1].lo,extents[1].hi)
-                    --y=mid(y,extents[2].lo,extents[2].hi)
-                    --z=mid(z,extents[3].lo,extents[3].hi)
-                    local ax,ay,az=m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14],m[3]*x+m[7]*y+m[11]*z+m[15]
-                    
-                    -- todo: arrghhh!!
-                    az=-az
-                    if az<0.1 then code=2 end
-                    if fov*ax>az then code+=4
-                    elseif fov*ax<-az then code+=8 end
-                    if fov*ay>az then code+=16
-                    elseif fov*ay<-az then code+=32 end
-                    az=-az
+        local maski=i+1
+        local side=cube.faces[mask&(0x0.00ff<<(8*i))]
+        if side then            
+            --local col=colors[maski][k]
+            -- check adjacent blocks
+            local adj={ox,oy,oz}
+            -- todo: create a complement index base on face mask
+            adj[maski]+=side.k
+            local adj_i=adj[maski]
+            local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
+            -- outside: draw faces
+            -- or not next to block
+            if adj_i<0 or adj_i>=8 or (not _grid[adj_idx]) then
+                local outcode,clipcode=0xffff,0
+                for i=1,4 do
+                    local vert=side[i]
+                    local idx=idx+vert.idx
+                    local v=cache[idx]
+                    if not v then
+                        local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
+                        --x=mid(x,extents[1].lo,extents[1].hi)
+                        --y=mid(y,extents[2].lo,extents[2].hi)
+                        --z=mid(z,extents[3].lo,extents[3].hi)
+                        local ax,ay,az=m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14],m[3]*x+m[7]*y+m[11]*z+m[15]
+                        
+                        -- todo: arrghhh!!
+                    if az>-0.1 then code=2 end
+                    if fov*ax>-az then code+=4
+                    elseif fov*ax<az then code+=8 end
+                    if fov*ay>-az then code+=16
+                    elseif fov*ay<az then code+=32 end
                     local w=fov/az
                     v={ax,ay,az,x=64+64*ax*w,y=70-64*ay*w,outcode=code}
                     cache[idx]=v
+                    end
+                    verts[i]=v
+                    outcode&=v.outcode
+                    clipcode+=v.outcode&2
                 end
-                verts[i]=v
-                outcode&=v.outcode
-                clipcode+=v.outcode&2
-            end
-            --polyline(verts,4,maski+k+1)
-            if outcode==0 then 
-                local np=4
-                if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
-                if(np>2) polyfill(verts,np,col)
+                --polyline(verts,4,maski+k+1)
+                -- polyfill(verts,4,maski+k+1)
+                if outcode==0 then 
+                    local np=4
+                    if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
+                    if(np>2) polyfill(verts,np,i+1)
+                end
             end
         end
     end
-    fillp()
+    --fillp()    
 end
+
 
 function draw_sprite(cam,o,s,shadow)
     local ox,oy,oz=o[1],o[2],o[3]
@@ -157,6 +158,7 @@ function draw_block(cam,o,cache,mask)
         -- sprite 
         draw_sprite(cam,o,id)
     end
+    if(btn(4)) flip()
 end
 
 -- voxel functions
@@ -284,7 +286,7 @@ function voxel_traversal(ray,size,grid)
     end
 end
 
-function draw_grid(cam)    
+function collect_blocks(cam,visible_blocks)    
     local fwd=cam.fwd
     local majord,majori=-32000,1
     for i=1,3 do
@@ -315,93 +317,193 @@ function draw_grid(cam)
         extents[i]={lo=max(cam.lookat[i]\1-4),hi=max(7,cam.lookat[i]\1+3)}
     end
 
-    local major0,major1=extents[majori].lo,extents[majori].hi
-    if(fwd[majori]<0) major0,major1=major1,major0
-    local o,face_mask,cache={},{},{}
     local cam_minor,cam_last=cam.pos[minori]\1,cam.pos[lasti]\1
-    face_mask[majori]=sgn(-fwd[majori])
-    for major=major0,major1,sgn(fwd[majori]) do        
-        -- todo: drop sign based iteration, only use left-to-right/middle/right-to-left
-        o[majori]=major
-        local draw_last=function()
-            local last0,last1=extents[lasti].lo,extents[lasti].hi
-            local dlast=sgn(fwd[lasti])
-            local face_sign=sgn(last0-cam_last)
-            if(dlast<0) last0,last1,face_sign=last1,last0,sgn(last1-cam_last)   
-            local fix
-            face_mask[lasti]=face_sign
-            for last=last0,last1,dlast do
-                if last==cam_last then
-                    fix=last
-                    -- skip
-                    last+=dlast
-                    if dlast>0 then
-                        last0,last1=last1,last
-                    else
-                        last0,last1=last1,last
-                    end
-                    dlast=-dlast
-                    face_sign=-face_sign
-                    break
-                end
 
-                o[lasti]=last                
-                --printh("normal: "..last)
-                draw_block(cam,o,cache,face_mask)
-            end    
-            if fix then        
-                if last0>=0 and last0<_grid_size and last1>=0 and last1<_grid_size then                
-                    face_mask[lasti]=face_sign   
-                    for last=last0,last1,dlast do
-                        o[lasti]=last        
-                        draw_block(cam,o,cache,face_mask)
-                    end   
-                end         
-                o[lasti]=fix       
-                face_mask[lasti]=nil
-                draw_block(cam,o,cache,face_mask)
-            end  
-            --if(btn(5)) flip()             
-        end
-        -- 
-        local minor0,minor1=extents[minori].lo,extents[minori].hi
-        local dminor=sgn(fwd[minori])
-        local minor_sign=sgn(minor0-cam_minor)
-        if(dminor<0) minor0,minor1,minor_sign=minor1,minor0,sgn(minor1-cam_minor)
-        local fix
-        face_mask[minori]=minor_sign
-        for minor=minor0,minor1,dminor do
-            if minor==cam_minor then
-                fix=minor
-                -- skip
-                minor+=dminor
-                if dminor>0 then
-                    minor0,minor1=minor1,minor
-                else
-                    minor0,minor1=minor1,minor
-                end
-                dminor=-dminor
-                minor_sign=-minor_sign
-                -- printh("reverse! ("..minor..") ["..minor0..", "..minor1.."] @"..dminor)
-                break
-            end        
-            o[minori]=minor
-            draw_last()
-        end
-
-        if fix then 
-            if minor0>=0 and minor0<_grid_size and minor1>=0 and minor1<_grid_size then
-                face_mask[minori]=minor_sign
-                for minor=minor0,minor1,dminor do
-                    o[minori]=minor
-                    draw_last()
-                end            
+    local last0,last1=extents[lasti].lo,extents[lasti].hi
+    local last_fix=cam_last
+    local lastc=last_fix
+    if lastc<last0 then
+        lastc,last_fix=last0-1
+    elseif lastc>last1 then
+        lastc,last_fix=last1+1
+    end   
+    local last_shift=(3-lasti)<<3
+    local last_mask=0xff>>last_shift
+    local draw_last=function(face_mask,idx)
+        for last=last0,lastc-1 do        
+            local idx=idx|last>>>last_shift
+            local id=_grid[idx] or _sprite_grid[idx]
+            if id then
+                add(visible_blocks,id)
+                add(visible_blocks,face_mask|(0x01.0101&last_mask))            
+                add(visible_blocks,idx)
             end
-            o[minori]=fix
-            face_mask[minori]=nil
-            draw_last()
-        end         
+        end
+        -- flip side
+        for last=last1,lastc+1,-1 do        
+            local idx=idx|last>>>last_shift
+            local id=_grid[idx] or _sprite_grid[idx]
+            if id then
+                add(visible_blocks,id)
+                add(visible_blocks,face_mask|(0x02.0202&last_mask))            
+                add(visible_blocks,idx)
+            end
+        end
+        if last_fix then
+            local idx=idx|lastc>>>last_shift
+            local id=_grid[idx] or _sprite_grid[idx]
+            if id then
+                add(visible_blocks,id)
+                add(visible_blocks,face_mask)            
+                add(visible_blocks,idx)
+            end
+        end
+    end     
+
+    local minor0,minor1=extents[minori].lo,extents[minori].hi
+    local minor_fix=cam.pos[minori]\1
+    local minorc=minor_fix
+    if minorc<minor0 then
+        minorc,minor_fix=minor0-1
+    elseif minorc>minor1 then
+        minorc,minor_fix=minor1+1
+    end   
+    local minor_shift=(3-minori)<<3
+    local minor_mask=0xff>>minor_shift
+    local draw_minor=function(face_mask,idx)
+        for minor=minor0,minorc-1 do        
+            draw_last(face_mask|(0x01.0101&minor_mask),idx|minor>>>minor_shift)
+        end
+        -- flip side
+        for minor=minor1,minorc+1,-1 do        
+            draw_last(face_mask|(0x02.0202&minor_mask),idx|minor>>>minor_shift)
+        end
+        -- camera fix?
+        if minor_fix then
+            draw_last(face_mask,idx|minorc>>>minor_shift)
+        end
+    end    
+
+    -- main render loop
+    local major0,major1=extents[majori].lo,extents[majori].hi
+    local major_fix=cam.pos[majori]\1
+    local majorc=major_fix
+    if majorc<major0 then
+        majorc,major_fix=major0-1
+	elseif majorc>major1 then
+		majorc,major_fix=major1+1
+    end    
+    local major_shift=(3-majori)<<3
+    local major_mask=0xff>>major_shift
+
+    for major=major0,majorc-1 do        
+        draw_minor(0x01.0101&major_mask,major>>>major_shift)
     end
+    -- flip side
+    for major=major1,majorc+1,-1 do        
+        draw_minor(0x02.0202&major_mask,major>>>major_shift)
+    end
+    if major_fix then
+        draw_minor(0,majorc>>>major_shift)
+    end
+end
+
+function draw_grid(cam)
+    local visible_blocks={}
+    local m,fov=cam.m,cam.fov
+
+    -- viz blocks
+    collect_blocks(cam,visible_blocks)
+
+    local masks={0x0.00ff,0x0.ff,0xff}
+    local grid=_grid
+    local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
+    local cache,verts,faces={},{},cube.faces
+
+    -- render in order
+    for i=1,#visible_blocks,3 do
+        local id,current_mask,idx=visible_blocks[i],visible_blocks[i+1],visible_blocks[i+2]
+        -- convert to coord offsets
+        local ox,oy,oz=(idx&0x0.00ff)<<16,(idx&0x0.ff)<<8,idx\1
+        -- printh("mask: "..tostr(visible_blocks[i],1).." idx: "..tostr(idx,1))
+        if id<16 then 
+            -- solid block
+            local adj={ox,oy,oz}
+            local colors=cube.colors[id]
+            fillp(((ox+oy)&1)*0xffff)
+            for maski,mask in pairs(masks) do
+                local active_side=current_mask&mask
+                local side=faces[active_side]
+                if side then            
+                    local col=colors[active_side]
+                    -- check adjacent blocks
+                    -- todo: create a complement index base on face mask
+                    local backup=adj[maski]
+                    local adj_i=backup+side.k
+                    adj[maski]=adj_i
+                    local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
+                    adj[maski]=backup
+                    -- outside: draw faces
+                    -- or not next to block
+                    if adj_i<0 or adj_i>=8 or (not grid[adj_idx]) then
+                        local outcode,clipcode=0xffff,0
+                        for i=1,4 do
+                            local vert=side[i]
+                            local idx=idx+vert.idx
+                            local v=cache[idx]
+                            if not v then
+                                local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
+                                --x=mid(x,extents[1].lo,extents[1].hi)
+                                --y=mid(y,extents[2].lo,extents[2].hi)
+                                --z=mid(z,extents[3].lo,extents[3].hi)
+                                local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+                                
+                                if az>-0.1 then code=2 end
+                                if fov*ax>-az then code+=4
+                                elseif fov*ax<az then code+=8 end
+                                if fov*ay>-az then code+=16
+                                elseif fov*ay<az then code+=32 end
+                                local w=fov/az
+                                v={ax,ay,az,x=64+64*ax*w,y=70-64*ay*w,outcode=code}
+                                cache[idx]=v
+                            end
+                            verts[i]=v
+                            outcode&=v.outcode
+                            clipcode+=v.outcode&2
+                        end
+                        --polyline(verts,4,maski+k+1)
+                        -- polyfill(verts,4,maski+k+1)
+                        if outcode==0 then 
+                            local np=4
+                            if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
+                            if(np>2) polyfill(verts,np,col)
+                        end
+                    end
+                end
+            end
+        else
+            -- sprite 
+            -- position in middle of tile
+            local x,y,z=ox+0.5,oy+0.5,oz
+            local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+            if az<-0.1 then                
+                local w=-64*fov/az 
+                -- convert between sprite id and real image
+                local s=_sprite_by_id[id]
+                local sx,sy=64-ax*w-w/2,70+ay*w-w
+                if shadow then
+                    local ref=v_add({ox+0.5,oy+0.5,oz},cam.pos,-1)
+                    local dx,dy=ref[1],ref[2]
+                    local zangle=atan2(dx,dy)
+                    local len=dx*cos(zangle)+dy*sin(zangle)
+                    local yangle=atan2(len,ref[3])
+                    local h=-w*sin(yangle)
+                    ovalfill(sx,y-h/2,sx+w,y+h/2,1)
+                end        
+                sspr((s&15)<<3,(s\16)<<3,8,8,sx,sy,w+sx%1,w+sy%1)
+            end
+        end    
+    end  
     fillp()
 end
 
@@ -477,11 +579,12 @@ end
 
 -- custom ui elements
 function make_voxel_editor()   
-	local yangle,zangle=-0.125,0
+	local yangle,zangle=-0.25,0---0.125,0
 	local dyangle,dzangle=0,0
-
-    local layer=0 
-    local cam=make_cam(64,64+6,64,0.20)
+    local offsetx,offsety=0,0
+    local layer=3
+    local cam=make_cam(64,64+6,64,0.25)
+    local cam2=make_cam(64,64+6,64,0.25)
     local quad={
         {0,0,0},
         {1,0,0},
@@ -511,7 +614,7 @@ function make_voxel_editor()
             for i,p in pairs(quad) do
                 p=v_scale(p,_grid_size)
                 p[3] = layer+1
-                pts[i]=p
+                pts[i]=v_add(p,{offsetx,offsety,0},1)
             end
             local xmax,ymax=-32000
             local p0=pts[4]
@@ -531,7 +634,7 @@ function make_voxel_editor()
                 for i,p in pairs(quad) do
                     p=v_add(p,current_voxel.origin)
                     p[3]=layer+1
-                    pts[i]=p
+                    pts[i]=v_add(p,{offsetx,offsety,0},1)
                 end
                 --fillp(0xa5a5.8)
                 local p0=pts[4]
@@ -572,21 +675,30 @@ function make_voxel_editor()
             layer=mid(layer+msg.wheel,0,_grid_size-1)
 
             local xyz=_grid_size/2
-            cam:control({xyz,xyz,layer},yangle,zangle,_grid_size)
-            
+            local dx,dy=0,0
+            if(btnp(0)) dx=1
+            if(btnp(1)) dx=-1
+            if(btnp(2)) dy=1
+            if(btnp(3)) dy=-1
+            offsetx=mid(offsetx+dx,0,255)
+            offsety=mid(offsety+dy,0,255)
+            --cam:control({xyz,xyz,layer},yangle,zangle,_grid_size*1.2)
+            cam:control({offsetx+xyz,offsety+xyz,layer},yangle,zangle,_grid_size)
+            cam2:control({xyz,xyz,layer},yangle,zangle,_grid_size)
+
             -- selection
             if not rotation_mode then
-                local ti,tj=cam:unproject(msg.mx,msg.my)
-                local fwd,right,up=cam.fwd,cam.right,cam.up
-                local target=v_add(cam.pos,fwd,-1)
+                local ti,tj=cam2:unproject(msg.mx,msg.my)
+                local fwd,right,up=cam2.fwd,cam2.right,cam2.up
+                local target=v_add(cam2.pos,fwd,-1)
                 target=v_add(target,right,ti)
                 target=v_add(target,up,tj)
                 --local origin=v_clone(cam.pos)
                 
-                local d=make_v(cam.pos,target)
+                local d=make_v(cam2.pos,target)
                 local n,l=v_normz(d)
                 local ray={
-                    origin=cam.pos,
+                    origin=cam2.pos,
                     target=target,
                     dir=n,
                     len=16}    
@@ -603,6 +715,7 @@ function make_voxel_editor()
                 if current_voxel then
                     local o=current_voxel.origin
                     local idx=o[1]>>16|o[2]>>8|o[3]
+                    idx+=offsetx>>16|offsety>>8
                     self:send({
                         name="cursor",
                         cursor="aim"
@@ -649,7 +762,8 @@ function make_voxel_editor()
         load=function(self,msg)            
             _grid={}
             _sprite_grid={}
-            undo_stack={}
+            undo_stack={}            
+            offsetx,offsety=0,0
             reload(0,0,0x4300,msg.filename)
             local mem,size=0x4,peek4(0x0)
             for i=1,size do
@@ -730,9 +844,12 @@ function _init()
     srand(42)
     for i=0,4*_grid_size-1 do
         for j=0,4*_grid_size-1 do
-            if(rnd()>0.5) _grid[i>>16|j>>8|0]=11
+            for k=0,1 do
+                if(rnd()>0.125) _grid[i>>16|j>>8|k]=11
+            end
         end
     end
+    --_grid[4>>16|4>>8|0]=11
 
     -- init keys for cube points
     for i=1,#cube do
@@ -741,11 +858,9 @@ function _init()
     end    
 
     -- bind verts to face (avoids 1 indirection)
-    for _,sides in pairs(cube.faces) do
-        for k,face in pairs(sides) do
-            for i,vi in pairs(face) do
-                face[i]=cube[vi]
-            end
+    for _,face in pairs(cube.faces) do
+        for i=1,4 do            
+            face[i]=cube[face[i]]
         end
     end
 
@@ -758,24 +873,18 @@ function _init()
         local bottom_color=sget(59,base_color)
         side_color_bright=side_color_bright|side_color_bright<<4
         side_color_dark=side_color_dark|side_color_dark<<4
-        colors[base_color]={            
+        colors[base_color]={
             -- x side
-            {
-                [-1]=side_color_bright,
-                [1]=side_color_bright
-            },
+            [0x0.0001]=side_color_bright,
+            [0x0.0002]=side_color_bright,
             -- y sides
-            {
-                [-1]=side_color_dark,
-                [1]=side_color_dark
-            },
+            [0x0.01]=side_color_dark,
+            [0x0.02]=side_color_dark,
             -- z top/bottom
-            {
-                -- top
-                [-1]=base_color|sget(57,base_color)<<4,
-                -- bottom
-                [1]=bottom_color|bottom_color<<4
-            }
+            -- top
+            [0x01]=base_color|sget(57,base_color)<<4,
+            -- bottom
+            [0x02]=bottom_color|bottom_color<<4
         }
     end
     cube.colors=colors

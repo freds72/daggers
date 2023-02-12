@@ -14,26 +14,21 @@ function _draw()
 	local i0,i1=0,7
 	local cam=cam
 	local di=1
-	local i01=mid(cam,i0,i1)
-	local i10=i01+1
-	-- outside range?
-	if i01!=cam then
-		if cam<i0 then
- 	 i1=i1
-  	i10=i0  
-  else
-	  i01=i0
-		 i01=i1+1
-		 i10=i1+1
-		end	 
+	local ic=cam
+	if cam<i0 then
+		ic=i0-1
+		cam=nil
+	elseif cam>i1 then
+	 ic=i1+1
 	 cam=nil
-	end
-
-	for i=i0,i01-1,di do
+ end
+	--local i01=mid(cam,i0,i1)
+		
+	for i=i0,ic-1,di do
  	print(">> "..i)
 	end
 	if(cam) color(8)print("** "..cam)color(7)
-	for i=i1,i10,-di do
+	for i=i1,ic+1,-di do
  	print("<< "..i)
 	end
 end
