@@ -49,18 +49,27 @@ function make_player()
 end
 
 function game_state()
+    -- backup previous update/draw
     local u,d=_update,_draw
     local plyr=make_player()
     local cam=make_cam(64,70,64,0.125)
     local angle=0
-
+    
+    menuitem(1, "back to editor",
+        function() 
+            -- reset
+            menuitem(1) 
+            -- restore update/draw
+            _update,_draw=u,d
+        end
+    )
     _update=function()
         plyr:control()
         plyr:update()
         
         local p,a=plyr:orient()
         angle=lerp(shortest_angle(a,angle),a,0.2)   
-        cam:control(p,-0.180,angle,7)
+        cam:control(p,-0.180,angle,4)
     end
     _draw=function()        
         _draw=function()
