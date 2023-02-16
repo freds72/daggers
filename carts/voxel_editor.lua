@@ -43,7 +43,8 @@ local cube={
     }
 }
 
-local dither_pat={[0]=0b1111111111111111,0b0111111111111111,0b0111111111011111,0b0101111111011111,0b0101111101011111,0b0101101101011111,0b0101101101011110,0b0101101001011110,0b0101101001011010,0b0001101001011010,0b0001101001001010,0b0000101001001010,0b0000101000001010,0b0000001000001010,0b0000001000001000,0b0000000000000000}
+local dither_pattern={[0]=0b1111111111111111,0b0111111111111111,0b0111111111011111,0b0101111111011111,0b0101111101011111,0b0101101101011111,0b0101101101011110,0b0101101001011110,0b0101101001011010,0b0001101001011010,0b0001101001001010,0b0000101001001010,0b0000101000001010,0b0000001000001010,0b0000001000001000,0b0000000000000000}
+
 function draw_cube(cam,o,idx,c,cache,mask)
     local ox,oy,oz=o[1],o[2],o[3]
     local colors=cube.colors[c]
@@ -286,7 +287,7 @@ function voxel_traversal(ray,size,grid)
     end
 end
 
-function collect_blocks(cam,visible_blocks)    
+function collect_blocks(cam,extents,visible_blocks)    
     local fwd=cam.fwd
     local majord,majori=-32000,1
     for i=1,3 do
@@ -311,11 +312,6 @@ function collect_blocks(cam,visible_blocks)
         {2,1,-1}
     }
     local lasti=last[majori][minori]
-
-    local extents={}
-    for i=1,3 do
-        extents[i]={lo=max(cam.lookat[i]\1-4),hi=max(7,cam.lookat[i]\1+3)}
-    end
 
     local cam_minor,cam_last=cam.pos[minori]\1,cam.pos[lasti]\1
 
@@ -412,9 +408,15 @@ function draw_grid(cam)
     local visible_blocks={}
     local m,fov=cam.m,cam.fov
 
-    -- viz blocks
-    collect_blocks(cam,visible_blocks)
+    local extents={}
+    for i=1,3 do
+        extents[i]={lo=max(cam.lookat[i]\1-4),hi=max(7,cam.lookat[i]\1+3)}
+    end
 
+
+    -- viz blocks
+    collect_blocks(cam,extents,visible_blocks)
+    
     local masks={0x0.00ff,0x0.ff,0xff}
     local grid=_grid
     local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
@@ -430,12 +432,22 @@ function draw_grid(cam)
             -- solid block
             local adj={ox,oy,oz}
             local colors=cube.colors[id]
-            fillp(((ox+oy)&1)*0xffff)
+            --fillp(((ox+oy)&1)*0xffff)
+            local swap=(ox+oy)&1
+            fillp()
+            --if extents[1].lo==ox or extents[2].lo==oy then
+            --    fillp(dither_pattern[15-(cam.lookat[1]%1)\0.0625]|0b0.100)
+            --end
+            --if extents[1].hi==ox or extents[2].hi==oy then
+            --    fillp(dither_pattern[(cam.lookat[2]%1)\0.0625]|0b0.100)
+            --end
+
             for maski,mask in pairs(masks) do
                 local active_side=current_mask&mask
                 local side=faces[active_side]
                 if side then            
                     local col=colors[active_side]
+                    if(swap==0) col=col>>4
                     -- check adjacent blocks
                     -- todo: create a complement index base on face mask
                     local backup=adj[maski]
@@ -844,8 +856,8 @@ function _init()
     srand(42)
     for i=0,4*_grid_size-1 do
         for j=0,4*_grid_size-1 do
-            for k=0,1 do
-                if(rnd()>0.125) _grid[i>>16|j>>8|k]=11
+            for k=0,7 do
+                --if(rnd()>0.125) _grid[i>>16|j>>8|k]=11
             end
         end
     end
