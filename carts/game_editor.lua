@@ -46,7 +46,7 @@ function make_player(origin,a)
   
         dangle=v_add(dangle,{stat(39),stat(38),dx/40})
         local c,s=cos(a),-sin(a)
-        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},8)         
+        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},1)         
       end,
       update=function(self)
         -- damping      
@@ -174,11 +174,11 @@ function mode7(p,np)
       if (lj>np) lj=1
       local v1=p[lj]
       -- make sure w gets enough precision
-      local y0,y1,w1=v0.y,v1.y,v1.w
+      local y0,y1,w1=v0.y,v1.y,v1.w<<4
       local dy=y1-y0
       ly=y1&-1
       lx=v0.x
-      lw=v0.w
+      lw=v0.w<<4
       lu=v0.u*lw
       lv=v0.v*lw
       ldx=(v1.x-lx)/dy
@@ -197,11 +197,11 @@ function mode7(p,np)
       rj-=1
       if (rj<1) rj=np
       local v1=p[rj]
-      local y0,y1,w1=v0.y,v1.y,v1.w
+      local y0,y1,w1=v0.y,v1.y,v1.w<<4
       local dy=y1-y0
       ry=y1&-1
       rx=v0.x
-      rw=v0.w
+      rw=v0.w<<4
       ru=v0.u*rw
       rv=v0.v*rw
       rdx=(v1.x-rx)/dy
