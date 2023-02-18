@@ -660,12 +660,14 @@ function make_voxel_editor()
                 end    
                 fillp()
             end            
-            clip()       
+            clip()  
+            pal({128, 130, 133, 5, 134, 6, 130, 136, 8, 138, 139, 3, 131, 1, 129,0},1)
         end,
         mousemove=function(self,msg)
             local rotation_mode
             if msg.mmb then
-                poke(0x5f2d, 0x1+0x4)
+                -- capture mouse
+                poke(0x5f2d, 0x5)
                 -- hide cursor
                 self:send({
                     name="cursor"
@@ -794,7 +796,7 @@ function make_voxel_editor()
     })
 end
 
-function _init()
+function _init()    
     -- create ui and callbacks
     _main=main_window()
     local banner=_main:add(make_static(8),0,0,127,7)
