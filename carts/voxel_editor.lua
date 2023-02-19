@@ -716,10 +716,11 @@ function _init()
                 flip()
             end
         end
-        clip()
-        printh(#images)
+        clip()        
         -- save carts
         local mem,id=0x0,0
+        poke2(mem,#images)
+        mem+=2
         for i,v in ipairs(images) do
             poke4(mem,v)
             mem+=4

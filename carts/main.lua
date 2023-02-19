@@ -1,4 +1,4 @@
-local _plyr,_cam,_things
+local _plyr,_cam,_things,_grid
 
 function make_fps_cam()
     local up={0,1,0}
@@ -6,12 +6,10 @@ function make_fps_cam()
     return {
         origin={0,0,0},    
         track=function(self,origin,m,angles)
-            local ca,sa=-sin(angles[2]),cos(angles[2])
-            self.u=ca
-            self.v=sa
-      
             --origin=v_add(v_add(origin,m_fwd(m),-24),m_up(m),24)	      
             local m={unpack(m)}		
+            self.fwd=m_fwd(m)
+
             -- inverse view matrix
             m[2],m[5]=m[5],m[2]
             m[3],m[9]=m[9],m[3]
@@ -44,7 +42,7 @@ function make_player(origin,a)
         if(btn(3,1)) dz=-3
         if(btnp(4)) jmp=6
   
-        dangle=v_add(dangle,{stat(39),stat(38),dx/40})
+        dangle=v_add(dangle,{stat(39),stat(38),0})
         local c,s=cos(a),-sin(a)
         velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},1)         
       end,
@@ -72,7 +70,9 @@ function make_player(origin,a)
               new_pos[2]=0
               new_vel[2]=0
             end
-                
+            -- stays on floor
+            new_pos[1]=mid(new_pos[1],0,1024)
+            new_pos[3]=mid(new_pos[3],0,1024)
             -- use corrected velocity
             self.origin=new_pos
             velocity=new_vel
@@ -243,6 +243,240 @@ function mode7(p,np,light)
   end      
 end
 
+-- grid helpers
+function world_to_grid(p)
+  return (p[1]\128)>>16|(p[2]\128)>>8|(p[3]\128)
+end
+
+function register_in_grid(thing)
+  local id=world_to_grid(thing.origin)
+  local things=_grid[id] or {}
+  things[thing]=true
+  _grid[id]=things
+end
+
+function collect_blocks(cam,visible_blocks) 
+  -- note: fwd is in world space   
+  local fwd=cam.fwd
+  local majord,majori=-32000,1
+  for i=1,3 do
+      local d=abs(fwd[i])
+      if d>majord then
+          majori,majord=i,d
+      end
+  end
+
+  local minord,minori=-32000,1
+  for i=1,3 do
+      if i!=majori then
+          local d=abs(fwd[i])
+          if d>minord then
+              minori,minord=i,d
+          end
+      end
+  end
+  local last={
+      {-1,3,2},
+      {3,-1,1},
+      {2,1,-1}
+  }
+  local lasti=last[majori][minori]
+
+  local cam_last=cam.origin[lasti]\128
+
+  local last0,last1=0,7
+  local last_fix=cam_last
+  local lastc=last_fix
+  if lastc<last0 then
+      lastc,last_fix=last0-1
+  elseif lastc>last1 then
+      lastc,last_fix=last1+1
+  end   
+  local last_shift=(3-lasti)<<3
+  local collect_last=function(idx)
+      for last=last0,lastc-1 do        
+          local idx=idx|last>>>last_shift
+          local things=_grid[idx]
+          if things then
+              add(visible_blocks,things)
+              add(visible_blocks,idx)
+          end
+      end
+      -- flip side
+      for last=last1,lastc+1,-1 do        
+          local idx=idx|last>>>last_shift
+          local things=_grid[idx]
+          if things then
+            add(visible_blocks,things)
+            add(visible_blocks,idx)
+        end
+      end
+      if last_fix then
+          local idx=idx|lastc>>>last_shift
+          local things=_grid[idx]
+          if things then
+            add(visible_blocks,things)
+            add(visible_blocks,idx)
+        end
+      end
+  end     
+
+  local minor0,minor1=0,7
+  local minor_fix=cam.origin[minori]\128
+  local minorc=minor_fix
+  if minorc<minor0 then
+      minorc,minor_fix=minor0-1
+  elseif minorc>minor1 then
+      minorc,minor_fix=minor1+1
+  end   
+  local minor_shift=(3-minori)<<3
+  local collect_minor=function(idx)
+      for minor=minor0,minorc-1 do        
+        collect_last(idx|minor>>>minor_shift)
+      end
+      -- flip side
+      for minor=minor1,minorc+1,-1 do        
+        collect_last(idx|minor>>>minor_shift)
+      end
+      -- camera fix?
+      if minor_fix then
+        collect_last(idx|minorc>>>minor_shift)
+      end
+  end    
+
+  -- main render loop
+  local major0,major1=0,7
+  local major_fix=cam.origin[majori]\128
+  local majorc=major_fix
+  if majorc<major0 then
+      majorc,major_fix=major0-1
+  elseif majorc>major1 then
+    majorc,major_fix=major1+1
+  end    
+  local major_shift=(3-majori)<<3
+  for major=major0,majorc-1 do        
+    collect_minor(major>>>major_shift)
+  end
+  -- flip side
+  for major=major1,majorc+1,-1 do        
+    collect_minor(major>>>major_shift)
+  end
+  if major_fix then
+    collect_minor(majorc>>>major_shift)
+  end
+end
+
+function draw_grid(cam)
+  local m,fov=cam.m,cam.fov
+  local visible_blocks,grid={},_grid
+  local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
+
+  -- viz blocks
+  collect_blocks(cam,visible_blocks)
+  
+  -- render in order
+  for i=1,#visible_blocks,2 do
+    -- sorted array
+    local things={}      
+    for thing in pairs(visible_blocks[i]) do
+      local origin=thing.origin
+      local x,y,z=origin[1],origin[2],origin[3]
+      local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
+      if az>8 and az<854 and ax<az and -ax<az then
+        local ay=m2*x+m6*y+m10*z+m14
+      
+        -- default: insert at end of sorted array
+        local w,thingi=128/az,#things+1
+        -- basic insertion sort
+        for i,otherthing in inext,things do          
+          if(otherthing[1]>w) thingi=i break
+        end
+        -- thing offset+cam offset
+        add(things,{w,thing,63.5+ax*w,63.5-ay*w},thingi)
+      end
+    end
+    -- draw things
+    for _,head in inext,things do
+      local w0,thing=head[1],head[2]
+      circfill(head[3],head[4],w0*8,w0*8)
+    end
+  end  
+end
+
+-- things
+function make_skull(origin)
+  local thing=add(_things,{
+    -- sprite id
+    id=0,
+    origin=origin,
+    update=function(self)
+    end
+  })
+  register_in_grid(thing)
+  return thing
+end
+
+-- game states
+function next_state(fn,...)
+  local u,d,i=fn(...)
+  -- ensure update/draw pair is consistent
+  _update_state=function()
+    -- init function (if any)
+    if(i) i()
+    -- 
+    _update_state,_draw=u,d
+    -- actually run the update
+    u()
+  end
+end
+
+-- gameplay state
+function play_state()
+  local start_time
+
+  -- load images
+  _sprites=decompress("pic",0,0,unpack_images)
+  reload()
+
+  -- camera & player
+  _plyr=make_player({512,24,512},0)
+  _things={}
+  -- spatial partitioning grid
+  _grid={}
+
+  add(_things,_plyr)
+  -- test object
+  for i=0,50 do
+    make_skull({32+rnd(768),18+rnd(48),32+rnd(768)})
+  end
+
+  _cam=make_fps_cam()
+
+  return
+    -- update
+    function()
+      _plyr:control()
+      
+      _cam:track(_plyr.eye_pos,_plyr.m,_plyr.angle)
+    end,
+    -- draw
+    function()
+      cls(0)
+
+      draw_ground(1)
+
+      -- draw things
+      draw_grid(_cam)      
+                            
+      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
+    end,
+    -- init
+    function()
+      start_time=time()
+    end
+end
+
+-- pico8 entry points
 function _init()
   -- enable tile 0 + extended memory
   poke(0x5f36, 0x18)
@@ -271,51 +505,6 @@ function _init()
   next_state(play_state)
 end
 
--- game states
-function next_state(fn,...)
-  local u,d,i=fn(...)
-  -- ensure update/draw pair is consistent
-  _update_state=function()
-    -- init function (if any)
-    if(i) i()
-    -- 
-    _update_state,_draw=u,d
-    -- actually run the update
-    u()
-  end
-end
-
-function play_state()
-  local start_time
-
-  -- load images
-
-  -- camera & player
-  _plyr=make_player({512,24,512},0)
-  _things={}
-  add(_things,_plyr)
-  _cam=make_fps_cam()
-
-  return
-    -- update
-    function()
-      _plyr:control()
-      
-      _cam:track(_plyr.eye_pos,_plyr.m,_plyr.angle)
-    end,
-    -- draw
-    function()
-      cls(0)
-      draw_ground(1)
-                            
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
-    end,
-    -- init
-    function()
-      start_time=time()
-    end
-end
-
 function _update()
   -- keep world running
   for thing in all(_things) do
@@ -325,3 +514,35 @@ function _update()
   _update_state()
 end
 
+-- data unpacking functions
+-- unpack 1 or 2 bytes
+function unpack_variant()
+	local h=mpeek()
+	-- above 127?
+  if h&0x80>0 then
+    return (h&0x7f)<<8|mpeek()
+  end
+	return h
+end
+-- unpack a fixed 16:16 value or 4 bytes
+function unpack_dword()
+	return mpeek()<<8|mpeek()|mpeek()>>8|mpeek()>>16
+end
+
+-- unpack an array of bytes
+function unpack_array(fn)
+	for i=1,unpack_variant() do
+		fn(i)
+	end
+end
+
+function unpack_images()
+  local sprites={}
+  unpack_array(function()
+    for i=0,127 do
+      add(sprites,unpack_dword())
+    end
+  end)
+
+  return sprites
+end

@@ -5,6 +5,7 @@ __lua__
 #include debug.lua
 #include maths.lua
 #include poly.lua
+#include plain.lua
 #include main.lua
 
 __gfx__
