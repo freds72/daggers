@@ -97,7 +97,7 @@ local ground={
     {1024,0,0}
 }
 
-function draw_ground()
+function draw_ground(light)
     local m=_cam.m
     local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
     local verts,outcode,nearclip={},0xffff,0  
@@ -144,13 +144,11 @@ function draw_ground()
         end
         verts=res
       end
-      mode7(verts,#verts)
-    end
-
-    
+      mode7(verts,#verts,light)
+    end    
 end
 
-function mode7(p,np)
+function mode7(p,np,light)
   poke4(0x5f38,0x0000.0404)
   local miny,maxy,mini=32000,-32000
   -- find extent
@@ -162,7 +160,7 @@ function mode7(p,np)
 
   --data for left & right edges:
   local lj,rj,ly,ry,lx,ldx,rx,rdx,lu,ldu,lv,ldv,ru,rdu,rv,rdv,lw,ldw,rw,rdw=mini,mini,miny-1,miny-1
-
+  local maxlight,pal0=light\0.066666
   --step through scanlines.
   if(maxy>127) maxy=127
   if(miny<0) miny=-1
@@ -174,11 +172,11 @@ function mode7(p,np)
       if (lj>np) lj=1
       local v1=p[lj]
       -- make sure w gets enough precision
-      local y0,y1,w1=v0.y,v1.y,v1.w<<4
+      local y0,y1,w1=v0.y,v1.y,v1.w
       local dy=y1-y0
       ly=y1&-1
       lx=v0.x
-      lw=v0.w<<4
+      lw=v0.w
       lu=v0.u*lw
       lv=v0.v*lw
       ldx=(v1.x-lx)/dy
@@ -197,11 +195,11 @@ function mode7(p,np)
       rj-=1
       if (rj<1) rj=np
       local v1=p[rj]
-      local y0,y1,w1=v0.y,v1.y,v1.w<<4
+      local y0,y1,w1=v0.y,v1.y,v1.w
       local dy=y1-y0
       ry=y1&-1
       rx=v0.x
-      rw=v0.w<<4
+      rw=v0.w
       ru=v0.u*rw
       rv=v0.v*rw
       rdx=(v1.x-rx)/dy
@@ -217,18 +215,21 @@ function mode7(p,np)
     end
     
     -- rectfill(rx,y,lx,y,8/rw)
-    do
-      local rx,lx,ru,rv,rw=rx,lx,ru,rv,rw
+    if rw>0.15 then
+      local rx,lx,ru,rv,lu,lv=rx,lx,ru,rv,lu,lv
       local ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
-      local ddu,ddv,ddw=(lu-ru)/ddx,(lv-rv)/ddx,(lw-rw)/ddx
-      if(rx<0) ru-=rx*ddu rv-=rx*ddv rw-=rx*ddw rx=0
-      local pix=1-rx&0x0.ffff
-      ru+=pix*ddu
-      rv+=pix*ddv
-      rw+=pix*ddw
-      
-      local u,v=ru/rw,rv/rw
-      tline(rx,y,lx\1-1,y,u,v,ddu/rw,ddv/rw)
+      local ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
+      if(rx<0) ru-=rx*ddu rv-=rx*ddv rx=0
+      if(lx>127) lu+=(128-lx)*ddu lv+=(128-lx)*ddv lx=128
+      if rx<lx then
+        local r0=rw>0.46875 and maxlight or (light*rw)\0.03125
+        if(pal0!=r0) memcpy(0x5f00,0x4300|r0<<4,16) pal0=r0	-- color shift now to free up a variable
+
+        local ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
+        local ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
+        local pix=1-rx&0x0.ffff
+        tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
+      end
     end
 
     lx+=ldx
@@ -254,6 +255,15 @@ function game_state()
     -- enable lock
     poke(0x5f2d,0x7)
 
+    -- capture gradient
+    local mem=0x4300
+    for i=15,0,-1 do
+      for j=0,15 do
+        poke(mem,sget(i+32,j+16))
+        mem+=1
+      end
+    end
+
     menuitem(1, "back to editor",
         function() 
             -- reset
@@ -273,9 +283,9 @@ function game_state()
     _draw=function()        
         _draw=function()
             cls(0)
-            draw_ground()
-            
-            pal({128, 130, 133, 5, 134, 6, 130, 136, 8, 138, 139, 3, 131, 1, 129,0},1)
+            draw_ground(1)
+                        
+            pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
         end
     end
 end
