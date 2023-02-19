@@ -1,14 +1,11 @@
 pico-8 cartridge // http://www.pico-8.com
 version 39
 __lua__
--- voxel editor
--- @freds72
+
 #include debug.lua
-#include ui.lua
 #include maths.lua
 #include poly.lua
-#include voxel_editor.lua
-
+#include main.lua
 
 __gfx__
 01111000000100000001000000000000000000000000000000000000000000004311355555534555555555555555555500000000000000000000000000000000

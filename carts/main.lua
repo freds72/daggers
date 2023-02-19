@@ -1,306 +1,327 @@
--- maths & cam
-function lerp(a,b,t)
-	return a*(1-t)+b*t
-end
+local _plyr,_cam,_things
 
-function make_v(a,b)
-	return {
-		b[1]-a[1],
-		b[2]-a[2],
-		b[3]-a[3]}
-end
-function v_clone(v)
-	return {v[1],v[2],v[3]}
-end
-function v_dot(a,b)
-	return a[1]*b[1]+a[2]*b[2]+a[3]*b[3]
-end
--- returns scaled down dot, safe for overflow
-function v_dotsign(a,b)
-  local x0,y0,z0=a[1],a[2],a[3]
-  local x1,y1,z1=b[1],b[2],b[3]
-	return x0*x1+y0*y1+z0*z1
-end
-
-function v_scale(v,scale)
-    return {
-        v[1]*scale,
-        v[2]*scale,
-        v[3]*scale
-    }
-end
-function v_add(v,dv,scale)
-	scale=scale or 1
-	return {
-		v[1]+scale*dv[1],
-		v[2]+scale*dv[2],
-		v[3]+scale*dv[3]}
-end
-function v_lerp(a,b,t,uv)
-  local ax,ay,az,u,v=a[1],a[2],a[3],a.u,a.v
-	return {
-    ax+(b[1]-ax)*t,
-    ay+(b[2]-ay)*t,
-    az+(b[3]-az)*t,
-    u=uv and u+(b.u-u)*t,
-    v=uv and v+(b.v-v)*t
-  }
-end
-
-function v_cross(a,b)
-	local ax,ay,az=a[1],a[2],a[3]
-	local bx,by,bz=b[1],b[2],b[3]
-	return {ay*bz-az*by,az*bx-ax*bz,ax*by-ay*bx}
-end
-
--- safe for overflow len
--- faster than sqrt variant (23.5+14 vs. 27.5)
--- credits: https://www.lexaloffle.com/bbs/?tid=49827
-function v_len(v)
-  local x,y,z=v[1],v[2],v[3]
-  local ax=atan2(x,y)
-  local d2=x*cos(ax)+y*sin(ax)
-  local az=atan2(d2,z)
-  return d2*cos(az)+z*sin(az)
-end 
-
-function v_normz(v)
-  local d=v_len(v)
-	return {v[1]/d,v[2]/d,v[3]/d},d
-end
-
--- matrix functions
--- matrix vector multiply
-function m_x_v(m,v)
-	local x,y,z=v[1],v[2],v[3]
-	return {m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14],m[3]*x+m[7]*y+m[11]*z+m[15]}
-end
-
-function make_m_from_euler(x,y,z)
-		local a,b = cos(x),-sin(x)
-		local c,d = cos(y),-sin(y)
-		local e,f = cos(z),-sin(z)
-  
-    -- yxz order
-  local ce,cf,de,df=c*e,c*f,d*e,d*f
-	 return {
-	  ce+df*b,a*f,cf*b-de,0,
-	  de*b-cf,a*e,df+ce*b,0,
-	  a*d,-b,a*c,0,
-	  0,0,0,1}
-end
-
-function make_m_look_at(up,fwd)
-	local right=v_normz(v_cross(up,fwd))
-	fwd=v_cross(right,up)
-	return {
-		right[1],right[2],right[3],0,
-		up[1],up[2],up[3],0,
-		fwd[1],fwd[2],fwd[3],0,
-		0,0,0,1
-	}
-end
-
--- returns basis vectors from matrix
-function m_right(m)
-	return {m[1],m[2],m[3]}
-end
-function m_up(m)
-	return {m[5],m[6],m[7]}
-end
-function m_fwd(m)
-	return {m[9],m[10],m[11]}
-end
-function m_set_pos(m,v)
-	m[13]=v[1]
-	m[14]=v[2]
-	m[15]=v[3]
-end
-
--- optimized 4x4 matrix mulitply
-function m_x_m(a,b)
-	local a11,a12,a13,a21,a22,a23,a31,a32,a33=a[1],a[5],a[9],a[2],a[6],a[10],a[3],a[7],a[11]
-	local b11,b12,b13,b14,b21,b22,b23,b24,b31,b32,b33,b34=b[1],b[5],b[9],b[13],b[2],b[6],b[10],b[14],b[3],b[7],b[11],b[15]
-
-	return {
-			a11*b11+a12*b21+a13*b31,a21*b11+a22*b21+a23*b31,a31*b11+a32*b21+a33*b31,0,
-			a11*b12+a12*b22+a13*b32,a21*b12+a22*b22+a23*b32,a31*b12+a32*b22+a33*b32,0,
-			a11*b13+a12*b23+a13*b33,a21*b13+a22*b23+a23*b33,a31*b13+a32*b23+a33*b33,0,
-			a11*b14+a12*b24+a13*b34+a[13],a21*b14+a22*b24+a23*b34+a[14],a31*b14+a32*b24+a33*b34+a[15],1
-		}
-end
-
-function polytex(p,np,texture)
-	local miny,maxy,mini=32000,-32000
-	-- find extent
-	for i=1,np do
-		local pi=p[i]
-		local y=pi.y
-		if y<miny then
-			mini,miny=i,y
-		end
-		if y>maxy then
-			maxy=y
-		end
-	end
-
-	--data for left & right edges:
-	local lj,rj,ly,ry,lx,lu,lv,lw,ldx,ldu,ldv,ldw,rx,ru,rv,rw,rdx,rdu,rdv,rdw=mini,mini,miny,miny
-	if maxy>=128 then
-		maxy=128-1
-	end
-	if miny<0 then
-		miny=-1
-	end
-	for y=flr(miny)+1,maxy do
-		--maybe update to next vert
-		while ly<y do
-			local v0=p[lj]
-			lj=lj+1
-			if lj>np then lj=1 end
-			local v1=p[lj]
-			local p0,p1=v0,v1
-			local y0,y1=p0.y,p1.y
-			local dy=y1-y0
-			ly=flr(y1)
-			lx=p0.x
-			lw=p0.w
-			lu=p0.u*lw
-			lv=p0.v*lw
-			ldx=(p1.x-lx)/dy
-			local w1=p1.w
-			ldu=(p1.u * w1 - lu)/dy
-			ldv=(p1.v * w1 - lv)/dy
-			ldw=(w1-lw)/dy
-			--sub-pixel correction
-			local cy=y-y0
-			lx=lx+cy*ldx
-			lu=lu+cy*ldu
-			lv=lv+cy*ldv
-			lw=lw+cy*ldw
-		end   
-		while ry<y do
-			local v0=p[rj]
-			rj=rj-1
-			if rj<1 then rj=np end
-			local v1=p[rj]
-			local p0,p1=v0,v1
-			local y0,y1=p0.y,p1.y
-			local dy=y1-y0
-			ry=flr(y1)
-			rx=p0.x
-			rw=p0.w
-			ru=p0.u*rw 
-			rv=p0.v*rw 
-			rdx=(p1.x-rx)/dy
-			local w1=p1.w
-			rdu=(p1.u*w1 - ru)/dy
-			rdv=(p1.v*w1 - rv)/dy
-			rdw=(w1-rw)/dy
-			--sub-pixel correction
-			local cy=y-y0
-			rx=rx+cy*rdx
-			ru=ru+cy*rdu
-			rv=rv+cy*rdv
-			rw=rw+cy*rdw
-		end
-	
-        do
-            local dx=lx-rx
-            local du,dv,dw=(lu-ru)/dx,(lv-rv)/dx,(lw-rw)/dx
-            -- todo: faster to clip polygon?
-            local x0,x1,u,v,w=rx,lx,ru,rv,rw
-            if x0<0 then
-                u=u-x0*du v=v-x0*dv w=w-x0*dw x0=0
-            end
-            if x1>128 then
-                x1=128
-            end    
-            -- sub-pix shift
-            local sa=1-rx%1
-            local ru,rv,rw=ru+sa*du,rv+sa*dv,rw+sa*dw
-                
-            for i=flr(rx),flr(lx)-1 do
-                local u,v=ru/rw,rv/rw
-                local c=sget(u,v)
-                if(c!=0)pset(i,y,c)
-                ru+=du 
-                rv+=dv 
-                rw+=dw	
-            end
-        end
-
-		lx=lx+ldx
-		lu=lu+ldu
-		lv=lv+ldv
-		lw=lw+ldw
-		rx=rx+rdx
-		ru=ru+rdu
-		rv=rv+rdv
-		rw=rw+rdw
-  end
-end
-
--- camera
-function make_cam(fov)
-    local up={0,1,0}  
-    fov = cos(fov/2)
+function make_fps_cam()
+    local up={0,1,0}
+    
     return {
         origin={0,0,0},    
-        track=function(self,dist)
-
-            local m=make_m_from_euler(0,time()/4,0)
-			local pos=v_scale(m_fwd(m),dist)
-
+        track=function(self,origin,m,angles)
+            local ca,sa=-sin(angles[2]),cos(angles[2])
+            self.u=ca
+            self.v=sa
+      
+            --origin=v_add(v_add(origin,m_fwd(m),-24),m_up(m),24)	      
+            local m={unpack(m)}		
             -- inverse view matrix
             m[2],m[5]=m[5],m[2]
             m[3],m[9]=m[9],m[3]
             m[7],m[10]=m[10],m[7]
             --
-			self.m=m_x_m(m,{
-				1,0,0,0,
-				0,1,0,0,
-				0,0,1,0,
-				-pos[1],-pos[2],-pos[3],1
-			})
-            self.origin=pos
-        end,
-        project=function(self,v)
-            local m,code,x,y,z=self.m,0,v[1],v[2],v[3]
-            local ax,ay,az=m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14],m[3]*x+m[7]*y+m[11]*z+m[15]
-    
-            local w=fov/az
-            local a={ax,ay,az,x=64+64*ax*w,y=64-64*ay*w,u=v.u,v=v.v,w=w}
-            return a
+            self.m=m_x_m(m,{
+                1,0,0,0,
+                0,1,0,0,
+                0,0,1,0,
+                -origin[1],-origin[2],-origin[3],1
+            })
+            self.origin=origin
         end
     }
 end
 
+function make_player(origin,a)
+    local angle,dangle,velocity,dead,deadangle={0,a,0},{0,0,0},{0,0,0,}
+  
+    return {
+      -- start above floor
+      origin=v_add(origin,{0,1,0}),    
+      m=make_m_from_euler(unpack(angle)),
+      control=function(self)
+        -- move
+        local dx,dz,a,jmp=0,0,angle[2],0
+        if(btn(0,1)) dx=3
+        if(btn(1,1)) dx=-3
+        if(btn(2,1)) dz=3
+        if(btn(3,1)) dz=-3
+        if(btnp(4)) jmp=6
+  
+        dangle=v_add(dangle,{stat(39),stat(38),dx/40})
+        local c,s=cos(a),-sin(a)
+        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},1)         
+      end,
+      update=function(self)
+        -- damping      
+        angle[3]*=0.8
+        dangle=v_scale(dangle,0.6)
+        velocity[1]*=0.7
+        --velocity[2]*=0.9
+        velocity[3]*=0.7
+        -- gravity
+        velocity[2]-=18
+  
+        if dead then
+          angle=v_lerp(angle,deadangle,0.6)
+        else
+          angle=v_add(angle,dangle,1/1024)
+        end
+  
+        -- check next position
+        local vn,vl=v_normz(velocity)      
+        local new_pos,new_vel,new_ground=v_add(self.origin,velocity),velocity,self.ground
+        if vl>0.1 then
+            if new_pos[2]<0 then
+              new_pos[2]=0
+              new_vel[2]=0
+            end
+                
+            -- use corrected velocity
+            self.origin=new_pos
+            velocity=new_vel
+        end
+
+        if dead then
+          self.eye_pos=v_add(self.origin,{0,2,0})
+        else
+          self.eye_pos=v_add(self.origin,{0,24,0})
+        end
+        self.m=make_m_from_euler(unpack(angle))   
+        self.angle=angle 
+        
+      end
+    } 
+end
+
+local ground={
+    {0,0,0},
+    {0,0,1024},
+    {1024,0,1024},
+    {1024,0,0}
+}
+
+function draw_ground(light)
+    local m=_cam.m
+    local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
+    local verts,outcode,nearclip={},0xffff,0  
+    -- to cam space + clipping flags
+    for i,v0 in pairs(ground) do
+        local code,x,y,z=2,v0[1],v0[2],v0[3]
+        local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+        if(az>8) code=0
+        if(az>854) code|=1
+        -- fov adjustment
+        if(-ax<<1>az) code|=4
+        if(ax<<1>az) code|=8
+        
+        local w=128/az 
+        verts[i]={ax,ay,az,u=x>>4,v=z>>4,x=63.5+ax*w,y=63.5-ay*w,w=w}
+
+        outcode&=code
+        nearclip+=code&2
+    end
+    -- out of screen?
+    if outcode==0 then
+      if nearclip!=0 then
+        -- near clipping required?
+        local res,v0={},verts[#verts]
+        local d0=v0[3]-8
+        for i,v1 in inext,verts do
+          local side=d0>0
+          if(side) res[#res+1]=v0
+          local d1=v1[3]-8
+          if (d1>0)!=side then
+            -- clip!
+            local t=d0/(d0-d1)
+            local v=v_lerp(v0,v1,t)
+            -- project
+            -- z is clipped to near plane
+            v.x=63.5+(v[1]<<4)
+            v.y=63.5-(v[2]<<4)
+            v.w=16
+            v.u=lerp(v0.u,v1.u,t)
+            v.v=lerp(v0.v,v1.v,t)
+            res[#res+1]=v
+          end
+          v0,d0=v1,d1
+        end
+        verts=res
+      end
+      mode7(verts,#verts,light)
+    end    
+end
+
+function mode7(p,np,light)
+  poke4(0x5f38,0x0000.0404)
+  local miny,maxy,mini=32000,-32000
+  -- find extent
+  for i=1,np do
+    local y=p[i].y
+    if (y<miny) mini,miny=i,y
+    if (y>maxy) maxy=y
+  end
+
+  --data for left & right edges:
+  local lj,rj,ly,ry,lx,ldx,rx,rdx,lu,ldu,lv,ldv,ru,rdu,rv,rdv,lw,ldw,rw,rdw=mini,mini,miny-1,miny-1
+  local maxlight,pal0=light\0.066666
+  --step through scanlines.
+  if(maxy>127) maxy=127
+  if(miny<0) miny=-1
+  for y=1+miny&-1,maxy do
+    --maybe update to next vert
+    while ly<y do
+      local v0=p[lj]
+      lj+=1
+      if (lj>np) lj=1
+      local v1=p[lj]
+      -- make sure w gets enough precision
+      local y0,y1,w1=v0.y,v1.y,v1.w
+      local dy=y1-y0
+      ly=y1&-1
+      lx=v0.x
+      lw=v0.w
+      lu=v0.u*lw
+      lv=v0.v*lw
+      ldx=(v1.x-lx)/dy
+      ldu=(v1.u*w1-lu)/dy
+      ldv=(v1.v*w1-lv)/dy
+      ldw=(w1-lw)/dy
+      --sub-pixel correction
+      local dy=y-y0
+      lx+=dy*ldx
+      lu+=dy*ldu
+      lv+=dy*ldv
+      lw+=dy*ldw
+    end   
+    while ry<y do
+      local v0=p[rj]
+      rj-=1
+      if (rj<1) rj=np
+      local v1=p[rj]
+      local y0,y1,w1=v0.y,v1.y,v1.w
+      local dy=y1-y0
+      ry=y1&-1
+      rx=v0.x
+      rw=v0.w
+      ru=v0.u*rw
+      rv=v0.v*rw
+      rdx=(v1.x-rx)/dy
+      rdu=(v1.u*w1-ru)/dy
+      rdv=(v1.v*w1-rv)/dy
+      rdw=(w1-rw)/dy
+      --sub-pixel correction
+      local dy=y-y0
+      rx+=dy*rdx
+      ru+=dy*rdu
+      rv+=dy*rdv
+      rw+=dy*rdw
+    end
+    
+    -- rectfill(rx,y,lx,y,8/rw)
+    if rw>0.15 then
+      local rx,lx,ru,rv,lu,lv=rx,lx,ru,rv,lu,lv
+      local ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
+      local ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
+      if(rx<0) ru-=rx*ddu rv-=rx*ddv rx=0
+      if(lx>127) lu+=(128-lx)*ddu lv+=(128-lx)*ddv lx=128
+      if rx<lx then
+        local r0=rw>0.46875 and maxlight or (light*rw)\0.03125
+        if(pal0!=r0) memcpy(0x5f00,0x4300|r0<<4,16) pal0=r0	-- color shift now to free up a variable
+        -- refresh actual extent
+        ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
+        ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
+        local pix=1-rx&0x0.ffff
+        tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
+      end
+    end
+
+    lx+=ldx
+    lu+=ldu
+    lv+=ldv
+    lw+=ldw
+    rx+=rdx
+    ru+=rdu
+    rv+=rdv
+    rw+=rdw
+  end      
+end
+
 function _init()
-    _cam = make_cam(0.05)
+  -- enable tile 0 + extended memory
+  poke(0x5f36, 0x18)
+  -- capture mouse
+  -- enable lock
+  poke(0x5f2d,0x7)
+
+  -- exit menu entry
+  menuitem(1,"main menu",function()
+    -- local version
+    load("freds72_daggers_title.p8")
+    -- bbs version
+    load("#freds72_daggers_title")
+  end)
+
+  -- capture gradient
+  local mem=0x4300
+  for i=15,0,-1 do
+    for j=0,15 do
+      poke(mem,sget(i+32,j+16))
+      mem+=1
+    end
+  end
+
+  -- run game
+  next_state(play_state)
+end
+
+-- game states
+function next_state(fn,...)
+  local u,d,i=fn(...)
+  -- ensure update/draw pair is consistent
+  _update_state=function()
+    -- init function (if any)
+    if(i) i()
+    -- 
+    _update_state,_draw=u,d
+    -- actually run the update
+    u()
+  end
+end
+
+function play_state()
+  local start_time
+
+  -- load images
+
+  -- camera & player
+  _plyr=make_player({512,24,512},0)
+  _things={}
+  add(_things,_plyr)
+  _cam=make_fps_cam()
+
+  return
+    -- update
+    function()
+      _plyr:control()
+      
+      _cam:track(_plyr.eye_pos,_plyr.m,_plyr.angle)
+    end,
+    -- draw
+    function()
+      cls(0)
+      draw_ground(1)
+                            
+      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
+    end,
+    -- init
+    function()
+      start_time=time()
+    end
 end
 
 function _update()
-    _cam:track(5)
+  -- keep world running
+  for thing in all(_things) do
+    if(thing.update) thing:update()
+  end
+  
+  _update_state()
 end
 
-function _draw()
-    cls()
-
-    for i=8,0,-1 do
-        local u0=8*(i\2)
-        local poly={
-            {-1,-1,i*0.125,u=8+u0,v=0},
-            {1,-1,i*0.125,u=16+u0,v=0},
-            {1,1,i*0.125,u=16+u0,v=8},
-            {-1,1,i*0.125,u=8+u0,v=8}
-        }
-        local p={}
-        for k,v in pairs(poly) do
-            p[k]=_cam:project(v)
-        end
-
-        polytex(p,4)
-    end
-
-end
