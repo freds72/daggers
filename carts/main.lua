@@ -40,11 +40,11 @@ function make_player(origin,a)
         if(btn(1,1)) dx=-3
         if(btn(2,1)) dz=3
         if(btn(3,1)) dz=-3
-        if(btnp(4)) jmp=6
+        if(btnp(4)) jmp=12
   
         dangle=v_add(dangle,{stat(39),stat(38),0})
         local c,s=cos(a),-sin(a)
-        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},1)         
+        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx})         
       end,
       update=function(self)
         -- damping      
@@ -54,7 +54,7 @@ function make_player(origin,a)
         --velocity[2]*=0.9
         velocity[3]*=0.7
         -- gravity
-        velocity[2]-=18
+        velocity[2]-=1
   
         if dead then
           angle=v_lerp(angle,deadangle,0.6)
@@ -79,13 +79,25 @@ function make_player(origin,a)
         end
 
         if dead then
-          self.eye_pos=v_add(self.origin,{0,2,0})
+          self.eye_pos=v_add(self.origin,{0,8,0})
         else
           self.eye_pos=v_add(self.origin,{0,24,0})
+
+          -- check collisions
+          --[[
+          local things=_grid[world_to_grid(self.eye_pos)]
+          for thing in pairs(things) do
+            local dist=v_len(make_v(self.eye_pos,thing.origin))
+            if dist<16 then
+              dead=true
+              deadangle=v_clone(angle)
+              deadangle[1]-=rnd()/32
+            end
+          end
+          ]]
         end
         self.m=make_m_from_euler(unpack(angle))   
-        self.angle=angle 
-        
+        self.angle=angle         
       end
     } 
 end
@@ -248,10 +260,17 @@ function world_to_grid(p)
   return (p[1]\128)>>16|(p[2]\128)>>8|(p[3]\128)
 end
 
-function register_in_grid(thing)
+function grid_register(thing)
   local id=world_to_grid(thing.origin)
   local things=_grid[id] or {}
   things[thing]=true
+  _grid[id]=things
+end
+
+function grid_unregister(thing)
+  local id=world_to_grid(thing.origin)
+  local things=_grid[id] or {}
+  things[thing]=nil
   _grid[id]=things
 end
 
@@ -366,14 +385,41 @@ function collect_blocks(cam,visible_blocks)
   end
 end
 
-function draw_grid(cam)
+function draw_grid(cam,light)
   local m,fov=cam.m,cam.fov
+  local cx,cy,cz=unpack(cam.origin)
   local visible_blocks,grid={},_grid
   local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
 
   -- viz blocks
   collect_blocks(cam,visible_blocks)
-  
+
+  -- render shadows
+  poke(0x5f5e, 0b11111110)
+  for i=1,#visible_blocks,2 do
+    for thing in pairs(visible_blocks[i]) do
+      local origin=thing.origin
+      local x,z=origin[1],origin[3]
+      -- draw shadows (y=0)
+      local ax,az=m1*x+m9*z+m13,m3*x+m11*z+m15
+      if az>8 and az<854 and ax<az and -ax<az then
+        local ay=m2*x+m10*z+m14
+        -- 
+        local w=128/az
+        -- thing offset+cam offset              
+        local dx,dz=cx-x,cz-z
+        local a=atan2(dx,dz)        
+        local d=dx*cos(a)+dz*sin(a)
+        local a=atan2(d,cy)
+        local r=8*w
+        local ry=-r*sin(a)
+        local x0,y0=63.5+ax*w,63.5-ay*w
+        ovalfill(x0-r,y0-ry,x0+r,y0+ry,1)
+      end
+    end
+  end
+  poke(0x5f5e, 0xff)
+
   -- render in order
   for i=1,#visible_blocks,2 do
     -- sorted array
@@ -381,6 +427,7 @@ function draw_grid(cam)
     for thing in pairs(visible_blocks[i]) do
       local origin=thing.origin
       local x,y,z=origin[1],origin[2],origin[3]
+      -- draw shadows
       local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
       if az>8 and az<854 and ax<az and -ax<az then
         local ay=m2*x+m6*y+m10*z+m14
@@ -395,24 +442,69 @@ function draw_grid(cam)
         add(things,{w,thing,63.5+ax*w,63.5-ay*w},thingi)
       end
     end
+    
     -- draw things
+    local prev_base,pal0
     for _,head in inext,things do
       local w0,thing=head[1],head[2]
-      circfill(head[3],head[4],w0*8,w0*8)
+      -- zangle
+      local lookat=make_v(thing.origin,cam.origin)
+      local side,flip=8*((atan2(lookat[1],-lookat[3])-thing.zangle+0.0625)&0x0.ffff)\1
+      if(side>4) side=4-(side%5) flip=true
+      
+      local dx,dz=lookat[1],lookat[3]
+      local a=atan2(dx,dz)        
+      local dist=dx*cos(a)+dz*sin(a)
+      local yside,yflip=8*((atan2(dist,-lookat[2])-0.25+0.0625)&0x0.ffff)\1
+      if(yside>4) yside=4-(yside%5) yflip=true
+      -- copy to spr
+      -- skip top+top rotation
+      local mem,base=0x0,32*(8*(5-yside)+side)+1
+      if prev_base!=base then
+        for i=0,15 do
+          poke4(mem,_sprites[base],_sprites[base+1])
+          mem+=64
+          base+=2
+        end
+        prev_base=base
+      end
+      local sw=16*w0
+      local sx,sy,pal1=head[3]-sw/2,head[4]-sw/2,(light*min(15,w0<<5))\1
+      if(pal0!=pal1) memcpy(0x5f00,0x4300|pal1<<4,16) palt(0,true) pal0=pal1   
+      sspr(0,0,16,16,sx,sy,sw+sx%1,sw+sy%1,flip)
+
+      --print(7-yside,sx+sw/2,sy-8,9)
+      
     end
-  end  
+  end    
 end
 
 -- things
 function make_skull(origin)
+  local zangle=rnd()
+  local vel={cos(zangle)/4,0,-sin(zangle)/4}
   local thing=add(_things,{
     -- sprite id
     id=0,
     origin=origin,
+    zangle=zangle,
     update=function(self)
+      grid_unregister(self)
+
+      local pos=v_add(self.origin,vel)
+      local x=mid(pos[1],0,1024)
+      if x!=pos[1] then
+        pos[1]=pos[1]%1024        
+      end
+      local z=mid(pos[3],0,1024)
+      if z!=pos[3] then
+        pos[3]=pos[3]%1024
+      end
+      self.origin=pos
+      grid_register(self)
     end
   })
-  register_in_grid(thing)
+  grid_register(thing)
   return thing
 end
 
@@ -462,13 +554,15 @@ function play_state()
     -- draw
     function()
       cls(0)
-
+            
       draw_ground(1)
 
       -- draw things
-      draw_grid(_cam)      
+      draw_grid(_cam,1)      
                             
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
+
+      print(stat(0).."kb",2,2,3)
     end,
     -- init
     function()
@@ -517,16 +611,11 @@ end
 -- data unpacking functions
 -- unpack 1 or 2 bytes
 function unpack_variant()
-	local h=mpeek()
-	-- above 127?
-  if h&0x80>0 then
-    return (h&0x7f)<<8|mpeek()
-  end
-	return h
+	return mpeek()|mpeek()<<8
 end
 -- unpack a fixed 16:16 value or 4 bytes
 function unpack_dword()
-	return mpeek()<<8|mpeek()|mpeek()>>8|mpeek()>>16
+	return mpeek()>>16|mpeek()>>8|mpeek()|mpeek()<<8
 end
 
 -- unpack an array of bytes
@@ -539,7 +628,7 @@ end
 function unpack_images()
   local sprites={}
   unpack_array(function()
-    for i=0,127 do
+    for i=1,32 do
       add(sprites,unpack_dword())
     end
   end)

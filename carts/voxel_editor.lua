@@ -694,15 +694,13 @@ function _init()
         clip(0,0,16,16)
         local xyz=_grid_size/2
         local zangles={}
-        for i=0,1-0.125/2,0.125/2 do
+        for i=0,1-0.125,0.125 do
             add(zangles,i)
         end
-        -- special case (top/bottom)
-        local yangles={[0]={0},[-0.5]={0}}
+        -- note: removed special top/down cases
         local count=0
         for y=0,-0.5,-0.125 do
-            local angles=yangles[y] or zangles
-            for i,z in ipairs(angles) do
+            for i,z in ipairs(zangles) do
                 cls()
                 cam:control({xyz,xyz,xyz},y,z,1.5*_grid_size)
                 draw_grid(cam)
@@ -719,7 +717,7 @@ function _init()
         clip()        
         -- save carts
         local mem,id=0x0,0
-        poke2(mem,#images)
+        poke2(mem,#images\32)        
         mem+=2
         for i,v in ipairs(images) do
             poke4(mem,v)
@@ -747,10 +745,12 @@ function _init()
     
     -- demo voxels
     srand(42)
-    for i=0,4*_grid_size-1 do
-        for j=0,4*_grid_size-1 do
+    for i=0,7 do
+        for j=0,7 do
             for k=0,7 do
-                if(rnd()>0.125) _grid[i>>16|j>>8|k]=5
+                if i==0 or i==7 or j==0 or j==7 or k==0 or k==7 then
+                    _grid[i>>16|j>>8|k]=5
+                end
             end
         end
     end
