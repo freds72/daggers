@@ -12,13 +12,7 @@ _editor_state={
 }
 
 _grid={}
-_sprite_grid={}
-_sprite_by_id={}
-_grid_size=8
-
--- records non-empty slices per dimension x per-coordinates
--- if _grid_occupancy[3][25] --> at least 1 cube on slice z=25
-_grid_occupancy={{},{},{}}
+_grid_size=14
 
 -- draw cube help
 local cube={
@@ -209,7 +203,7 @@ function collect_blocks(cam,extents,visible_blocks)
     local draw_last=function(face_mask,idx)
         for last=last0,lastc-1 do        
             local idx=idx|last>>>last_shift
-            local id=_grid[idx] or _sprite_grid[idx]
+            local id=_grid[idx]
             if id then
                 add(visible_blocks,id)
                 add(visible_blocks,face_mask|(0x01.0101&last_mask))            
@@ -219,7 +213,7 @@ function collect_blocks(cam,extents,visible_blocks)
         -- flip side
         for last=last1,lastc+1,-1 do        
             local idx=idx|last>>>last_shift
-            local id=_grid[idx] or _sprite_grid[idx]
+            local id=_grid[idx]
             if id then
                 add(visible_blocks,id)
                 add(visible_blocks,face_mask|(0x02.0202&last_mask))            
@@ -228,7 +222,7 @@ function collect_blocks(cam,extents,visible_blocks)
         end
         if last_fix then
             local idx=idx|lastc>>>last_shift
-            local id=_grid[idx] or _sprite_grid[idx]
+            local id=_grid[idx]
             if id then
                 add(visible_blocks,id)
                 add(visible_blocks,face_mask)            
@@ -285,14 +279,14 @@ function collect_blocks(cam,extents,visible_blocks)
     end
 end
 
-function draw_grid(cam)
+function draw_grid(cam,layer)
     local visible_blocks={}
     local m,fov=cam.m,cam.fov
     local xcenter,ycenter,scale=cam.xcenter,cam.ycenter,cam.scale
 
     local extents={}
     for i=1,3 do
-        extents[i]={lo=max(cam.lookat[i]\1-4),hi=max(7,cam.lookat[i]\1+3)}
+        extents[i]={lo=0,hi=_grid_size}
     end
 
     -- viz blocks
@@ -311,8 +305,13 @@ function draw_grid(cam)
         -- printh("mask: "..tostr(visible_blocks[i],1).." idx: "..tostr(idx,1))
         -- solid block
         local adj={ox,oy,oz}
-        --fillp(((ox+oy)&1)*0xffff)
-        local swap=(ox+oy)&1
+        local polydraw=function(p,np,c,side)
+            polyfill(p,np,c)
+            if(side==0x02 or side==0x01) polyline(p,np,c-1)            
+        end
+        if layer and layer!=oz then
+            polydraw=polyline
+        end
         for maski,mask in pairs(masks) do
             local active_side=current_mask&mask
             local side=faces[active_side]
@@ -354,7 +353,9 @@ function draw_grid(cam)
                     if outcode==0 then 
                         local np=4
                         if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
-                        if(np>2) polyfill(verts,np,id)
+                        if np>2 then
+                            polydraw(verts,np,id,active_side)                            
+                        end
                     end
                 end
             end
@@ -364,7 +365,7 @@ end
 
 -- camera
 function make_cam(x0,y0,scale,fov)
-    local focal=cos(fov/2)
+    local focal=fov
 	return {
         fov=focal,
 		pos={0,0,0},
@@ -405,9 +406,10 @@ function make_cam(x0,y0,scale,fov)
             if(z>-1) return
             local w=focal/z
             return x0+scale*x*w,y0-scale*y*w,w
-		end,
-        unproject=function(self,x,y)
-            return -(x-x0)/(scale*focal),(y-y0)/(scale*focal)
+		end,        
+        unproject=function(self,x,y,layer)
+            local w=-scale*fov
+            return (x-x0)/w,-(y-y0)/w
         end,
         z_poly_clip=function(self,v,nv)
             local res,v0={},v[nv]
@@ -441,23 +443,32 @@ function make_voxel_editor()
 	local dyangle,dzangle=0,0
     local offsetx,offsety=0,0
     local layer=3
-    local cam=make_cam(64,64+6,64,0.25)
-    local cam2=make_cam(64,64+6,64,0.25)
+    local cam=make_cam(64,64+6,64,2)
+    local cam2=make_cam(64,64+6,64,2)
     local quad={
         {0,0,0},
         {1,0,0},
         {1,1,0},
         {0,1,0}
     }
+    local arrow={
+        {0.25,0.5,0},
+        {0.25,1,0},
+        {0,1,0},
+        {0.5,1.5,0},
+        {1,1,0},
+        {0.75,1,0},
+        {0.75,0.5,0}
+    }
     local undo_stack={}
     local function apply(idx,col)
-        if col==0 then
-            _grid[idx]=nil
-            _sprite_grid[idx]=nil
-        elseif col<16 then                    
-            _grid[idx]=col
-        else
-            _sprite_grid[idx]=col
+        -- color 0: kill grid cell
+        _grid[idx]=col>0 and col or nil
+        -- apply the change to the mirror
+        local x=(idx&0x0.00ff)<<16
+        local flipx=_grid_size-x
+        if x!=flipx then
+            _grid[(idx&0xff.ff00)|flipx>>16]=_grid[idx]
         end
     end
     return is_window({
@@ -465,33 +476,50 @@ function make_voxel_editor()
             -- todo: layer offset by +0 +1 if camera is under
             local r=self.rect
             clip(r.x,r.y,r.w,r.h)
-            draw_grid(cam)
+            draw_grid(cam,layer)
 
             -- draw layer selection            
             local pts={}
             for i,p in pairs(quad) do
-                p=v_scale(p,_grid_size)
+                p=v_scale(p,_grid_size+1)
                 p[3] = layer+1
-                pts[i]=v_add(p,{offsetx,offsety,0},1)
+                pts[i]=p
             end
             local xmax,ymax=-32000
-            local p0=pts[4]
+            local p0=pts[#pts]
             local x0,y0,w0=cam:project(p0)    
-            for i=1,4 do
+            for i=1,#pts do
                 local p1=pts[i]
                 local x1,y1,w1=cam:project(p1)
                 if(w1 and x1>xmax) xmax,ymax=x1,y1
                 if(w1 and w0) line(x0,y0,x1,y1,6)
                 x0,y0,w0=x1,y1,w1
             end
+            -- arrow
+            local pts={}
+            for i,p in pairs(arrow) do
+                p=v_scale(p,_grid_size+1)
+                p[3] = layer+1
+                pts[i]=v_add(p,{0,_grid_size,0})
+            end
+            local p0=pts[#pts]
+            local x0,y0,w0=cam:project(p0)    
+            for i=1,#pts do
+                local p1=pts[i]
+                local x1,y1,w1=cam:project(p1)
+                if(w1 and w0) line(x0,y0,x1,y1,6)
+                x0,y0,w0=x1,y1,w1
+            end
+
             if(ymax) print(layer,xmax+2,ymax-2,7)   
             
             -- draw cursor if any
             if current_voxel then
                 local pts={}
+                local zoffset=cam.pos[3]<layer and 0 or 1
                 for i,p in pairs(quad) do
                     p=v_add(p,current_voxel.origin)
-                    p[3]=layer+1
+                    p[3]=layer+zoffset
                     pts[i]=v_add(p,{offsetx,offsety,0},1)
                 end
                 --fillp(0xa5a5.8)
@@ -506,7 +534,8 @@ function make_voxel_editor()
                 end    
                 fillp()
             end            
-            clip()  
+            clip() 
+            if(current_voxel) print(v_tostr(current_voxel.origin),2,110,8)
             pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
         end,
         mousemove=function(self,msg)
@@ -535,16 +564,8 @@ function make_voxel_editor()
             layer=mid(layer+msg.wheel,0,_grid_size-1)
 
             local xyz=_grid_size/2
-            local dx,dy=0,0
-            if(btnp(0)) dx=1
-            if(btnp(1)) dx=-1
-            if(btnp(2)) dy=1
-            if(btnp(3)) dy=-1
-            offsetx=mid(offsetx+dx,0,255)
-            offsety=mid(offsety+dy,0,255)
-            --cam:control({xyz,xyz,layer},yangle,zangle,_grid_size*1.2)
-            cam:control({offsetx+xyz,offsety+xyz,layer},yangle,zangle,_grid_size)
-            cam2:control({xyz,xyz,layer},yangle,zangle,_grid_size)
+            cam:control({xyz,xyz,layer},yangle,zangle,1.2*_grid_size)
+            cam2:control({xyz,xyz,layer},yangle,zangle,1.2*_grid_size)
 
             -- selection
             if not rotation_mode then
@@ -554,23 +575,22 @@ function make_voxel_editor()
                 target=v_add(target,right,ti)
                 target=v_add(target,up,tj)
                 --local origin=v_clone(cam.pos)
-                
                 local d=make_v(cam2.pos,target)
                 local n,l=v_normz(d)
                 local ray={
                     origin=cam2.pos,
                     target=target,
                     dir=n,
-                    len=16}    
+                    len=4*_grid_size}    
 
                 local grid={}
-                for i=0,_grid_size-1 do
-                    for j=0,_grid_size-1 do
+                for i=0,_grid_size do
+                    for j=0,_grid_size do
                         grid[i>>16|j>>8|layer]=true
                     end
                 end
             
-                current_voxel=voxel_traversal(ray,_grid_size,grid)
+                current_voxel=voxel_traversal(ray,_grid_size+1,grid)
         
                 if current_voxel then
                     local o=current_voxel.origin
@@ -584,11 +604,10 @@ function make_voxel_editor()
                         -- click!
                         local col=_editor_state.selected_color
                         -- previous state for undo
-                        add(undo_stack,{idx=idx,col=_grid[idx] or _sprite_grid[idx] or 0})
+                        add(undo_stack,{idx=idx,col=_grid[idx] or 0})
                         apply(idx,col)
                     elseif msg.rmbp then
-
-                        _editor_state.selected_color=_grid[idx] or _sprite_grid[idx] or 0
+                        _editor_state.selected_color=_grid[idx] or 0
                     end            
                 end
             end
@@ -600,42 +619,48 @@ function make_voxel_editor()
             undo_stack[#undo_stack]=nil
             apply(prev.idx,prev.col)
         end,
-        save=function(self,msg)
-            -- get size        
-            local mem,size=0x4,0
-            local function poke_coords(idx,col)
-                poke4(mem,idx|col<<8)
-                mem+=4
+        save=function(self,msg)            
+            local mem,size=0x2,0
+            for z=0,_grid_size do
+                for y=0,_grid_size do
+                    local data,idx=0,y>>8|z
+                    -- capture only half of the voxel grid (mirror!)
+                    for x=0,7 do
+                        local id=_grid[idx|x>>16]
+                        if(id) data|=(id<<12)>>>(4*x)
+                    end
+                    -- voxels?
+                    if data!=0 then                        
+                        poke(mem,y<<4|z) mem+=1
+                        poke4(mem,data) mem+=4
+                        size+=1
+                    end
+                end
             end
-            for idx,col in pairs(_grid) do
-                size+=1
-                poke_coords(idx,col)
-            end
-            for idx,col in pairs(_sprite_grid) do
-                size+=1
-                poke_coords(idx,col)
-            end
-            poke4(0x0,size)
-            cstore(0,0,(size+1)*4,msg.filename)
+            poke2(0x0,size)
+            cstore(0,0,mem,msg.filename)
             reload()              
         end,
         load=function(self,msg)            
             _grid={}
-            _sprite_grid={}
             undo_stack={}            
-            offsetx,offsety=0,0
+            -- offsetx,offsety=0,0
             reload(0,0,0x4300,msg.filename)
-            local mem,size=0x4,peek4(0x0)
+            local mem,size=0x2,peek2(0x0)
             for i=1,size do
-                local v=peek4(mem)
-                local idx=v&0x00ff.ffff
-                local col=(v&0xff00)>>>8
-                if col>15 then
-                    _sprite_grid[idx]=col
-                else
-                    _grid[idx]=col
-                end
+                local idx=peek(mem)
+                mem+=1
+                -- voxel idx
+                idx=(idx&0xf0)>>12|(idx&0xf)
+                local data=peek4(mem)
                 mem+=4
+                for x=0,7 do
+                    local id=((data<<>(4*x))>>12)&0xf
+                    if id!=0 then
+                        _grid[idx|x>>16]=id                    
+                        _grid[idx|(_grid_size-x)>>16]=id
+                    end
+                end 
             end
             reload()
         end
@@ -650,11 +675,6 @@ function _init()
     for i=0,15 do
         pickers:add(make_color_picker(i,binding(_editor_state,"selected_color")))
     end   
-    -- sprite blocks
-    for i=0,3 do
-        pickers:add(make_sprite_picker(16+i,32+i,binding(_editor_state,"selected_color")))
-        _sprite_by_id[16+i]=32+i
-    end
     -- +-
     _main:add(make_button(21,binding(function() 
         _editor_state.selected_color=max(0,_editor_state.selected_color-8)        
@@ -689,7 +709,7 @@ function _init()
 
     -- generate images
     _main:add(make_button(4,binding(function()
-        local cam=make_cam(8,8,16,0.25)
+        local cam=make_cam(8,8,8,2)
         local images={}
         clip(0,0,16,16)
         local xyz=_grid_size/2
@@ -743,19 +763,6 @@ function _init()
     -- main editor
     _main:add(make_voxel_editor(),0,8,127,119)
     
-    -- demo voxels
-    srand(42)
-    for i=0,7 do
-        for j=0,7 do
-            for k=0,7 do
-                if i==0 or i==7 or j==0 or j==7 or k==0 or k==7 then
-                    _grid[i>>16|j>>8|k]=5
-                end
-            end
-        end
-    end
-    --_grid[4>>16|4>>8|0]=11
-
     -- init keys for cube points
     for i=1,#cube do
         local p=cube[i]

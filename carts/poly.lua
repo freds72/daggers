@@ -55,7 +55,19 @@ function polyline(p,np,c)
 	color(c)
 	for i=1,np do
 		local v1=p[i]
+		local dx,dy=abs(v0.x-v1.x),abs(v0.y-v1.y)
+		fillp(dx>dy and ▥ or ▤)
 		line(v0.x,v0.y,v1.x,v1.y)
 		v0=v1
 	end
+	fillp()
 end
+
+function polyset(p,np,c)
+	color(c)
+	for i=1,np do
+		local v1=p[i]
+		pset(v1.x,v1.y)
+	end
+end
+

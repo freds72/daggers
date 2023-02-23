@@ -63,6 +63,12 @@ function v_len(v)
   return d2*cos(az)+z*sin(az)
 end 
 
+function vxz_len(v)
+	local x,z=v[1],v[3]
+	local ax=atan2(x,z)
+	return x*cos(ax)+z*sin(ax)
+end 
+
 function v_normz(v)
   local d=v_len(v)
 	return {v[1]/d,v[2]/d,v[3]/d},d
