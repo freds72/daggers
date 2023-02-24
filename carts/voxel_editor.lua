@@ -476,7 +476,7 @@ function make_voxel_editor()
             -- todo: layer offset by +0 +1 if camera is under
             local r=self.rect
             clip(r.x,r.y,r.w,r.h)
-            draw_grid(cam,layer)
+            draw_grid(cam,current_voxel and layer)
 
             -- draw layer selection            
             local pts={}
