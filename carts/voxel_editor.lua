@@ -709,9 +709,9 @@ function _init()
 
     -- generate images
     _main:add(make_button(4,binding(function()
-        local cam=make_cam(8,8,8,2)
+        local cam=make_cam(16,16,16,2)
         local images={}
-        clip(0,0,16,16)
+        clip(0,0,32,32)
         local xyz=_grid_size/2
         local zangles={}
         for i=0,1-0.125,0.125 do
@@ -726,9 +726,11 @@ function _init()
                 draw_grid(cam)
                 -- capture image in array
                 local mem=0x6000
-                for j=0,15 do
+                for j=0,31 do
                     add(images,peek4(mem))
                     add(images,peek4(mem+4))
+                    add(images,peek4(mem+8))
+                    add(images,peek4(mem+12))
                     mem+=64
                 end
                 flip()
