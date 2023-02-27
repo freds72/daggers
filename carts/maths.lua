@@ -4,6 +4,18 @@ function lerp(a,b,t)
 	return a*(1-t)+b*t
 end
 
+-- return shortest angle to target
+function shortest_angle(target,angle)
+	local d=target-angle
+	if d>0.5 then
+		angle+=1
+	elseif d<-0.5 then
+		angle-=1
+	end
+	return angle
+end
+
+-- 2d vector
 function make_v(a,b)
 	return {
 		b[1]-a[1],
@@ -63,14 +75,19 @@ function v_len(v)
   return d2*cos(az)+z*sin(az)
 end 
 
-function vxz_len(v)
-	local x,z=v[1],v[3]
-	local ax=atan2(x,z)
-	return x*cos(ax)+z*sin(ax)
+-- normalized direction 
+-- same as v_len without building a vector
+function v_dir(a,b)
+	local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
+	local ax=atan2(x,y)
+	local d2=x*cos(ax)+y*sin(ax)
+	local az=atan2(d2,z)
+	local d=d2*cos(az)+z*sin(az)
+	return {x/d,y/d,z/d},d
 end 
 
 function v_normz(v)
-  local d=v_len(v)
+	local d=v_len(v)
 	return {v[1]/d,v[2]/d,v[3]/d},d
 end
 

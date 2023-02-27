@@ -299,6 +299,8 @@ function collect_blocks(cam,visible_blocks)
       {3,-1,1},
       {2,1,-1}
   }
+  local extents={7,7,2}
+
   local lasti=last[majori][minori]
 
   local cam_last=cam.origin[lasti]\128
@@ -411,7 +413,7 @@ function draw_grid(cam,light)
         local a=atan2(dx,dz)        
         local d=dx*cos(a)+dz*sin(a)
         local a=atan2(d,cy)
-        local r=8*w
+        local r=4*w
         local ry=-r*sin(a)
         local x0,y0=63.5+ax*w,63.5-ay*w
         ovalfill(x0-r,y0-ry,x0+r,y0+ry,1)
@@ -455,55 +457,82 @@ function draw_grid(cam,light)
       local dx,dz=lookat[1],lookat[3]
       local a=atan2(dx,dz)        
       local dist=dx*cos(a)+dz*sin(a)
-      local yside,yflip=8*((atan2(dist,-lookat[2])-0.25+0.0625)&0x0.ffff)\1
+      local yside,yflip=8*((atan2(dist,lookat[2])-0.25+0.0625)&0x0.ffff)\1
       if(yside>4) yside=4-(yside%5) yflip=true
       -- copy to spr
       -- skip top+top rotation
-      local mem,base=0x0,32*(8*(5-yside)+side)+1
-      if prev_base!=base then
-        for i=0,15 do
-          poke4(mem,_sprites[base],_sprites[base+1])
+      local mem,base=0x0,128*(8*(5-yside)+side)+1
+      if not prev_base!=base then
+        for i=0,31 do
+          poke4(mem,_sprites[base],_sprites[base+1],_sprites[base+2],_sprites[base+3])
           mem+=64
-          base+=2
+          base+=4
         end
         prev_base=base
       end
       local sw=16*w0
       local sx,sy,pal1=head[3]-sw/2,head[4]-sw/2,(light*min(15,w0<<5))\1
       if(pal0!=pal1) memcpy(0x5f00,0x4300|pal1<<4,16) palt(0,true) pal0=pal1   
-      sspr(0,0,16,16,sx,sy,sw+sx%1,sw+sy%1,flip)
-
-      --print(7-yside,sx+sw/2,sy-8,9)
-      
+      sspr(0,0,32,32,sx,sy,sw+sx%1,sw+sy%1,flip)
+      --print(thing.zangle,sx+sw/2,sy-8,9)      
     end
   end    
 end
 
 -- things
-function make_skull(origin)
-  local zangle=rnd()
-  local vel={cos(zangle)/4,0,-sin(zangle)/4}
-  local thing=add(_things,{
+function make_skull(_origin)
+  local forces,vel={0,0,0},{0,0,0}
+  local seed,wobling=rnd(3),3+rnd(2)
+  local thing=add(_things,setmetatable({
     -- sprite id
     id=0,
-    origin=origin,
-    zangle=zangle,
-    update=function(self)
-      grid_unregister(self)
+    origin=_origin,
+    zangle=rnd(),
+    yangle=0,
+    update=function(_ENV)
+      grid_unregister(_ENV)
 
-      local pos=v_add(self.origin,vel)
-      local x=mid(pos[1],0,1024)
-      if x!=pos[1] then
-        pos[1]=pos[1]%1024        
+      -- some gravity
+      if origin[2]<12 then 
+        forces={0,wobling,0}
+      elseif origin[2]>80 then
+        forces={0,-wobling*2,0}
       end
-      local z=mid(pos[3],0,1024)
-      if z!=pos[3] then
-        pos[3]=pos[3]%1024
+      -- some friction
+      vel=v_scale(vel,0.9)
+      -- converge toward player
+      local dir=v_dir(origin,_plyr.eye_pos)
+      forces=v_add(forces,dir,5+seed*cos(time()/5))
+      -- avoid others
+      local idx=world_to_grid(origin)
+      
+      local fx,fy,fz=unpack(forces)
+      for other in pairs(_grid[idx]) do
+        local avoid,avoid_dist=v_dir(origin,other.origin)
+        if(avoid_dist<1) avoid_dist=1
+        local t=-4/avoid_dist
+        fx+=t*avoid[1]
+        fy+=t*avoid[2]
+        fz+=t*avoid[3]
       end
-      self.origin=pos
-      grid_register(self)
+      forces={fx,fy,fz}
+
+      local old_vel=vel
+      vel=v_add(vel,forces,1/30)
+      
+      -- align direction and sprite direction
+      local target_angle=atan2(old_vel[1]-vel[1],vel[3]-old_vel[3])
+      zangle=lerp(shortest_angle(target_angle,zangle),target_angle,0.2)
+      
+      -- move & clamp
+      origin[1]=mid(origin[1]+vel[1],0,1024)
+      origin[2]=max(4,origin[2]+vel[2])
+      origin[3]=mid(origin[3]+vel[3],0,1024)
+
+      forces={0,0,0}
+      grid_register(_ENV)
     end
-  })
+  },{__index=_ENV}))
   grid_register(thing)
   return thing
 end
@@ -601,10 +630,10 @@ end
 
 function _update()
   -- keep world running
+  count=0
   for thing in all(_things) do
     if(thing.update) thing:update()
   end
-  
   _update_state()
 end
 
@@ -628,7 +657,7 @@ end
 function unpack_images()
   local sprites={}
   unpack_array(function()
-    for i=1,32 do
+    for i=1,128 do
       add(sprites,unpack_dword())
     end
   end)
