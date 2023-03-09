@@ -1,6 +1,7 @@
 
 -- editor state
 _editor_state={
+    -- to be used to lookup in palette
     selected_color=4,
     layer=0,
     offset={0,0,0},
@@ -11,8 +12,11 @@ _editor_state={
     level=1
 }
 
-_grid={}
-_grid_size=14
+local _grid={}
+local _grid_size=14
+
+-- color palette
+local _palette={}
 
 -- draw cube help
 local cube={
@@ -279,7 +283,7 @@ function collect_blocks(cam,extents,visible_blocks)
     end
 end
 
-function draw_grid(cam,layer)
+function draw_grid(cam,layer,render)
     local visible_blocks={}
     local m,fov=cam.m,cam.fov
     local xcenter,ycenter,scale=cam.xcenter,cam.ycenter,cam.scale
@@ -307,7 +311,7 @@ function draw_grid(cam,layer)
         local adj={ox,oy,oz}
         local polydraw=function(p,np,c,side)
             polyfill(p,np,c)
-            if(side==0x02 or side==0x01) polyline(p,np,c-1)            
+            if(not render and (side==0x02 or side==0x01)) polyline(p,np,0x1000.a5a5|0x17)            
         end
         if layer and layer!=oz then
             polydraw=polyline
@@ -354,7 +358,7 @@ function draw_grid(cam,layer)
                         local np=4
                         if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
                         if np>2 then
-                            polydraw(verts,np,id,active_side)                            
+                            polydraw(verts,np,_palette[id],active_side)                            
                         end
                     end
                 end
@@ -492,7 +496,7 @@ function make_voxel_editor()
                 local p1=pts[i]
                 local x1,y1,w1=cam:project(p1)
                 if(w1 and x1>xmax) xmax,ymax=x1,y1
-                if(w1 and w0) line(x0,y0,x1,y1,6)
+                if(w1 and w0) line(x0,y0,x1,y1,0x66)
                 x0,y0,w0=x1,y1,w1
             end
             -- arrow
@@ -507,7 +511,7 @@ function make_voxel_editor()
             for i=1,#pts do
                 local p1=pts[i]
                 local x1,y1,w1=cam:project(p1)
-                if(w1 and w0) line(x0,y0,x1,y1,6)
+                if(w1 and w0) line(x0,y0,x1,y1,0x66)
                 x0,y0,w0=x1,y1,w1
             end
 
@@ -529,10 +533,9 @@ function make_voxel_editor()
                     local p1=pts[i]
                     local x1,y1,w1=cam:project(p1)
                     if(w1 and x1>xmax) xmax,ymax=x1,y1
-                    if(w1 and w0) line(x0,y0,x1,y1,7)
+                    if(w1 and w0) line(x0,y0,x1,y1,x77)
                     x0,y0,w0=x1,y1,w1
                 end    
-                fillp()
             end            
             clip() 
             if(current_voxel) print(v_tostr(current_voxel.origin),2,110,8)
@@ -564,8 +567,8 @@ function make_voxel_editor()
             layer=mid(layer+msg.wheel,0,_grid_size-1)
 
             local xyz=_grid_size/2
-            cam:control({xyz,xyz,layer},yangle,zangle,1.2*_grid_size)
-            cam2:control({xyz,xyz,layer},yangle,zangle,1.2*_grid_size)
+            cam:control({xyz,xyz,layer},yangle,zangle,1.5*_grid_size)
+            cam2:control({xyz,xyz,layer},yangle,zangle,1.5*_grid_size)
 
             -- selection
             if not rotation_mode then
@@ -619,45 +622,47 @@ function make_voxel_editor()
             undo_stack[#undo_stack]=nil
             apply(prev.idx,prev.col)
         end,
-        save=function(self,msg)            
-            local mem,size=0x2,0
+        save=function(self,msg) 
+            -- version
+            poke(0x0,1)           
+            local mem,size=0x3,0
             for z=0,_grid_size do
                 for y=0,_grid_size do
-                    local data,idx=0,y>>8|z
-                    -- capture only half of the voxel grid (mirror!)
+                    local checksum,data,idx=0,{},y>>8|z
+                    -- capture only half of the voxel grid (mirror!)                    
                     for x=0,7 do
-                        local id=_grid[idx|x>>16]
-                        if(id) data|=(id<<12)>>>(4*x)
+                        local id=_grid[idx|x>>16] or 0
+                        add(data,id)
+                        checksum+=id
                     end
                     -- voxels?
-                    if data!=0 then                        
+                    if checksum!=0 then                        
                         poke(mem,y<<4|z) mem+=1
-                        poke4(mem,data) mem+=4
+                        poke(mem,unpack(data)) mem+=8
                         size+=1
                     end
                 end
             end
-            poke2(0x0,size)
+            poke2(0x1,size)
             cstore(0,0,mem,msg.filename)
             reload()              
         end,
         load=function(self,msg)            
             _grid={}
             undo_stack={}            
-            -- offsetx,offsety=0,0
             reload(0,0,0x4300,msg.filename)
-            local mem,size=0x2,peek2(0x0)
+            local mem,version,size=0x3,@0x0,peek2(0x1)
             for i=1,size do
-                local idx=peek(mem)
+                local idx=@mem
                 mem+=1
                 -- voxel idx
                 idx=(idx&0xf0)>>12|(idx&0xf)
-                local data=peek4(mem)
-                mem+=4
+                local data={peek(mem,8)}
+                mem+=8
                 for x=0,7 do
-                    local id=((data<<>(4*x))>>12)&0xf
+                    local id=data[x+1]
                     if id!=0 then
-                        _grid[idx|x>>16]=id                    
+                        _grid[idx|x>>16]=id
                         _grid[idx|(_grid_size-x)>>16]=id
                     end
                 end 
@@ -667,14 +672,23 @@ function make_voxel_editor()
     })
 end
 
-function _init()    
+function _init()  
+    -- integrated fill colors
+    poke(0x5f34, 1)
+
     -- create ui and callbacks
     _main=main_window()
-    local banner=_main:add(make_static(8),0,0,127,7)
+    local banner=_main:add(make_static(0x88),0,0,127,7)
     local pickers=banner:add(make_list(64,8,8,bounded_binding(_editor_state,"selected_color",0,18)),64,0,80,7)
+
     for i=0,15 do
-        pickers:add(make_color_picker(i,binding(_editor_state,"selected_color")))
-    end   
+        _palette[i]=i|i<<4
+        _palette[15+i]=i|sget(57,i)<<4|0x1000.a5a5
+    end
+    for i=0,31 do
+        pickers:add(make_color_picker({color=i,palette=_palette},binding(_editor_state,"selected_color")))
+    end 
+
     -- +-
     _main:add(make_button(21,binding(function() 
         _editor_state.selected_color=max(0,_editor_state.selected_color-8)        
@@ -698,7 +712,7 @@ function _init()
         })
     end)),9,0)
     -- level id
-    _main:add(make_static(2,binding(_editor_state,"level")),17,0,6,7)
+    _main:add(make_static(0x22,binding(_editor_state,"level")),17,0,6,7)
     -- +-
     _main:add(make_button(21,binding(function()
         _editor_state.level=mid(_editor_state.level+1,1,9)
@@ -723,7 +737,7 @@ function _init()
             for i,z in ipairs(zangles) do
                 cls()
                 cam:control({xyz,xyz,xyz},y,z,1.5*_grid_size)
-                draw_grid(cam)
+                draw_grid(cam,nil,true)
                 -- capture image in array
                 local mem=0x6000
                 for j=0,31 do
@@ -739,7 +753,7 @@ function _init()
         clip()        
         -- save carts
         local mem,id=0x0,0
-        poke2(mem,#images\32)        
+        poke2(mem,#images\32)
         mem+=2
         for i,v in ipairs(images) do
             poke4(mem,v)
@@ -749,11 +763,11 @@ function _init()
                 memset(0x0,0,0x4300)
                 mem=0
                 id+=1
-            end      
+            end
         end
         if mem!=0 then
             cstore(0x0,0x0,0x4300,"pic_"..id..".p8")
-        end
+        end        
         reload()
     end)),29,0,6)
 

@@ -191,11 +191,23 @@ function make_radio_button(s,value,binding)
 end
 
 -- color picker
-function make_color_picker(c,binding)  
+-- params:
+-- color
+-- or
+-- {color=c,palette=table}
+function make_color_picker(params,binding)  
+    local c,palette
+    if type(params)=="table" then
+        c=params.color
+        palette=params.palette
+    else
+        c=params
+    end
     return is_button({
         draw=function(self)   
             local r=self.rect
-            rectfill(r.x,r.y,r.x+r.w-1,r.y+r.h-1,c)  
+            color(palette and palette[c] or c)
+            rectfill(r.x,r.y,r.x+r.w-1,r.y+r.h-1)  
         end,
         overlay=function(self)
             if binding:get()==c then

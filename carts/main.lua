@@ -1,4 +1,5 @@
 local _plyr,_cam,_things,_grid
+local _particles,_bullets
 
 function make_fps_cam()
     local up={0,1,0}
@@ -28,7 +29,7 @@ end
 
 function make_player(origin,a)
     local angle,dangle,velocity,dead,deadangle={0,a,0},{0,0,0},{0,0,0,}
-  
+    local fire_ttl,fire=0
     return {
       -- start above floor
       origin=v_add(origin,{0,1,0}),    
@@ -41,10 +42,14 @@ function make_player(origin,a)
         if(btn(2,1)) dz=3
         if(btn(3,1)) dz=-3
         if(btnp(4)) jmp=12
-  
+
+        if not dead and btn(5) and fire_ttl<=0 then
+          fire_ttl,fire=3,true
+        end
+
         dangle=v_add(dangle,{stat(39),stat(38),0})
         local c,s=cos(a),-sin(a)
-        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx})         
+        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx})                 
       end,
       update=function(self)
         -- damping      
@@ -55,7 +60,10 @@ function make_player(origin,a)
         velocity[3]*=0.7
         -- gravity
         velocity[2]-=1
-  
+        
+        -- avoid overflow!
+        fire_ttl=max(fire_ttl-1)
+
         if dead then
           angle=v_lerp(angle,deadangle,0.6)
         else
@@ -70,7 +78,7 @@ function make_player(origin,a)
               new_pos[2]=0
               new_vel[2]=0
             end
-            -- stays on floor
+            -- temporary: stays on floor
             new_pos[1]=mid(new_pos[1],0,1024)
             new_pos[3]=mid(new_pos[3],0,1024)
             -- use corrected velocity
@@ -98,8 +106,32 @@ function make_player(origin,a)
         end
         self.m=make_m_from_euler(unpack(angle))   
         self.angle=angle         
+
+        if fire then
+          fire=nil
+          make_bullet(v_add(self.origin,{0,18,0}),self.m)
+        end
       end
     } 
+end
+
+function make_bullet(origin,m)
+  local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
+  _bullets[#_bullets+1]={
+    origin=o,
+    velocity=m_fwd(m),
+    ttl=time()+3+rnd(2),
+    c=rnd()
+  }
+end
+
+function make_particle(origin,fwd)
+  _particles[#_particles+1]={
+    origin=origin,
+    velocity=fwd,
+    ttl=time()+0.25+rnd()/5,
+    c=rnd(2)+10
+  }
 end
 
 local ground={
@@ -257,7 +289,7 @@ end
 
 -- grid helpers
 function world_to_grid(p)
-  return (p[1]\128)>>16|(p[2]\128)>>8|(p[3]\128)
+  return (p[1]\32)>>16|(p[2]\32)>>8|(p[3]\32)
 end
 
 function grid_register(thing)
@@ -267,202 +299,150 @@ function grid_register(thing)
   _grid[id]=things
 end
 
+-- note: assumes a call to register was done before
 function grid_unregister(thing)
   local id=world_to_grid(thing.origin)
-  local things=_grid[id] or {}
-  things[thing]=nil
-  _grid[id]=things
+  local things=_grid[id]
+  if things then
+    things[thing]=nil
+    -- kill bucket
+    if(not next(things)) _grid[id]=nil
+  end
 end
 
-function collect_blocks(cam,visible_blocks) 
-  -- note: fwd is in world space   
-  local fwd=cam.fwd
-  local majord,majori=-32000,1
-  for i=1,3 do
-      local d=abs(fwd[i])
-      if d>majord then
-          majori,majord=i,d
-      end
+-- radix sort
+function rsort(_data)  
+  local _len,buffer1,buffer2,idx=#_data, _data, {}, {}
+
+  -- radix shift
+  for shift=0,5,5 do
+  	-- faster than for each/zeroing count array
+    memset(0x4300,0,32)
+	for i,b in pairs(buffer1) do
+		local c=0x4300+((b.key>>shift)&31)
+		poke(c,@c+1)
+		idx[i]=c
+	end
+				
+	-- shifting array
+	local c0=@0x4300
+	for mem=0x4301,0x431f do
+		local c1=@mem+c0
+		poke(mem,c1)
+		c0=c1
+	end
+
+    for i=_len,1,-1 do
+		local k=idx[i]
+      local c=@k
+      buffer2[c] = buffer1[i]
+      poke(k,c-1)
+    end
+
+    buffer1, buffer2 = buffer2, buffer1
   end
-
-  local minord,minori=-32000,1
-  for i=1,3 do
-      if i!=majori then
-          local d=abs(fwd[i])
-          if d>minord then
-              minori,minord=i,d
-          end
-      end
-  end
-  local last={
-      {-1,3,2},
-      {3,-1,1},
-      {2,1,-1}
-  }
-  local extents={7,7,2}
-
-  local lasti=last[majori][minori]
-
-  local cam_last=cam.origin[lasti]\128
-
-  local last0,last1=0,7
-  local last_fix=cam_last
-  local lastc=last_fix
-  if lastc<last0 then
-      lastc,last_fix=last0-1
-  elseif lastc>last1 then
-      lastc,last_fix=last1+1
-  end   
-  local last_shift=(3-lasti)<<3
-  local collect_last=function(idx)
-      for last=last0,lastc-1 do        
-          local idx=idx|last>>>last_shift
-          local things=_grid[idx]
-          if things then
-              add(visible_blocks,things)
-              add(visible_blocks,idx)
-          end
-      end
-      -- flip side
-      for last=last1,lastc+1,-1 do        
-          local idx=idx|last>>>last_shift
-          local things=_grid[idx]
-          if things then
-            add(visible_blocks,things)
-            add(visible_blocks,idx)
-        end
-      end
-      if last_fix then
-          local idx=idx|lastc>>>last_shift
-          local things=_grid[idx]
-          if things then
-            add(visible_blocks,things)
-            add(visible_blocks,idx)
-        end
-      end
-  end     
-
-  local minor0,minor1=0,7
-  local minor_fix=cam.origin[minori]\128
-  local minorc=minor_fix
-  if minorc<minor0 then
-      minorc,minor_fix=minor0-1
-  elseif minorc>minor1 then
-      minorc,minor_fix=minor1+1
-  end   
-  local minor_shift=(3-minori)<<3
-  local collect_minor=function(idx)
-      for minor=minor0,minorc-1 do        
-        collect_last(idx|minor>>>minor_shift)
-      end
-      -- flip side
-      for minor=minor1,minorc+1,-1 do        
-        collect_last(idx|minor>>>minor_shift)
-      end
-      -- camera fix?
-      if minor_fix then
-        collect_last(idx|minorc>>>minor_shift)
-      end
-  end    
-
-  -- main render loop
-  local major0,major1=0,7
-  local major_fix=cam.origin[majori]\128
-  local majorc=major_fix
-  if majorc<major0 then
-      majorc,major_fix=major0-1
-  elseif majorc>major1 then
-    majorc,major_fix=major1+1
-  end    
-  local major_shift=(3-majori)<<3
-  for major=major0,majorc-1 do        
-    collect_minor(major>>>major_shift)
-  end
-  -- flip side
-  for major=major1,majorc+1,-1 do        
-    collect_minor(major>>>major_shift)
-  end
-  if major_fix then
-    collect_minor(majorc>>>major_shift)
-  end
+  return buffer2
 end
 
 function draw_grid(cam,light)
   local m,fov=cam.m,cam.fov
   local cx,cy,cz=unpack(cam.origin)
-  local visible_blocks,grid={},_grid
   local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
 
-  -- viz blocks
-  collect_blocks(cam,visible_blocks)
+  local things={}
+  -- bullets
+  poke4(0x5f38,0x0004.0101)
 
-  -- render shadows
+  -- render shadows (& collect)
   poke(0x5f5e, 0b11111110)
-  for i=1,#visible_blocks,2 do
-    for thing in pairs(visible_blocks[i]) do
-      local origin=thing.origin
-      local x,z=origin[1],origin[3]
-      -- draw shadows (y=0)
-      local ax,az=m1*x+m9*z+m13,m3*x+m11*z+m15
-      if az>8 and az<854 and ax<az and -ax<az then
-        local ay=m2*x+m10*z+m14
-        -- 
-        local w=128/az
-        -- thing offset+cam offset              
-        local dx,dz=cx-x,cz-z
-        local a=atan2(dx,dz)        
-        local d=dx*cos(a)+dz*sin(a)
-        local a=atan2(d,cy)
-        local r=4*w
-        local ry=-r*sin(a)
-        local x0,y0=63.5+ax*w,63.5-ay*w
-        ovalfill(x0-r,y0-ry,x0+r,y0+ry,1)
-      end
+  for _,thing in pairs(_things) do
+    local origin=thing.origin
+    local x,z=origin[1],origin[3]
+    -- draw shadows (y=0)
+    local ax,az=m1*x+m9*z+m13,m3*x+m11*z+m15
+    if az>8 and az<854 and ax<az and -ax<az then
+      local ay=m2*x+m10*z+m14
+      -- 
+      local w=128/az
+      -- thing offset+cam offset              
+      local dx,dz=cx-x,cz-z
+      local a=atan2(dx,dz)        
+      local d=dx*cos(a)+dz*sin(a)
+      local a=atan2(d,cy)
+      local r=4*w
+      local ry=-r*sin(a)
+      local x0,y0=63.5+ax*w,63.5-ay*w
+      ovalfill(x0-r,y0-ry,x0+r,y0+ry,1)
+    end
+
+    local x,y,z=origin[1],origin[2],origin[3]
+    -- draw shadows
+    local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
+    if az>8 and az<854 and ax<az and -ax<az then
+      local ay=m2*x+m6*y+m10*z+m14
+    
+      local w=128/az
+      things[#things+1]={key=w,type=1,thing=thing,x=63.5+ax*w,y=63.5-ay*w}
     end
   end
   poke(0x5f5e, 0xff)
 
-  -- render in order
-  for i=1,#visible_blocks,2 do
-    -- sorted array
-    local things={}      
-    for thing in pairs(visible_blocks[i]) do
-      local origin=thing.origin
-      local x,y,z=origin[1],origin[2],origin[3]
-      -- draw shadows
-      local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
-      if az>8 and az<854 and ax<az and -ax<az then
-        local ay=m2*x+m6*y+m10*z+m14
-      
-        -- default: insert at end of sorted array
-        local w,thingi=128/az,#things+1
-        -- basic insertion sort
-        for i,otherthing in inext,things do          
-          if(otherthing[1]>w) thingi=i break
-        end
-        -- thing offset+cam offset
-        add(things,{w,thing,63.5+ax*w,63.5-ay*w},thingi)
-      end
-    end
+  -- collect bullets
+  for i,bullet in pairs(_bullets) do
+    local prev,origin=bullet.prev,bullet.origin
+    local x0,y0,z0=prev[1],prev[2],prev[3]
+    local x1,y1,z1=origin[1],origin[2],origin[3]
+    -- 
+    local ax0,az0=m1*x0+m5*y0+m9*z0+m13,m3*x0+m7*y0+m11*z0+m15
+    local ax1,az1=m1*x1+m5*y1+m9*z1+m13,m3*x1+m7*y1+m11*z1+m15
+    if az0>8 and az1>8 and az0<854 and az1<854 and ax0<az0 and -ax0<az0 and ax1<az1 and -ax1<az1 then
+      local ay0=m2*x0+m6*y0+m10*z0+m14
+      local ay1=m2*x1+m6*y1+m10*z1+m14
     
-    -- draw things
-    local prev_base,pal0
-    for _,head in inext,things do
-      local w0,thing=head[1],head[2]
+      local w0,w1=128/az0,128/az1
+      things[#things+1]={key=max(w0,w1),type=2,thing=bullet,x0=63.5+ax0*w0,y0=63.5-ay0*w0,x1=63.5+ax1*w1,y1=63.5-ay1*w1}
+    end
+  end
+
+  -- collect particles
+  for i,bullet in pairs(_particles) do
+    local origin=bullet.origin
+    local x0,y0,z0=origin[1],origin[2],origin[3]
+    -- 
+    local ax0,az0=m1*x0+m5*y0+m9*z0+m13,m3*x0+m7*y0+m11*z0+m15
+    if az0>8 and az0<854 and ax0<az0 and -ax0<az0 then
+      local ay0=m2*x0+m6*y0+m10*z0+m14
+      local w0=128/az0
+      things[#things+1]={key=w0,type=3,thing=bullet,x=63.5+ax0*w0,y=63.5-ay0*w0}
+    end
+  end
+
+  -- radix sort
+  bench_start("rsort")
+  rsort(things)
+  bench_end()
+
+  -- render in order
+  local prev_base,pal0
+  for _,item in ipairs(things) do
+    local pal1=(light*min(15,item.key<<5))\1
+    if(pal0!=pal1) memcpy(0x5f00,0x4300|pal1<<4,16) palt(0,true) pal0=pal1   
+    if item.type==1 then
+      -- draw things
+      local w0,thing=item.key,item.thing
+      local origin=thing.origin
       -- zangle
-      local lookat=make_v(thing.origin,cam.origin)
-      local side,flip=8*((atan2(lookat[1],-lookat[3])-thing.zangle+0.0625)&0x0.ffff)\1
+      local dx,dz=cx-origin[1],cz-origin[3]
+      local side,flip=8*((atan2(dx,-dz)-thing.zangle+0.5+0.0625)&0x0.ffff)\1
       if(side>4) side=4-(side%5) flip=true
       
-      local dx,dz=lookat[1],lookat[3]
-      local a=atan2(dx,dz)        
-      local dist=dx*cos(a)+dz*sin(a)
-      local yside,yflip=8*((atan2(dist,lookat[2])-0.25+0.0625)&0x0.ffff)\1
-      if(yside>4) yside=4-(yside%5) yflip=true
+      local a=atan2(dx,dz)
+      local yside=8*((atan2(dx*cos(a)+dz*sin(a),cy-origin[2])-0.25+0.0625)&0x0.ffff)\1
+      if(yside>4) yside=4-(yside%5)
       -- copy to spr
       -- skip top+top rotation
       local mem,base=0x0,128*(8*(5-yside)+side)+1
-      if not prev_base!=base then
+      if prev_base!=base then
         for i=0,31 do
           poke4(mem,_sprites[base],_sprites[base+1],_sprites[base+2],_sprites[base+3])
           mem+=64
@@ -471,24 +451,36 @@ function draw_grid(cam,light)
         prev_base=base
       end
       local sw=16*w0
-      local sx,sy,pal1=head[3]-sw/2,head[4]-sw/2,(light*min(15,w0<<5))\1
-      if(pal0!=pal1) memcpy(0x5f00,0x4300|pal1<<4,16) palt(0,true) pal0=pal1   
-      sspr(0,0,32,32,sx,sy,sw+sx%1,sw+sy%1,flip)
+      local sx,sy=item.x-sw/2,item.y-sw/2
+      --
+      sspr(0,0,32,32,sx,sy,sw+(sx&0x0.ffff),sw+(sy&0x0.ffff),flip)
+      --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
+    elseif item.type==2 then
+      tline(item.x0,item.y0,item.x1,item.y1,item.thing.c,0,0,1/8)
+    elseif item.type==3 then
+      pset(item.x,item.y,item.thing.c)
     end
-  end    
+  end  
 end
 
 -- things
 function make_skull(_origin)
   local forces,vel={0,0,0},{0,0,0}
   local seed,wobling=rnd(3),3+rnd(2)
+  local resolved={}
   local thing=add(_things,setmetatable({
     -- sprite id
     id=0,
     origin=_origin,
     zangle=rnd(),
     yangle=0,
+    apply=function(_ENV,other,force,t)
+      forces[1]+=t*force[1]
+      forces[2]+=t*force[2]
+      forces[3]+=t*force[3]
+      resolved[other]=true
+    end,
     update=function(_ENV)
       grid_unregister(_ENV)
 
@@ -502,18 +494,24 @@ function make_skull(_origin)
       vel=v_scale(vel,0.9)
       -- converge toward player
       local dir=v_dir(origin,_plyr.eye_pos)
-      forces=v_add(forces,dir,5+seed*cos(time()/5))
+      -- forces=v_add(forces,dir,5+seed*cos(time()/5))
       -- avoid others
       local idx=world_to_grid(origin)
       
-      local fx,fy,fz=unpack(forces)
+      local fx,fy,fz=forces[1],forces[2],forces[3]
       for other in pairs(_grid[idx]) do
-        local avoid,avoid_dist=v_dir(origin,other.origin)
-        if(avoid_dist<1) avoid_dist=1
-        local t=-4/avoid_dist
-        fx+=t*avoid[1]
-        fy+=t*avoid[2]
-        fz+=t*avoid[3]
+        -- todo: apply inverse force to other (and keep track)
+        if not resolved[other] then
+          local avoid,avoid_dist=v_dir(origin,other.origin)
+          if(avoid_dist<1) avoid_dist=1
+          local t=-4/avoid_dist
+          fx+=t*avoid[1]
+          fy+=t*avoid[2]
+          fz+=t*avoid[3]
+
+          other:apply(_ENV,avoid,-t)
+          resolved[other]=true
+        end
       end
       forces={fx,fy,fz}
 
@@ -530,6 +528,7 @@ function make_skull(_origin)
       origin[3]=mid(origin[3]+vel[3],0,1024)
 
       forces={0,0,0}
+      resolved={}
       grid_register(_ENV)
     end
   },{__index=_ENV}))
@@ -561,15 +560,16 @@ function play_state()
 
   -- camera & player
   _plyr=make_player({512,24,512},0)
-  _things={}
+  _things,_particles,_bullets={},{},{}
   -- spatial partitioning grid
   _grid={}
 
   add(_things,_plyr)
-  -- test object
+  -- test objects
   for i=0,50 do
-    make_skull({32+rnd(768),18+rnd(48),32+rnd(768)})
+    --make_skull({32+rnd(768),18+rnd(48),32+rnd(768)})
   end
+  make_skull({512,24,512})
 
   _cam=make_fps_cam()
 
@@ -587,11 +587,17 @@ function play_state()
       draw_ground(1)
 
       -- draw things
+      bench_start("draw_grid")
       draw_grid(_cam,1)      
-                            
+      bench_end()
+            
+      -- player "hud"
+      -- spr(64,48,96,4,4)
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
 
       print(stat(0).."kb",2,2,3)
+
+      bench_print(2,8,7)
     end,
     -- init
     function()
@@ -630,10 +636,52 @@ end
 
 function _update()
   -- keep world running
-  count=0
+  bench_start("things")
   for thing in all(_things) do
     if(thing.update) thing:update()
   end
+  bench_end()
+  
+  local t=time()
+  for i=#_bullets,1,-1 do
+    local b=_bullets[i]
+    if b.ttl<t then
+      deli(_bullets,i)
+    else
+      b.prev,b.origin=b.origin,v_add(b.origin,b.velocity,5)      
+      -- hit ground?
+      if b.origin[2]<0 then
+        -- intersection
+        local dy=(b.prev[2])/(b.origin[2]-b.prev[2])
+        for i=0,rnd(4) do
+          make_particle({
+            lerp(b.prev[1],b.origin[1],dy),
+            0,
+            lerp(b.prev[3],b.origin[3],dy)
+          },{1-rnd(2),2+rnd(),1-rnd(2)})
+        end
+        deli(_bullets,i)
+      end
+    end
+  end
+  for i=#_particles,1,-1 do
+    local p=_particles[i]
+    if p.ttl<t then
+      deli(_particles,i)
+    else
+      p.origin=v_add(p.origin,p.velocity,0.2)
+      -- bit of gravity
+      p.velocity[2]-=2      
+      if p.origin[2]<0 then
+        -- fake bounce
+        p.velocity[1]*=0.8      
+        p.velocity[2]*=-0.8      
+        p.velocity[3]*=0.8      
+        --deli(_particles,i)
+      end
+    end
+  end
+
   _update_state()
 end
 
