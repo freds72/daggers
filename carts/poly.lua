@@ -52,12 +52,13 @@ end
 
 function polyline(p,np,c)
 	local v0=p[np]
-	color(c)
+	
 	for i=1,np do
 		local v1=p[i]
 		local dx,dy=abs(v0.x-v1.x),abs(v0.y-v1.y)
-		--fillp(dx>dy and ▥ or ▤)
-		line(v0.x,v0.y,v1.x,v1.y)
+		-- @kometbomb idea
+		local pattern=dx<dy and 0x1100.f0f0 or 0x1100.aaaa
+		line(v0.x,v0.y,v1.x,v1.y,c|pattern)
 		v0=v1
 	end
 end

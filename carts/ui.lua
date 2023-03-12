@@ -42,7 +42,7 @@ function is_window(class)
 end
 
 -- main window: handles cursor layer
-function main_window(cursor,clear)
+function main_window(cursor,clear,is_dialog)
     cursor=cursor or 0
     local mx,my
     local mstate={}
@@ -75,6 +75,42 @@ function main_window(cursor,clear)
             if(not msg.cursor) cursor=nil return
             cursor=cursors[msg.cursor] or cursors.pointer
             msg.handled=true
+        end,
+        dialog=function(self,x,y,w,h,border)
+            has_dialog=true
+            local prev_update,prev_draw=_update,_draw
+            local win=main_window(cursor,clear,true)
+            local mm=win.mousemove
+            win.close=function()
+                -- restore previous window
+                local d=_draw
+                _update,_draw=prev_update,function()
+                    d()
+                    _draw=prev_draw
+                end
+            end
+            win.mousemove=function(self,msg)
+                -- base function
+                mm(self,msg)
+                -- 
+                if msg.lmbp and (msg.mx<x or msg.my<y or msg.mx>x+w or msg.my>y+h) then
+                    has_dialog=false
+                    self:close()
+                end
+            end
+            win.overlay=function()
+                if border then
+                    rect(x,y,x+w,y+w,border)
+                end        
+            end
+            -- finish current update/draw cycle
+            local d=_draw
+            _draw=function()
+                prev_draw(true)
+                memcpy(0x8000,0x6000,0x2000)
+                _draw=d
+            end
+            return win
         end
     })
     -- take over update and draw
@@ -114,20 +150,28 @@ function main_window(cursor,clear)
             })
         end
     end
-    _draw=function()
-        cls(clear)
-        win:onmessage({
+    _draw=function(no_cursor)
+        if is_dialog then
+            memcpy(0x6000,0x8000,0x2000)
+        else
+            cls(clear)
+        end
+        -- base draw
+        win:onmessage({            
             name="draw"
         })
+        -- items drawn on top of all others
         win:onmessage({
             name="overlay"
         })
-        -- display cursor
-        if cursor then
-            spr(cursor[1],mx+cursor[2],my+(cursor[3] or 0))    
+        if not no_cursor then
+            -- display cursor
+            if cursor then
+                spr(cursor[1],mx+cursor[2],my+(cursor[3] or 0))    
+            end
+            -- reset cursor each frame
+            cursor=cursors.pointer
         end
-        -- reset cursor each frame
-        cursor=cursors.pointer
     end
     return win
 end
@@ -159,18 +203,29 @@ function is_button(class)
 end
 
 -- button constructor
+-- default param is sprite id
+-- alternate: {text="text to display", color="text color"}
 function make_button(s,binding)
+    -- icon button
+    local t=1
+    if type(s)=="table" then
+        t=2
+    end
     local frames=0
     return is_button({
         draw=function(self)
             pal(7,frames>0 and 15 or 2)
             local r=self.rect 
-            spr(s,r.x,r.y)
+            if t==1 then
+                spr(s,r.x,r.y)
+            else
+                print(s.text,r.x,r.y,s.color)
+            end
             pal()
             frames=max(frames-1)
         end,
         clicked=function(self,msg)              
-            binding:set(true)
+            binding:set(s)
             frames=3
         end        
     })
@@ -212,6 +267,7 @@ function make_color_picker(params,binding)
         overlay=function(self)
             if binding:get()==c then
                 local r=self.rect
+                fillp()
                 rect(r.x+1,r.y+1,r.x+r.w-2,r.y+r.h-2,0)
                 rect(r.x,r.y,r.x+r.w-1,r.y+r.h-1,7)
             end
@@ -250,7 +306,7 @@ function make_list(width,w,h,binding)
     h=h or 8
     -- number of items per row
     local n=width\w
-    assert(n!=0,"list too small")
+    assert(n>0,"Invalid width: "..w)
     local win=is_window({
         add=function(self,child)
             local r=self.rect
@@ -263,7 +319,8 @@ function make_list(width,w,h,binding)
             local r=self.rect
             local focus=msg.mx>=r.x and msg.mx<=r.x+r.w and msg.my>=r.y and msg.my<=r.y+r.h
             if focus and msg.wheel!=0 then
-                local i0=binding:get()            
+                local i0=binding:get()
+                -- focus to next "row"
                 binding:set(i0-msg.wheel*n)
                 msg.handled=true
             end
@@ -276,11 +333,16 @@ function make_list(width,w,h,binding)
             if(msg.handled) return
             -- cascade to child
             if #self>0 then
-                local i0=binding:get()\n
-                local my=msg.my
-                if(msg.my) msg.my+=i0*h
-                camera(0,i0*h)
-                for i=i0*n+1,min((i0+1)*n,#self) do
+                local r=self.rect
+                -- ensure selected item is visible
+                local i0,my=binding:get(),msg.my
+                -- how many items vertically
+                local nh=r.h\h
+                local yoffset=(i0\n)*h                
+                if(msg.my) msg.my+=yoffset
+                camera(0,yoffset)
+                -- todo: draw all that fits horizontally AND vertically
+                for i=(i0\n)*n+1,min(((i0\n)+1)*max(n,nh),#self) do
                     local child=self[i]
                     child:onmessage(msg)
                     if(msg.handled) break
@@ -321,6 +383,7 @@ function binding(env,prop)
         end
     }
 end
+
 -- binding with a range
 function bounded_binding(env,prop,lower,upper)
     return {

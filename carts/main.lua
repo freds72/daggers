@@ -433,11 +433,11 @@ function draw_grid(cam,light)
       local origin=thing.origin
       -- zangle
       local dx,dz=cx-origin[1],cz-origin[3]
-      local side,flip=8*((atan2(dx,-dz)-thing.zangle+0.5+0.0625)&0x0.ffff)\1
+      local zangle=atan2(dx,-dz)
+      local side,flip=8*((zangle-thing.zangle+0.5+0.0625)&0x0.ffff)\1
       if(side>4) side=4-(side%5) flip=true
       
-      local a=atan2(dx,dz)
-      local yside=8*((atan2(dx*cos(a)+dz*sin(a),cy-origin[2])-0.25+0.0625)&0x0.ffff)\1
+      local yside=8*((atan2(dx*cos(-zangle)+dz*sin(-zangle),cy-origin[2])-0.25+0.0625)&0x0.ffff)\1
       if(yside>4) yside=4-(yside%5)
       -- copy to spr
       -- skip top+top rotation
@@ -494,7 +494,7 @@ function make_skull(_origin)
       vel=v_scale(vel,0.9)
       -- converge toward player
       local dir=v_dir(origin,_plyr.eye_pos)
-      -- forces=v_add(forces,dir,5+seed*cos(time()/5))
+      forces=v_add(forces,dir,5+seed*cos(time()/5))
       -- avoid others
       local idx=world_to_grid(origin)
       
@@ -567,9 +567,9 @@ function play_state()
   add(_things,_plyr)
   -- test objects
   for i=0,50 do
-    --make_skull({32+rnd(768),18+rnd(48),32+rnd(768)})
+    make_skull({32+rnd(768),18+rnd(48),32+rnd(768)})
   end
-  make_skull({512,24,512})
+  --make_skull({512,24,512})
 
   _cam=make_fps_cam()
 
