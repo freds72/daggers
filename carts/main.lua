@@ -1,5 +1,5 @@
 local _plyr,_cam,_things,_grid
-local _particles,_bullets
+local _entities,_particles,_bullets={}
 
 function make_fps_cam()
     local up={0,1,0}
@@ -32,7 +32,8 @@ function make_player(origin,a)
     local fire_ttl,fire=0
     return {
       -- start above floor
-      origin=v_add(origin,{0,1,0}),    
+      origin=v_add(origin,{0,1,0}), 
+      tilt=0,   
       m=make_m_from_euler(unpack(angle)),
       control=function(self)
         -- move
@@ -48,6 +49,7 @@ function make_player(origin,a)
         end
 
         dangle=v_add(dangle,{stat(39),stat(38),0})
+        self.tilt+=dx/40
         local c,s=cos(a),-sin(a)
         velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx})                 
       end,
@@ -55,6 +57,8 @@ function make_player(origin,a)
         -- damping      
         angle[3]*=0.8
         dangle=v_scale(dangle,0.6)
+        self.tilt*=0.6
+        if(abs(self.tilt)<0.0001) self.tilt=0
         velocity[1]*=0.7
         --velocity[2]*=0.9
         velocity[3]*=0.7
@@ -376,13 +380,15 @@ function draw_grid(cam,light)
     end
 
     local x,y,z=origin[1],origin[2],origin[3]
-    -- draw shadows
-    local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
-    if az>8 and az<854 and ax<az and -ax<az then
-      local ay=m2*x+m6*y+m10*z+m14
-    
-      local w=128/az
-      things[#things+1]={key=w,type=1,thing=thing,x=63.5+ax*w,y=63.5-ay*w}
+    if thing!=_plyr then
+      -- collect monsters
+      local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
+      if az>8 and az<854 and ax<az and -ax<az then
+        local ay=m2*x+m6*y+m10*z+m14
+      
+        local w=128/az
+        things[#things+1]={key=w,type=1,thing=thing,x=63.5+ax*w,y=63.5-ay*w}      
+      end
     end
   end
   poke(0x5f5e, 0xff)
@@ -430,6 +436,8 @@ function draw_grid(cam,light)
     if item.type==1 then
       -- draw things
       local w0,thing=item.key,item.thing
+      -- todo: change to use thing type
+      local sprites=_entities.skull
       local origin=thing.origin
       -- zangle
       local dx,dz=cx-origin[1],cz-origin[3]
@@ -444,7 +452,7 @@ function draw_grid(cam,light)
       local mem,base=0x0,128*(8*(5-yside)+side)+1
       if prev_base!=base then
         for i=0,31 do
-          poke4(mem,_sprites[base],_sprites[base+1],_sprites[base+2],_sprites[base+3])
+          poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
           mem+=64
           base+=4
         end
@@ -461,7 +469,20 @@ function draw_grid(cam,light)
     elseif item.type==3 then
       pset(item.x,item.y,item.thing.c)
     end
-  end  
+  end 
+  
+  -- tilt!
+  -- screen = gfx
+  local yshift=8*sin(_plyr.tilt)/128
+  poke(0x5f54,0x60)
+  for i=0,127 do
+    sspr(i,0,1,128,i,(i-64)*yshift)
+  end
+  -- reset
+  poke(0x5f54,0x00)
+  -- hide trick top/bottom 8 pixel rows :)
+  memset(0x6000,0,512)
+  memset(0x7e00,0,512)
 end
 
 -- things
@@ -554,10 +575,6 @@ end
 function play_state()
   local start_time
 
-  -- load images
-  _sprites=decompress("pic",0,0,unpack_images)
-  reload()
-
   -- camera & player
   _plyr=make_player({512,24,512},0)
   _things,_particles,_bullets={},{},{}
@@ -594,7 +611,7 @@ function play_state()
       -- player "hud"
       -- spr(64,48,96,4,4)
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
-
+      
       print(stat(0).."kb",2,2,3)
 
       bench_print(2,8,7)
@@ -630,6 +647,10 @@ function _init()
     end
   end
 
+  -- load images
+  _entities=decompress("pic",0,0,unpack_entities)
+  reload()
+  
   -- run game
   next_state(play_state)
 end
@@ -686,27 +707,37 @@ function _update()
 end
 
 -- data unpacking functions
--- unpack 1 or 2 bytes
-function unpack_variant()
+function mpeek2()
 	return mpeek()|mpeek()<<8
 end
 -- unpack a fixed 16:16 value or 4 bytes
-function unpack_dword()
-	return mpeek()>>16|mpeek()>>8|mpeek()|mpeek()<<8
+function mpeek4()
+	return mpeek2()|mpeek()>>>16|mpeek()>>8
 end
 
 -- unpack an array of bytes
 function unpack_array(fn)
-	for i=1,unpack_variant() do
+	for i=1,mpeek2() do
 		fn(i)
 	end
 end
 
+function unpack_entities()  
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2"
+  unpack_array(function()
+    local id=mpeek()
+    if id!=0 then
+      entities[names[id]]=unpack_images()
+    end
+  end)
+  return entities
+end
+
 function unpack_images()
   local sprites={}
-  unpack_array(function()
+  unpack_array(function(k)
     for i=1,128 do
-      add(sprites,unpack_dword())
+      add(sprites,mpeek4())
     end
   end)
 

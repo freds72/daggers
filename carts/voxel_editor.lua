@@ -22,13 +22,14 @@ local _grid_size=14
 local _palette={}
 
 -- game entities
+-- note: new entities must be added at the end
 local _entities={
-    skull={text="sKULL",data="¹M\0@\0\0\0\0\0\0\0¹P\0\0\0\0\0\0¹¹`\0\0\0\0\0²¹¹p\0\0\0\0\0³¹¹█\0\0\0\0\0³¹¹…\0\0\0\0\0³¹¹き\0\0\0\0\0\0⁴⁴A\0\0\0\0\0\0¹¹Q\0\0\0\0\0\0■\0a\0\0\0\0\0³¹¹q\0\0\0\0\0⁴\0\0▒\0\0\0\0\0‖\0\0く\0\0\0\0\0\0⁶\0B\0\0\0\0\0\0¹¹R\0\0\0\0\0³²²b\0\0\0\0\0²¹¹3\0\0\0\0\0\0²²C\0\0\0\0\0¹\0\0S\0\0\0\0²\0¹¹c\0\0\0\0²\0\0\0s\0\0\0\0²\0\0\0⬇️\0\0\0\0³\0\0\0⧗\0\0\0\0³\0\0\0こ\0\0\0\0\0⁷\0⁷4\0\0\0\0\0□□■D\0\0\0\0²²²\0T\0\0\0²³²¹¹d\0\0\0²\0\0¹¹t\0\0\0²\0¹¹¹░\0\0\0²\0¹¹¹⬆️\0\0\0\0⁴⁴¹¹さ\0\0\0\0\0⁘⁵⁵‖\0\0\0\0\0■■■%\0\0\0\0■■■■5\0\0\0■■\0\0\0E\0\0\0³\0\0\0\0U\0\0\0³\0\0\0\0e\0\0\0³\0\0\0\0u\0\0\0³\0\0\0\0✽\0\0\0⁴¹¹\0\0ˇ\0\0\0⁵\0\0¹\0し\0\0\0\0\0\0⁴¹⁶\0\0\0\0\0³³³◀\0\0\0\0³\0\0\0&\0\0\0³\0\0\0\0006\0\0³\0\0\0\0\0F\0\0³\0\0\0\0\0V\0\0³\0\0\0\0\0f\0\0³\0\0\0\0\0v\0\0⁙\0\0\0\0\0●\0\0\0⁴¹▮\0\0∧\0\0\0◀\0\0■\0す\0\0\0\0\0\0\0⁵⁷\0\0\0\0\0⁙⁙⁙▶\0\0\0\0⁙\0\0\0'\0\0\0⁙\0\0\0\0007\0\0⁴\0\0\0\0\0G\0\0⁴\0\0\0\0\0W\0\0⁴\0\0\0\0\0g\0\0⁴\0\0\0\0\0w\0\0⁴\0\0\0\0\0♥\0\0\0⁙\0\0\0\0❎\0\0\0\0◀‖⁵⁴「\0\0\0\0\0⁴⁙⁴(\0\0\0\0⁴⁴\0\0008\0\0\0⁴⁴\0\0\0H\0\0\0⁴\0\0\0\0X\0\0\0⁴\0\0\0\0h\0\0\0⁴\0\0\0\0x\0\0\0⁴⁴\0\0\0☉\0\0\0\0⁙⁴⁴⁴)\0\0\0\0\0\0⁴⁴9\0\0\0\0\0⁴⁴⁴I\0\0\0\0⁴⁴⁴⁴Y\0\0\0\0⁴⁴⁴⁴i\0\0\0\0⁴⁴⁴⁴y\0\0\0\0\0⁙⁴⁴"},
-    reaper={text="rEAPER"},
+    {text="sKULL",data="¹M\0@\0\0\0\0\0\0\0¹P\0\0\0\0\0\0¹¹`\0\0\0\0\0²¹¹p\0\0\0\0\0³¹¹█\0\0\0\0\0³¹¹…\0\0\0\0\0³¹¹き\0\0\0\0\0\0⁴⁴A\0\0\0\0\0\0¹¹Q\0\0\0\0\0\0■\0a\0\0\0\0\0³¹¹q\0\0\0\0\0⁴\0\0▒\0\0\0\0\0‖\0\0く\0\0\0\0\0\0⁶\0B\0\0\0\0\0\0¹¹R\0\0\0\0\0³²²b\0\0\0\0\0²¹¹3\0\0\0\0\0\0²²C\0\0\0\0\0¹\0\0S\0\0\0\0²\0¹¹c\0\0\0\0²\0\0\0s\0\0\0\0²\0\0\0⬇️\0\0\0\0³\0\0\0⧗\0\0\0\0³\0\0\0こ\0\0\0\0\0⁷\0⁷4\0\0\0\0\0□□■D\0\0\0\0²²²\0T\0\0\0²³²¹¹d\0\0\0²\0\0¹¹t\0\0\0²\0¹¹¹░\0\0\0²\0¹¹¹⬆️\0\0\0\0⁴⁴¹¹さ\0\0\0\0\0⁘⁵⁵‖\0\0\0\0\0■■■%\0\0\0\0■■■■5\0\0\0■■\0\0\0E\0\0\0³\0\0\0\0U\0\0\0³\0\0\0\0e\0\0\0³\0\0\0\0u\0\0\0³\0\0\0\0✽\0\0\0⁴¹¹\0\0ˇ\0\0\0⁵\0\0¹\0し\0\0\0\0\0\0⁴¹⁶\0\0\0\0\0³³³◀\0\0\0\0³\0\0\0&\0\0\0³\0\0\0\0006\0\0³\0\0\0\0\0F\0\0³\0\0\0\0\0V\0\0³\0\0\0\0\0f\0\0³\0\0\0\0\0v\0\0⁙\0\0\0\0\0●\0\0\0⁴¹▮\0\0∧\0\0\0◀\0\0■\0す\0\0\0\0\0\0\0⁵⁷\0\0\0\0\0⁙⁙⁙▶\0\0\0\0⁙\0\0\0'\0\0\0⁙\0\0\0\0007\0\0⁴\0\0\0\0\0G\0\0⁴\0\0\0\0\0W\0\0⁴\0\0\0\0\0g\0\0⁴\0\0\0\0\0w\0\0⁴\0\0\0\0\0♥\0\0\0⁙\0\0\0\0❎\0\0\0\0◀‖⁵⁴「\0\0\0\0\0⁴⁙⁴(\0\0\0\0⁴⁴\0\0008\0\0\0⁴⁴\0\0\0H\0\0\0⁴\0\0\0\0X\0\0\0⁴\0\0\0\0h\0\0\0⁴\0\0\0\0x\0\0\0⁴⁴\0\0\0☉\0\0\0\0⁙⁴⁴⁴)\0\0\0\0\0\0⁴⁴9\0\0\0\0\0⁴⁴⁴I\0\0\0\0⁴⁴⁴⁴Y\0\0\0\0⁴⁴⁴⁴i\0\0\0\0⁴⁴⁴⁴y\0\0\0\0\0⁙⁴⁴"},
+    {text="rEAPER"},
     -- animation
-    blood0={text="bLOOD0"},
-    blood1={text="bLOOD1"},
-    blood2={text="bLOOD2"}
+    {text="bLOOD0"},
+    {text="bLOOD1"},
+    {text="bLOOD2"}
 }
 local _current_entity
 
@@ -180,7 +181,7 @@ function voxel_traversal(ray,size,grid)
     end
 end
 
-function collect_blocks(cam,extents,visible_blocks)    
+function collect_blocks(grid,cam,extents,visible_blocks)    
     local fwd=cam.fwd
     local majord,majori=-32000,1
     for i=1,3 do
@@ -221,7 +222,7 @@ function collect_blocks(cam,extents,visible_blocks)
     local draw_last=function(face_mask,idx)
         for last=last0,lastc-1 do        
             local idx=idx|last>>>last_shift
-            local id=_grid[idx]
+            local id=grid[idx]
             if id then
                 add(visible_blocks,id)
                 add(visible_blocks,face_mask|(0x01.0101&last_mask))            
@@ -231,7 +232,7 @@ function collect_blocks(cam,extents,visible_blocks)
         -- flip side
         for last=last1,lastc+1,-1 do        
             local idx=idx|last>>>last_shift
-            local id=_grid[idx]
+            local id=grid[idx]
             if id then
                 add(visible_blocks,id)
                 add(visible_blocks,face_mask|(0x02.0202&last_mask))            
@@ -240,7 +241,7 @@ function collect_blocks(cam,extents,visible_blocks)
         end
         if last_fix then
             local idx=idx|lastc>>>last_shift
-            local id=_grid[idx]
+            local id=grid[idx]
             if id then
                 add(visible_blocks,id)
                 add(visible_blocks,face_mask)            
@@ -297,7 +298,7 @@ function collect_blocks(cam,extents,visible_blocks)
     end
 end
 
-function draw_grid(cam,layer,render)
+function draw_grid(grid,cam,layer,render)
     local visible_blocks={}
     local m,fov=cam.m,cam.fov
     local xcenter,ycenter,scale=cam.xcenter,cam.ycenter,cam.scale
@@ -308,10 +309,9 @@ function draw_grid(cam,layer,render)
     end
 
     -- viz blocks
-    collect_blocks(cam,extents,visible_blocks)
+    collect_blocks(grid,cam,extents,visible_blocks)
     
     local masks={0x0.00ff,0x0.ff,0xff}
-    local grid=_grid
     local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
     local cache,verts,faces={},{},cube.faces
 
@@ -487,6 +487,7 @@ function make_voxel_editor()
         {1,1,0},
         {0,1,0}
     }
+    -- facing direction
     local arrow={
         {0.25,0.5,0},
         {0.25,1,0},
@@ -511,7 +512,7 @@ function make_voxel_editor()
         draw=function(self)
             local r=self.rect
             clip(r.x,r.y,r.w,r.h)            
-            draw_grid(cam,current_voxel and layer)
+            draw_grid(_grid,cam,current_voxel and layer)
             fillp()
             -- draw layer selection            
             local pts,layerz={},layer+(cam.pos[3]>layer and 1 or 0)
@@ -668,9 +669,7 @@ function make_voxel_editor()
 end
 
 function grid_tostr(grid)
-    -- version
-    poke(0x0,1)           
-    local mem,size=0x3,0
+    local s,size="",0
     for z=0,_grid_size do
         for y=0,_grid_size do
             local checksum,data,idx=0,{},y>>8|z
@@ -682,39 +681,33 @@ function grid_tostr(grid)
             end
             -- voxels?
             if checksum!=0 then                        
-                poke(mem,y<<4|z) mem+=1
-                poke(mem,unpack(data)) mem+=8
+                s..=chr(y<<4|z,unpack(data))
+                -- count number of 8 voxels blocks
                 size+=1
             end
         end
     end
-    poke2(0x1,size)
-    local s=chr(peek(0x0,mem))
-    -- restore memory
-    reload()
-    return s  
+    -- version + actual len (2 bytes) + data
+    return chr(1,size,size>><8)..s
 end
 
 function grid_fromstr(data)
     local grid={}
-    poke(0x0,ord(data,1,#data))
-    local mem,version,size=0x3,@0x0,peek2(0x1)
-    for i=1,size do
-        local idx=@mem
-        mem+=1
+    -- note: version is ignored
+    local size=ord(data[2])|ord(data[3])<<8
+    for i=0,size-1 do
+        local base=4+9*i
+        local idx=ord(data[base])    
         -- voxel idx
         idx=(idx&0xf0)>>12|(idx&0xf)
-        local data={peek(mem,8)}
-        mem+=8
         for x=0,7 do
-            local id=data[x+1]
+            local id=ord(data[base+x+1])
             if id!=0 then
                 grid[idx|x>>16]=id
                 grid[idx|(_grid_size-x)>>16]=id
             end
         end 
-    end 
-    reload()   
+    end
     return grid         
 end
 
@@ -734,10 +727,11 @@ function pack_archive()
     local n=0
     for k,ent in pairs(_entities) do
         if ent.data then
-            -- save name
-            poke(mem,#k) mem+=1
-            poke(mem,ord(k,1,#k)) mem+=#k
+            -- save id
+            poke(mem,k) mem+=1
+            -- data size
             poke2(mem, #ent.data) mem+=2
+            -- data bytes 
             poke(mem,ord(ent.data,1,#ent.data)) mem+=#ent.data
             n+=1
         end
@@ -756,7 +750,6 @@ function unpack_archive()
     reload(0x0,0x0,0x4300,"daggers_assets.p8")
     -- check magic number
     local mem=0x0
-    printh("magic:"..tostr($mem,1))
     if($mem!=_magic_number) printh("archive: invalid magic number") return
     mem+=4
     local version,n=@mem,@(mem+1)
@@ -764,11 +757,9 @@ function unpack_archive()
     mem+=2
     for i=1,n do
         -- read string
-        local len=@mem
+        local k=@mem
         mem+=1
-        local k=chr(peek(mem,len))
-        printh("restoring: "..k)
-        mem+=len
+        printh("restoring: ".._entities[k].text)
         -- read data
         local len=peek2(mem)
         mem+=2
@@ -776,6 +767,99 @@ function unpack_archive()
         mem+=len
     end
     reload()
+end
+
+function collect_images(ent)
+    local cam=make_cam(16,16,16,2)
+    local grid,images=grid_fromstr(ent.data),{}
+    -- find middle of voxel entity
+    local zmin,zmax=32000,-32000
+    for k=0,_grid_size do
+        -- find at least one non empty voxel            
+        for i=0,_grid_size do                
+            local done
+            for j=0,_grid_size do
+                if grid[i>>16|j>>8|k] then
+                    zmin=min(zmin,k)
+                    zmax=max(zmax,k)
+                    done=true
+                    break
+                end
+            end
+            if(done) break
+        end
+    end
+            
+    local xy,zoffset=_grid_size/2,(zmax-zmin+1)/2
+    local zangles={}
+    for i=0,1-0.125,0.125 do
+        add(zangles,i)
+    end
+    -- note: removed special top/down cases
+    local count=0
+    for y=0,-0.5,-0.125 do
+        for i,z in ipairs(zangles) do
+            cls()
+            cam:control({xy,xy,zoffset},y,z,2*_grid_size)
+            draw_grid(grid,cam,nil,true)
+            -- capture image in array
+            local mem=0x6000
+            for j=0,31 do
+                add(images,peek4(mem))
+                add(images,peek4(mem+4))
+                add(images,peek4(mem+8))
+                add(images,peek4(mem+12))
+                mem+=64
+            end
+            flip()
+            count+=1
+        end
+    end 
+    return images,count
+end
+
+-- export entities for game engine
+function pack_entities()
+    -- save carts
+    local mem,cart_id=0x0,0
+    local function pack_bytes(b,width)
+        for i=0,width-1 do
+            poke(mem,(b>><(i*8))) mem+=1
+            -- end of cart?
+            if mem==0x4300 then
+                cstore(0x0,0x0,mem,"pic_"..cart_id..".p8")
+                mem=0
+                cart_id+=1
+            end
+        end
+    end
+
+    -- number of entities
+    pack_bytes(#_entities,2)
+    for i=1,#_entities do
+        local ent=_entities[i]
+        if ent.data then
+            clip(0,0,32,32)
+            local images,count=collect_images(ent)        
+            printh("exporting: "..ent.text.." frames: "..count)
+            -- save entity identifier
+            pack_bytes(i,1)
+            -- number of frames
+            pack_bytes(count,2)
+            for i,v in ipairs(images) do
+                pack_bytes(v,4)
+            end
+            clip()
+        else
+            -- "invalid entity"
+            pack_bytes(0,1)
+        end
+    end
+    -- any remaining data?
+    if mem!=0 then
+        cstore(0x0,0x0,mem,"pic_"..cart_id..".p8")
+    end        
+    reload()    
 end
 
 function _init()  
@@ -860,52 +944,10 @@ function _init()
 
     -- generate images
     _main:add(make_button(4,binding(function()
-        local cam=make_cam(16,16,16,2)
-        local images={}
-        clip(0,0,32,32)
-        local xyz=_grid_size/2
-        local zangles={}
-        for i=0,1-0.125,0.125 do
-            add(zangles,i)
-        end
-        -- note: removed special top/down cases
-        local count=0
-        for y=0,-0.5,-0.125 do
-            for i,z in ipairs(zangles) do
-                cls()
-                cam:control({xyz,xyz,xyz},y,z,1.5*_grid_size)
-                draw_grid(cam,nil,true)
-                -- capture image in array
-                local mem=0x6000
-                for j=0,31 do
-                    add(images,peek4(mem))
-                    add(images,peek4(mem+4))
-                    add(images,peek4(mem+8))
-                    add(images,peek4(mem+12))
-                    mem+=64
-                end
-                flip()
-            end
-        end
-        clip()        
-        -- save carts
-        local mem,id=0x0,0
-        poke2(mem,#images\32)
-        mem+=2
-        for i,v in ipairs(images) do
-            poke4(mem,v)
-            mem+=4
-            if mem==0x4300 then
-                cstore(0x0,0x0,0x4300,"pic_"..id..".p8")
-                memset(0x0,0,0x4300)
-                mem=0
-                id+=1
-            end
-        end
-        if mem!=0 then
-            cstore(0x0,0x0,0x4300,"pic_"..id..".p8")
-        end        
-        reload()
+        -- commit latest changes
+        if(_current_entity) _current_entity.data=grid_tostr(_grid)
+        -- 
+        pack_entities()
     end)),29,0,6)
 
     -- edit/select/fill
@@ -930,7 +972,7 @@ function _init()
     end
 
     -- load "default" model
-    _current_entity=_entities.skull     
+    _current_entity=_entities[1]
     _main:send({
         name="load",
         data=_current_entity.data
