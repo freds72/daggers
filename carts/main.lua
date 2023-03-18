@@ -1,5 +1,5 @@
 local _plyr,_cam,_things,_grid
-local _entities,_particles,_bullets={}
+local _entities,_sprites,_particles,_bullets
 
 function make_fps_cam()
     local up={0,1,0}
@@ -429,7 +429,7 @@ function draw_grid(cam,light)
   bench_end()
 
   -- render in order
-  local prev_base,pal0
+  local sprites,prev_base,pal0=_sprites
   for _,item in ipairs(things) do
     local pal1=(light*min(15,item.key<<5))\1
     if(pal0!=pal1) memcpy(0x5f00,0x4300|pal1<<4,16) palt(0,true) pal0=pal1   
@@ -437,7 +437,7 @@ function draw_grid(cam,light)
       -- draw things
       local w0,thing=item.key,item.thing
       -- todo: change to use thing type
-      local sprites=_entities.skull
+      local entity=_entities.skull
       local origin=thing.origin
       -- zangle
       local dx,dz=cx-origin[1],cz-origin[3]
@@ -449,9 +449,10 @@ function draw_grid(cam,light)
       if(yside>4) yside=4-(yside%5)
       -- copy to spr
       -- skip top+top rotation
-      local mem,base=0x0,128*(8*(5-yside)+side)+1
+      local frame=entity.frames[8*(5-yside)+side]
+      local mem,base=0x0,frame.base
       if prev_base!=base then
-        for i=0,31 do
+        for i=0,frame.height-1 do
           poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
           mem+=64
           base+=4
@@ -459,9 +460,10 @@ function draw_grid(cam,light)
         prev_base=base
       end
       local sw=16*w0
-      local sx,sy=item.x-sw/2,item.y-sw/2
+      local sx,sy=item.x-frame.width*w0/4,item.y-frame.height*w0/4
       --
-      sspr(0,0,32,32,sx,sy,sw+(sx&0x0.ffff),sw+(sy&0x0.ffff),flip)
+      sspr(frame.xmin,0,frame.width,frame.height,sx,sy,frame.width*sw/32+(sx&0x0.ffff),frame.height*sw/32+(sy&0x0.ffff),flip)
+
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
     elseif item.type==2 then
@@ -473,11 +475,13 @@ function draw_grid(cam,light)
   
   -- tilt!
   -- screen = gfx
+  palt(0,false)
   local yshift=8*sin(_plyr.tilt)/128
   poke(0x5f54,0x60)
   for i=0,127 do
     sspr(i,0,1,128,i,(i-64)*yshift)
   end
+  palt(0,true)
   -- reset
   poke(0x5f54,0x00)
   -- hide trick top/bottom 8 pixel rows :)
@@ -515,7 +519,7 @@ function make_skull(_origin)
       vel=v_scale(vel,0.9)
       -- converge toward player
       local dir=v_dir(origin,_plyr.eye_pos)
-      forces=v_add(forces,dir,5+seed*cos(time()/5))
+      -- forces=v_add(forces,dir,5+seed*cos(time()/5))
       -- avoid others
       local idx=world_to_grid(origin)
       
@@ -584,9 +588,9 @@ function play_state()
   add(_things,_plyr)
   -- test objects
   for i=0,50 do
-    make_skull({32+rnd(768),18+rnd(48),32+rnd(768)})
+    --make_skull({32+rnd(768),18+rnd(48),32+rnd(768)})
   end
-  --make_skull({512,24,512})
+  make_skull({512,24,512})
 
   _cam=make_fps_cam()
 
@@ -648,7 +652,7 @@ function _init()
   end
 
   -- load images
-  _entities=decompress("pic",0,0,unpack_entities)
+  _entities,_sprites=decompress("pic",0,0,unpack_entities)
   reload()
   
   -- run game
@@ -722,24 +726,33 @@ function unpack_array(fn)
 	end
 end
 
-function unpack_entities()  
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2"
+function unpack_entities()
+  local sprites,entities,names={},{},split"skull,reaper,blood0,blood1,blood2"
   unpack_array(function()
     local id=mpeek()
-    if id!=0 then
-      entities[names[id]]=unpack_images()
+    if id!=0 then  
+      entities[names[id]]={
+        frames=unpack_frames(sprites)
+      }
     end
   end)
-  return entities
+  return entities,sprites
 end
 
-function unpack_images()
-  local sprites={}
+function unpack_frames(sprites)
+  local frames={}
   unpack_array(function(k)
-    for i=1,128 do
+    local height=mpeek()
+    local frame=add(frames,{
+      xmin=mpeek(),
+      width=mpeek(),
+      ymin=mpeek(),   
+      height=height,
+      base=#sprites+1  
+    })
+    for i=1,(height+1)*4 do
       add(sprites,mpeek4())
     end
   end)
-
-  return sprites
+  return frames
 end

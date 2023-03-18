@@ -747,7 +747,7 @@ function unpack_archive()
     memset(0x0,0,0x16)
 
     -- load any previous cart
-    reload(0x0,0x0,0x4300,"daggers_assets.p8")
+    if(reload(0x0,0x0,0x4300,"daggers_assets.p8")==0) return
     -- check magic number
     local mem=0x0
     if($mem!=_magic_number) printh("archive: invalid magic number") return
@@ -759,7 +759,6 @@ function unpack_archive()
         -- read string
         local k=@mem
         mem+=1
-        printh("restoring: ".._entities[k].text)
         -- read data
         local len=peek2(mem)
         mem+=2
@@ -769,9 +768,9 @@ function unpack_archive()
     reload()
 end
 
-function collect_images(ent)
+function collect_frames(ent,cb)
     local cam=make_cam(16,16,16,2)
-    local grid,images=grid_fromstr(ent.data),{}
+    local grid,frames=grid_fromstr(ent.data),{}
     -- find middle of voxel entity
     local zmin,zmax=32000,-32000
     for k=0,_grid_size do
@@ -789,6 +788,25 @@ function collect_images(ent)
             if(done) break
         end
     end
+    -- find first row with non-null pixels
+    local function find_first_row(start,finish,dir)
+        for i=start,finish,dir do            
+            local mem=0x6000+i*64
+            if $(mem)|$(mem+4)|$(mem+8)|$(mem+12)!=0 then
+                return i
+            end
+        end
+        return finish        
+    end
+    -- find first column with non-null pixels
+    local function find_first_column(start,finish,dir)
+        for x=start,finish,dir do
+            for y=0,31 do
+                if(pget(x,y)!=0) return x
+            end
+        end
+        return finish
+    end
             
     local xy,zoffset=_grid_size/2,(zmax-zmin+1)/2
     local zangles={}
@@ -801,21 +819,31 @@ function collect_images(ent)
         for i,z in ipairs(zangles) do
             cls()
             cam:control({xy,xy,zoffset},y,z,2*_grid_size)
+            clip(0,0,32,32)
             draw_grid(grid,cam,nil,true)
+            clip()
+            -- find ymin,ymax
+            local ymin,ymax=find_first_row(0,31,1),find_first_row(31,0,-1)
+            local frame=add(frames,{
+                ymin=ymin,ymax=ymax,
+                -- x extent
+                xmin=find_first_column(0,31,1),
+                xmax=find_first_column(31,0,-1)
+            })
             -- capture image in array
-            local mem=0x6000
-            for j=0,31 do
-                add(images,peek4(mem))
-                add(images,peek4(mem+4))
-                add(images,peek4(mem+8))
-                add(images,peek4(mem+12))
-                mem+=64
+            for j=ymin,ymax do
+                local mem=0x6000+j*64
+                add(frame,$mem)
+                add(frame,$(mem+4))
+                add(frame,$(mem+8))
+                add(frame,$(mem+12))
             end
-            flip()
+            -- flip()
+            if(cb) cb(count)
             count+=1
         end
     end 
-    return images,count
+    return frames,count
 end
 
 -- export entities for game engine
@@ -823,6 +851,7 @@ function pack_entities()
     -- save carts
     local mem,cart_id=0x0,0
     local function pack_bytes(b,width)
+        width=width or 1
         for i=0,width-1 do
             poke(mem,(b>><(i*8))) mem+=1
             -- end of cart?
@@ -839,27 +868,50 @@ function pack_entities()
     for i=1,#_entities do
         local ent=_entities[i]
         if ent.data then
-            clip(0,0,32,32)
-            local images,count=collect_images(ent)        
-            printh("exporting: "..ent.text.." frames: "..count)
+            holdframe()
+            local frames,count=collect_frames(ent,function(count)
+                if(count%2!=0) return
+                cls()
+                fillp()
+                rectfill(0,0,127,8,8)
+                print("eXPORTING SPRITES",1,1,0)
+                for j=1,i-1 do
+                    print(_entities[j].text..": 100%",2,j*6+4,7)
+                end
+                print(_entities[i].text..": "..flr(100*count/40).."%",2,i*6+4,7)
+                flip()
+                holdframe()
+            end)        
             -- save entity identifier
-            pack_bytes(i,1)
+            pack_bytes(i)
             -- number of frames
             pack_bytes(count,2)
-            for i,v in ipairs(images) do
-                pack_bytes(v,4)
+            for i,frame in ipairs(frames) do
+                -- height
+                pack_bytes(frame.ymax-frame.ymin)
+                -- pack x min + width
+                pack_bytes(frame.xmin)
+                pack_bytes(frame.xmax-frame.xmin)
+                -- pack y min
+                pack_bytes(frame.ymin)                
+                -- pack pixels
+                for _,pixels in ipairs(frame) do
+                    pack_bytes(pixels,4)
+                end
             end
-            clip()
         else
             -- "invalid entity"
-            pack_bytes(0,1)
+            pack_bytes(0)
         end
     end
     -- any remaining data?
     if mem!=0 then
         cstore(0x0,0x0,mem,"pic_"..cart_id..".p8")
     end        
-    reload()    
+    reload()
+    cls()
+    -- deactivate holdframe
+    flip()   
 end
 
 function _init()  
