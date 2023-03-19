@@ -134,11 +134,18 @@ function main_window(params,is_dialog)
             keys[k]=true
         end
         
-        -- ctrl+z = セ !!!
-        if kstate["セ"] and not keys["セ"] then            
-            win:onmessage({
-                name="undo"
-            })
+        -- hotkeys
+        local shortcuts={
+            ["セ"]="undo",
+            ["る"]="copy",
+            ["コ"]="paste",
+        }
+        for k,cmd in pairs(shortcuts) do
+            if kstate[k] and not keys[k] then            
+                win:onmessage({
+                    name=cmd
+                })
+            end
         end
         kstate=keys
 

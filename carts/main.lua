@@ -449,7 +449,7 @@ function draw_grid(cam,light)
       if(yside>4) yside=4-(yside%5)
       -- copy to spr
       -- skip top+top rotation
-      local frame=entity.frames[8*(5-yside)+side]
+      local frame=entity.frames[8*(5-yside)+side+1]
       local mem,base=0x0,frame.base
       if prev_base!=base then
         for i=0,frame.height-1 do
@@ -459,11 +459,11 @@ function draw_grid(cam,light)
         end
         prev_base=base
       end
-      local sw=16*w0
-      local sx,sy=item.x-frame.width*w0/4,item.y-frame.height*w0/4
+      local h,w=frame.width,frame.height
+      local sx,sy=item.x-w*w0/4,item.y-h*w0/4
       --
-      sspr(frame.xmin,0,frame.width,frame.height,sx,sy,frame.width*sw/32+(sx&0x0.ffff),frame.height*sw/32+(sy&0x0.ffff),flip)
-
+      sspr(frame.xmin,0,w,h,sx,sy,w*w0/2+(sx&0x0.ffff),h*w0/2+(sy&0x0.ffff),flip)
+      
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
     elseif item.type==2 then
@@ -472,7 +472,7 @@ function draw_grid(cam,light)
       pset(item.x,item.y,item.thing.c)
     end
   end 
-  
+    
   -- tilt!
   -- screen = gfx
   palt(0,false)
@@ -588,9 +588,9 @@ function play_state()
   add(_things,_plyr)
   -- test objects
   for i=0,50 do
-    --make_skull({32+rnd(768),18+rnd(48),32+rnd(768)})
+    make_skull({32+rnd(768),18+rnd(48),32+rnd(768)})
   end
-  make_skull({512,24,512})
+  --make_skull({512,24,512})
 
   _cam=make_fps_cam()
 
@@ -750,7 +750,7 @@ function unpack_frames(sprites)
       height=height,
       base=#sprites+1  
     })
-    for i=1,(height+1)*4 do
+    for i=1,height*4 do
       add(sprites,mpeek4())
     end
   end)

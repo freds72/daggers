@@ -597,9 +597,9 @@ function make_voxel_editor()
 
             layer=mid(layer+msg.wheel,0,_grid_size-1)
 
-            local xyz=_grid_size/2
-            cam:control({xyz,xyz,layer},yangle,zangle,1.5*_grid_size)
-            cam2:control({xyz,xyz,layer},yangle,zangle,1.5*_grid_size)
+            local xy=(_grid_size+1)/2
+            cam:control({xy,xy,layer},yangle,zangle,1.5*_grid_size)
+            cam2:control({xy,xy,layer},yangle,zangle,1.5*_grid_size)
 
             -- selection
             if not rotation_mode then
@@ -793,7 +793,7 @@ function collect_frames(ent,cb)
         for i=start,finish,dir do            
             local mem=0x6000+i*64
             if $(mem)|$(mem+4)|$(mem+8)|$(mem+12)!=0 then
-                return i
+                return mid(i-dir,start,finish)
             end
         end
         return finish        
@@ -802,13 +802,13 @@ function collect_frames(ent,cb)
     local function find_first_column(start,finish,dir)
         for x=start,finish,dir do
             for y=0,31 do
-                if(pget(x,y)!=0) return x
+                if(pget(x,y)!=0) return mid(x-1,start,finish)
             end
         end
         return finish
     end
             
-    local xy,zoffset=_grid_size/2,(zmax-zmin+1)/2
+    local xy,zoffset=(_grid_size+1)/2,(zmax-zmin+1)/2
     local zangles={}
     for i=0,1-0.125,0.125 do
         add(zangles,i)
@@ -820,7 +820,7 @@ function collect_frames(ent,cb)
             cls()
             cam:control({xy,xy,zoffset},y,z,2*_grid_size)
             clip(0,0,32,32)
-            draw_grid(grid,cam,nil,true)
+            draw_grid(grid,cam,nil,true)            
             clip()
             -- find ymin,ymax
             local ymin,ymax=find_first_row(0,31,1),find_first_row(31,0,-1)
@@ -888,10 +888,10 @@ function pack_entities()
             pack_bytes(count,2)
             for i,frame in ipairs(frames) do
                 -- height
-                pack_bytes(frame.ymax-frame.ymin)
+                pack_bytes(frame.ymax-frame.ymin+1)
                 -- pack x min + width
                 pack_bytes(frame.xmin)
-                pack_bytes(frame.xmax-frame.xmin)
+                pack_bytes(frame.xmax-frame.xmin+1)
                 -- pack y min
                 pack_bytes(frame.ymin)                
                 -- pack pixels
