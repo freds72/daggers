@@ -29,7 +29,14 @@ local _entities={
     -- animation
     {text="bLOOD0"},
     {text="bLOOD1"},
-    {text="bLOOD2"}
+    {text="bLOOD2"},
+    {text="fIREBALL0",data="¹	\0005\0\0\0\0\0\0\0▶E\0\0\0\0\0\0\0▶U\0\0\0\0\0\0▶▶e\0\0\0\0\0		▶u\0\0\0\0\0		▶✽\0\0\0\0\0\0	▶ˇ\0\0\0\0\0\0	▶し\0\0\0\0\0\0\0▶ふ\0\0\0\0\0\0\0▶"},
+    {text="fIREBALL1",data="¹▶\0c\0\0\0\0\0\0\0	s\0\0\0\0\0\0\0	T\0\0\0\0\0\0\0▶d\0\0\0\0\0\0\0	t\0\0\0\0\0\0\0	░\0\0\0\0\0\0\0	⬆️\0\0\0\0\0\0\0	5\0\0\0\0\0\0\0▶E\0\0\0\0\0\0\0▶U\0\0\0\0\0\0\0▶e\0\0\0\0\0\0\0▶u\0\0\0\0\0\0\0▶✽\0\0\0\0\0\0\0▶ˇ\0\0\0\0\0\0\0▶し\0\0\0\0\0\0\0▶ふ\0\0\0\0\0\0\0▶V\0\0\0\0\0\0\0▶f\0\0\0\0\0\0\0	v\0\0\0\0\0\0\0	●\0\0\0\0\0\0\0	∧\0\0\0\0\0\0\0	g\0\0\0\0\0\0\0	w\0\0\0\0\0\0\0	"},
+    {text="fIREBALL2"},
+    -- resting hand
+    {text="hAND0"},
+    {text="hAND1"},
+    {text="hAND2"},
 }
 local _current_entity
 
@@ -55,6 +62,49 @@ local cube={
             [0x01]={k=1,6,5,8,7},
     }
 }
+
+-- binary string functions @zep
+function str_esc(s)
+    local out=""
+    for i=1,#s do
+     local c  = sub(s,i,i)
+     local nc = ord(s,i+1)
+     local pr = (nc and nc>=48 and nc<=57) and "00" or ""
+     local v=c
+     if(c=="\"") v="\\\""
+     if(c=="\\") v="\\\\"
+     if(ord(c)==0) v="\\"..pr.."0"
+     if(ord(c)==10) v="\\n"
+     if(ord(c)==13) v="\\r"
+     out..= v
+    end
+    return out
+end
+
+-- unscape binary string
+-- credits: @heraclum
+function str_unesc(s)
+    local i,out=1,""
+    while i<=#s do
+        local c,v=s[i]
+        v=c
+        if c=="\\" then
+            i+=1
+            c=s[i]
+            if c=="\"" or c=="\\" then
+                v=c
+            elseif c=="0" then
+                v="\0"
+                if (s[i+1]=="0" and s[i+2]=="0") i+=2
+            elseif c=="n" then v="\n"
+            elseif c=="r" then v="\r"
+            end
+        end
+        out..=v
+        i+=1
+    end
+    return out
+end
 
 -- voxel functions
 function init_traversal(ray,maxs,t0,t1)
@@ -658,6 +708,20 @@ function make_voxel_editor()
             undo_stack[#undo_stack]=nil
             apply(prev.idx,prev.col)
         end,
+        copy=function(self,msg)
+            printh("copied to clipboard")
+            blah=grid_tostr(_grid)
+            local s=str_esc(grid_tostr(_grid))
+            printh("copied:\n"..s)
+            printh(s,"@clip")
+        end,
+        paste=function(self,msg)
+            local s=str_unesc(stat(4))
+            for i=1,#s do
+                assert(blah[i]==s[i],"diff at:"..i.." : "..ord(blah[i]).." / "..ord(s[i]))
+            end
+            _grid=grid_fromstr(blah)
+        end,
         load=function(self,msg)            
             _grid={}
             undo_stack={}  
@@ -808,7 +872,7 @@ function collect_frames(ent,cb)
         return finish
     end
             
-    local xy,zoffset=(_grid_size+1)/2,(zmax-zmin+1)/2
+    local xy,zoffset=(_grid_size+1)/2,(zmax+zmin+1)/2
     local zangles={}
     for i=0,1-0.125,0.125 do
         add(zangles,i)
@@ -947,24 +1011,24 @@ function _init()
     _main:add(make_button(32,binding(function() 
         local dialog=_main:dialog({border=4},0,8,64,64)
         dialog:add(make_static(8),0,8,64,64)
-        local list=dialog:add(make_list(63,62,8,bounded_binding({selected=0},"selected",0,0)),2,10,63,65)
 
         -- save entities (external cart)
-        list:add(make_button({text="sAVE",color=2},binding(function(e)
+        dialog:add(make_button({text="sAVE",color=2},binding(function(e)
             pack_archive()
 
             dialog:close()
-        end)))
+        end)),2,10,63)
         -- launch game
-        list:add(make_button({text="lAUNCH",color=2},binding(function(e)
+        dialog:add(make_button({text="lAUNCH",color=2},binding(function(e)
             --
             pack_archive()
 
             load("daggers.p8")
-        end)))
-        list:add(make_static(8,read_binding(function() return "…………………",2 end)))
+        end)),2,18,63)
+        dialog:add(make_static(8,read_binding(function() return "…………………",2 end)),1,25,63)
 
         -- objects
+        local list=dialog:add(make_list(63,62,8,bounded_binding({selected=0},"selected",0,#_entities-1)),2,33,63,40)
         for k,ent in pairs(_entities) do
             list:add(make_button({text=ent.text,color=2},binding(function(e)
                 -- save entity?
