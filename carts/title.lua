@@ -4,20 +4,15 @@ function menu_state()
   -- leaderboard/retry
   local over_btn,clicked=90
   local buttons={
-    {"pLAY",1,48,cb=function() 
-      -- todo: fade to black
-      do_async(function()
-        for i=0,15 do
-          --memcpy(0x5f00,0x4300|i<<4,16)
-          yield()
-        end
-        load("daggers.p8")
-      end)
+    {"pLAY",1,48,cb=function()
+      load("daggers.p8")
     end},
     {"lEADERBOARD",1,64,
       cb=function(self) end},
     {"eDITOR",1,72,
-      cb=function(self) end}
+      cb=function(self) 
+        load("editor.p8")
+      end}
   }
   -- get actual size
   clip(0,0,0,0)
