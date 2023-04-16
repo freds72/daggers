@@ -1,4 +1,7 @@
 
+-- to validate archive presence
+local _magic_number=0x8764.1359
+
 -- editor state
 _editor_state={
     -- to be used to lookup in palette
@@ -17,6 +20,25 @@ local _grid_size=14
 
 -- color palette
 local _palette={}
+
+-- game entities
+-- note: new entities must be added at the end
+local _entities={
+    {text="sKULL",data="¹M\0@\0\0\0\0\0\0\0¹P\0\0\0\0\0\0¹¹`\0\0\0\0\0²¹¹p\0\0\0\0\0³¹¹█\0\0\0\0\0³¹¹…\0\0\0\0\0³¹¹き\0\0\0\0\0\0⁴⁴A\0\0\0\0\0\0¹¹Q\0\0\0\0\0\0■\0a\0\0\0\0\0³¹¹q\0\0\0\0\0⁴\0\0▒\0\0\0\0\0‖\0\0く\0\0\0\0\0\0⁶\0B\0\0\0\0\0\0¹¹R\0\0\0\0\0³²²b\0\0\0\0\0²¹¹3\0\0\0\0\0\0²²C\0\0\0\0\0¹\0\0S\0\0\0\0²\0¹¹c\0\0\0\0²\0\0\0s\0\0\0\0²\0\0\0⬇️\0\0\0\0³\0\0\0⧗\0\0\0\0³\0\0\0こ\0\0\0\0\0⁷\0⁷4\0\0\0\0\0□□■D\0\0\0\0²²²\0T\0\0\0²³²¹¹d\0\0\0²\0\0¹¹t\0\0\0²\0¹¹¹░\0\0\0²\0¹¹¹⬆️\0\0\0\0⁴⁴¹¹さ\0\0\0\0\0⁘⁵⁵‖\0\0\0\0\0■■■%\0\0\0\0■■■■5\0\0\0■■\0\0\0E\0\0\0³\0\0\0\0U\0\0\0³\0\0\0\0e\0\0\0³\0\0\0\0u\0\0\0³\0\0\0\0✽\0\0\0⁴¹¹\0\0ˇ\0\0\0⁵\0\0¹\0し\0\0\0\0\0\0⁴¹⁶\0\0\0\0\0³³³◀\0\0\0\0³\0\0\0&\0\0\0³\0\0\0\0006\0\0³\0\0\0\0\0F\0\0³\0\0\0\0\0V\0\0³\0\0\0\0\0f\0\0³\0\0\0\0\0v\0\0⁙\0\0\0\0\0●\0\0\0⁴¹▮\0\0∧\0\0\0◀\0\0■\0す\0\0\0\0\0\0\0⁵⁷\0\0\0\0\0⁙⁙⁙▶\0\0\0\0⁙\0\0\0'\0\0\0⁙\0\0\0\0007\0\0⁴\0\0\0\0\0G\0\0⁴\0\0\0\0\0W\0\0⁴\0\0\0\0\0g\0\0⁴\0\0\0\0\0w\0\0⁴\0\0\0\0\0♥\0\0\0⁙\0\0\0\0❎\0\0\0\0◀‖⁵⁴「\0\0\0\0\0⁴⁙⁴(\0\0\0\0⁴⁴\0\0008\0\0\0⁴⁴\0\0\0H\0\0\0⁴\0\0\0\0X\0\0\0⁴\0\0\0\0h\0\0\0⁴\0\0\0\0x\0\0\0⁴⁴\0\0\0☉\0\0\0\0⁙⁴⁴⁴)\0\0\0\0\0\0⁴⁴9\0\0\0\0\0⁴⁴⁴I\0\0\0\0⁴⁴⁴⁴Y\0\0\0\0⁴⁴⁴⁴i\0\0\0\0⁴⁴⁴⁴y\0\0\0\0\0⁙⁴⁴"},
+    {text="rEAPER",data="¹H\0🐱\0\0\0\0\0\0¹¹★\0\0\0\0\0\0¹¹3\0\0\0\0\0\0²²C\0\0\0\0\0¹¹¹S\0\0\0\0²¹¹¹c\0\0\0\0²¹¹¹s\0\0\0\0²¹¹¹⬇️\0\0\0\0³¹¹¹⧗\0\0\0\0³\0\0¹こ\0\0\0\0\0³³³4\0\0\0\0\0□□■D\0\0\0\0²²²\0T\0\0\0²³²¹¹d\0\0\0²\0\0¹¹t\0\0\0²\0¹¹¹░\0\0\0²\0¹¹¹⬆️\0\0\0\0⁴⁴¹¹さ\0\0\0\0\0⁘⁵⁵‖\0\0\0\0\0■■■%\0\0\0\0■■■■5\0\0\0■■\0\0\0E\0\0\0³\0\0\0\0U\0\0\0³\0\0\0\0e\0\0\0³\0\0\0\0u\0\0\0³\0\0\0\0✽\0\0\0⁴		\0\0ˇ\0\0\0⁵\0\0¹\0し\0\0\0\0\0\0⁴¹⁶\0\0\0\0\0³³³◀\0\0\0\0³\0\0\0&\0\0\0³\0\0\0\0006\0\0³\0\0\0\0\0F\0\0³\0\0\0\0\0V\0\0³\0\0\0\0\0f\0\0³\0\0\0\0\0v\0\0⁙\0\0\0\0\0●\0\0\0⁴	▶\0\0∧\0\0\0⁙\0\0■\0す\0\0\0\0\0\0\0⁵⁷\0\0\0\0\0⁙⁙⁙▶\0\0\0\0⁙\0\0\0'\0\0\0⁙\0\0\0\0007\0\0⁴\0\0\0\0\0G\0\0⁴\0\0\0\0\0W\0\0⁴\0\0\0\0\0g\0\0⁴\0\0\0\0\0w\0\0□\0\0\0\0\0♥\0\0\0⁙\0\0\0\0❎\0\0\0\0□□□⁴「\0\0\0\0\0⁴⁙⁴(\0\0\0\0⁴⁴\0\0008\0\0\0⁴⁴\0\0\0H\0\0\0⁴\0\0\0\0X\0\0\0⁴\0\0\0\0h\0\0\0⁴\0\0\0\0x\0\0□⁴⁴\0\0\0☉\0\0²⁴⁙⁴⁴⁴▤\0\0²⁴\0\0\0\0)\0\0\0\0\0\0⁴⁴9\0\0\0\0\0⁴⁴⁴I\0\0\0\0⁴⁴⁴⁴Y\0\0\0\0⁴⁴⁴⁴i\0\0\0⁴⁴⁴⁴⁴y\0\0⁴⁴⁴⁙⁴⁴웃\0\0⁴\0\0\0\0\0▥\0⁴³\0\0\0\0\0た\0⁴⁴\0\0\0\0\0み\0\0³\0\0\0\0\0ち\0\0⁙\0\0\0\0\0む\0\0⁴\0\0\0\0\0ゅ\0\0⁴⁴\0\0\0\0ソ\0\0\0⁴\0\0\0\0"},
+    -- animation
+    {text="bLOOD0",data="¹ᶜ\0f\0\0\0\0\0\0\0	v\0\0\0\0	\0\0\0へ\0\0\0\0	\0\0\0X\0\0\0\0\0\0	\0h\0\0\0	\0	\0\0x\0\0\0\0\0\0\0	▤\0\0\0\0	\0	\0)\0\0\0\0\0\0	\0Y\0\0\0\0\0	\0\0웃\0\0\0\0\0	\0\0み\0\0	\0\0\0\0\0Z\0\0\0\0\0\0	\0"},
+    {text="bLOOD1",data="¹\n\0s\0\0\0\0\0	\0\0⬇️\0\0\0\0\0\0	\0004\0\0	\0	\0\0\0T\0\0\0\0\0	\0\0d\0\0\0\0\0	\0\0ひ\0\0	\0\0\0\0\0⁶\0\0\0\0\0\0\0	◀\0\0\0	\0\0\0	6\0\0\0	\0\0\0\0f\0\0\0\0\0\0	\0"},
+    {text="bLOOD2"},
+    {text="fIREBALL0",data="¹\r\0T\0\0\0\0\0\0\0▶5\0\0\0\0\0\0\0▶E\0\0\0\0\0\0\0▶U\0\0\0\0	\0▶▶e\0\0\0\0			▶u\0\0\0\0\0		▶✽\0\0\0\0\0		▶ˇ\0\0\0\0\0		▶し\0\0\0\0\0\0	▶ふ\0\0\0\0\0\0	▶わ\0\0\0\0\0\0	▶コ\0\0\0\0\0\0\0▶V\0\0\0\0\0\0\0▶"},
+    {text="fIREBALL1",data="¹#\0R\0\0\0\0\0\0\0	b\0\0\0\0\0\0\0	c\0\0\0\0\0\0\0	s\0\0\0\0\0\0\0	⬇️\0\0\0\0\0\0\0	T\0\0\0\0\0\0\0▶d\0\0\0\0\0\0\0	t\0\0\0\0\0\0\0	░\0\0\0\0\0\0\0	⬆️\0\0\0\0\0\0\0	さ\0\0\0\0\0\0\0	ひ\0\0\0\0\0\0\0	5\0\0\0\0\0\0\0▶E\0\0\0\0\0\0\0▶U\0\0\0\0\0\0▶▶e\0\0\0\0\0\0\0▶u\0\0\0\0\0\0\0▶✽\0\0\0\0\0\0\0▶ˇ\0\0\0\0\0\0\0▶し\0\0\0\0\0\0\0▶ふ\0\0\0\0\0\0\0▶わ\0\0\0\0\0\0\0▶コ\0\0\0\0\0\0\0▶V\0\0\0\0\0\0\0▶f\0\0\0\0\0\0\0	v\0\0\0\0\0\0\0	●\0\0\0\0\0\0\0	∧\0\0\0\0\0\0\0	す\0\0\0\0\0\0\0	へ\0\0\0\0\0\0\0	g\0\0\0\0\0\0\0	w\0\0\0\0\0\0\0	♥\0\0\0\0\0\0\0	X\0\0\0\0\0\0\0	h\0\0\0\0\0\0\0	"},
+    {text="fIREBALL2"},
+    -- resting hand
+    {text="hAND0"},
+    {text="hAND1"},
+    {text="hAND2"},
+}
+local _current_entity
 
 -- draw cube help
 local cube={
@@ -40,6 +62,49 @@ local cube={
             [0x01]={k=1,6,5,8,7},
     }
 }
+
+-- binary string functions @zep
+function str_esc(s)
+    local out=""
+    for i=1,#s do
+     local c  = sub(s,i,i)
+     local nc = ord(s,i+1)
+     local pr = (nc and nc>=48 and nc<=57) and "00" or ""
+     local v=c
+     if(c=="\"") v="\\\""
+     if(c=="\\") v="\\\\"
+     if(ord(c)==0) v="\\"..pr.."0"
+     if(ord(c)==10) v="\\n"
+     if(ord(c)==13) v="\\r"
+     out..= v
+    end
+    return out
+end
+
+-- unscape binary string
+-- credits: @heraclum
+function str_unesc(s)
+    local i,out=1,""
+    while i<=#s do
+        local c,v=s[i]
+        v=c
+        if c=="\\" then
+            i+=1
+            c=s[i]
+            if c=="\"" or c=="\\" then
+                v=c
+            elseif c=="0" then
+                v="\0"
+                if (s[i+1]=="0" and s[i+2]=="0") i+=2
+            elseif c=="n" then v="\n"
+            elseif c=="r" then v="\r"
+            end
+        end
+        out..=v
+        i+=1
+    end
+    return out
+end
 
 -- voxel functions
 function init_traversal(ray,maxs,t0,t1)
@@ -166,7 +231,7 @@ function voxel_traversal(ray,size,grid)
     end
 end
 
-function collect_blocks(cam,extents,visible_blocks)    
+function collect_blocks(grid,cam,extents,visible_blocks)    
     local fwd=cam.fwd
     local majord,majori=-32000,1
     for i=1,3 do
@@ -207,7 +272,7 @@ function collect_blocks(cam,extents,visible_blocks)
     local draw_last=function(face_mask,idx)
         for last=last0,lastc-1 do        
             local idx=idx|last>>>last_shift
-            local id=_grid[idx]
+            local id=grid[idx]
             if id then
                 add(visible_blocks,id)
                 add(visible_blocks,face_mask|(0x01.0101&last_mask))            
@@ -217,7 +282,7 @@ function collect_blocks(cam,extents,visible_blocks)
         -- flip side
         for last=last1,lastc+1,-1 do        
             local idx=idx|last>>>last_shift
-            local id=_grid[idx]
+            local id=grid[idx]
             if id then
                 add(visible_blocks,id)
                 add(visible_blocks,face_mask|(0x02.0202&last_mask))            
@@ -226,7 +291,7 @@ function collect_blocks(cam,extents,visible_blocks)
         end
         if last_fix then
             local idx=idx|lastc>>>last_shift
-            local id=_grid[idx]
+            local id=grid[idx]
             if id then
                 add(visible_blocks,id)
                 add(visible_blocks,face_mask)            
@@ -283,7 +348,7 @@ function collect_blocks(cam,extents,visible_blocks)
     end
 end
 
-function draw_grid(cam,layer,render)
+function draw_grid(grid,cam,layer,render)
     local visible_blocks={}
     local m,fov=cam.m,cam.fov
     local xcenter,ycenter,scale=cam.xcenter,cam.ycenter,cam.scale
@@ -294,10 +359,9 @@ function draw_grid(cam,layer,render)
     end
 
     -- viz blocks
-    collect_blocks(cam,extents,visible_blocks)
+    collect_blocks(grid,cam,extents,visible_blocks)
     
     local masks={0x0.00ff,0x0.ff,0xff}
-    local grid=_grid
     local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
     local cache,verts,faces={},{},cube.faces
 
@@ -311,59 +375,77 @@ function draw_grid(cam,layer,render)
         local adj={ox,oy,oz}
         local polydraw=function(p,np,c,side)
             polyfill(p,np,c)
-            if(not render and (side==0x02 or side==0x01)) polyline(p,np,0x1000.a5a5|0x17)            
+            if(not render and layer and (side==0x02 or side==0x01)) polyline(p,np,sget(57,c&0xf))            
         end
-        if layer and layer!=oz then
-            polydraw=polyline
+        local visible,force_adj=true
+        if layer then
+            if cam.pos[3]<layer then
+                if layer>oz then
+                    visible=false
+                end
+            else
+                if layer<oz then
+                    visible=false
+                end
+            end
+            if layer!=oz then                
+                polydraw=function(p,np,c)
+                    polyfill(p,np,(c&0xff)|0x1100.5f5f)
+                end
+            else
+                force_adj=true
+            end
         end
-        for maski,mask in pairs(masks) do
-            local active_side=current_mask&mask
-            local side=faces[active_side]
-            if side then            
-                -- check adjacent blocks
-                -- todo: create a complement index base on face mask
-                local backup=adj[maski]
-                local adj_i=backup+side.k
-                adj[maski]=adj_i
-                local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
-                adj[maski]=backup
-                -- outside: draw faces
-                -- or not next to block
-                if adj_i<0 or adj_i>=8 or (not grid[adj_idx]) then
-                    local outcode,clipcode=0xffff,0
-                    for i=1,4 do
-                        local vert=side[i]
-                        local idx=idx+vert.idx
-                        local v=cache[idx]
-                        if not v then
-                            local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
-                            local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
-                            
-                            if az>-0.1 then code=2 end
-                            if fov*ax>-az then code+=4
-                            elseif fov*ax<az then code+=8 end
-                            if fov*ay>-az then code+=16
-                            elseif fov*ay<az then code+=32 end
-                            local w=fov/az
-                            v={ax,ay,az,x=xcenter+scale*ax*w,y=ycenter-scale*ay*w,outcode=code}
-                            cache[idx]=v
+        if visible then
+            for maski,mask in pairs(masks) do
+                local active_side=current_mask&mask
+                local side=faces[active_side]
+                if side then            
+                    -- check adjacent blocks
+                    -- todo: create a complement index base on face mask
+                    local backup=adj[maski]
+                    local adj_i=backup+side.k
+                    adj[maski]=adj_i
+                    local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
+                    adj[maski]=backup
+                    -- outside: draw faces
+                    -- or not next to block
+                    if adj_i<0 or adj_i>=_grid_size or (side!=0x02 and side!=0x01 and force_adj) or (not grid[adj_idx]) then
+                        local outcode,clipcode=0xffff,0
+                        for i=1,4 do
+                            local vert=side[i]
+                            local idx=idx+vert.idx
+                            local v=cache[idx]
+                            if not v then
+                                local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
+                                local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+                                
+                                if az>-0.1 then code=2 end
+                                if fov*ax>-az then code+=4
+                                elseif fov*ax<az then code+=8 end
+                                if fov*ay>-az then code+=16
+                                elseif fov*ay<az then code+=32 end
+                                local w=fov/az
+                                v={ax,ay,az,x=xcenter+scale*ax*w,y=ycenter-scale*ay*w,outcode=code}
+                                cache[idx]=v
+                            end
+                            verts[i]=v
+                            outcode&=v.outcode
+                            clipcode+=v.outcode&2
                         end
-                        verts[i]=v
-                        outcode&=v.outcode
-                        clipcode+=v.outcode&2
-                    end
-                    --polyline(verts,4,maski+k+1)
-                    -- polyfill(verts,4,maski+k+1)
-                    if outcode==0 then 
-                        local np=4
-                        if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
-                        if np>2 then
-                            polydraw(verts,np,_palette[id],active_side)                            
+                        --polyline(verts,4,maski+k+1)
+                        -- polyfill(verts,4,maski+k+1)
+                        if outcode==0 then 
+                            local np=4
+                            if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
+                            if np>2 then
+                                polydraw(verts,np,_palette[id],active_side)                            
+                            end
                         end
                     end
                 end
-            end
-        end  
+            end  
+        end
     end  
 end
 
@@ -455,6 +537,7 @@ function make_voxel_editor()
         {1,1,0},
         {0,1,0}
     }
+    -- facing direction
     local arrow={
         {0.25,0.5,0},
         {0.25,1,0},
@@ -477,16 +560,16 @@ function make_voxel_editor()
     end
     return is_window({
         draw=function(self)
-            -- todo: layer offset by +0 +1 if camera is under
             local r=self.rect
-            clip(r.x,r.y,r.w,r.h)
-            draw_grid(cam,current_voxel and layer)
-
+            clip(r.x,r.y,r.w,r.h)            
+            draw_grid(_grid,cam,current_voxel and layer)
+            fillp()
             -- draw layer selection            
-            local pts={}
+            local pts,layerz={},layer+(cam.pos[3]>layer and 1 or 0)
             for i,p in pairs(quad) do
                 p=v_scale(p,_grid_size+1)
-                p[3] = layer+1
+                -- align layer pos and mouse editing plane
+                p[3] = layerz
                 pts[i]=p
             end
             local xmax,ymax=-32000
@@ -496,14 +579,14 @@ function make_voxel_editor()
                 local p1=pts[i]
                 local x1,y1,w1=cam:project(p1)
                 if(w1 and x1>xmax) xmax,ymax=x1,y1
-                if(w1 and w0) line(x0,y0,x1,y1,0x66)
+                if(w1 and w0) line(x0,y0,x1,y1,6)
                 x0,y0,w0=x1,y1,w1
             end
             -- arrow
             local pts={}
             for i,p in pairs(arrow) do
                 p=v_scale(p,_grid_size+1)
-                p[3] = layer+1
+                p[3] = layerz
                 pts[i]=v_add(p,{0,_grid_size,0})
             end
             local p0=pts[#pts]
@@ -511,7 +594,7 @@ function make_voxel_editor()
             for i=1,#pts do
                 local p1=pts[i]
                 local x1,y1,w1=cam:project(p1)
-                if(w1 and w0) line(x0,y0,x1,y1,0x66)
+                if(w1 and w0) line(x0,y0,x1,y1,6)
                 x0,y0,w0=x1,y1,w1
             end
 
@@ -520,10 +603,9 @@ function make_voxel_editor()
             -- draw cursor if any
             if current_voxel then
                 local pts={}
-                local zoffset=cam.pos[3]<layer and 0 or 1
                 for i,p in pairs(quad) do
                     p=v_add(p,current_voxel.origin)
-                    p[3]=layer+zoffset
+                    p[3]=layerz
                     pts[i]=v_add(p,{offsetx,offsety,0},1)
                 end
                 --fillp(0xa5a5.8)
@@ -533,13 +615,12 @@ function make_voxel_editor()
                     local p1=pts[i]
                     local x1,y1,w1=cam:project(p1)
                     if(w1 and x1>xmax) xmax,ymax=x1,y1
-                    if(w1 and w0) line(x0,y0,x1,y1,x77)
+                    if(w1 and w0) line(x0,y0,x1,y1,7)
                     x0,y0,w0=x1,y1,w1
                 end    
             end            
             clip() 
             if(current_voxel) print(v_tostr(current_voxel.origin),2,110,8)
-            pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
         end,
         mousemove=function(self,msg)
             local rotation_mode
@@ -566,9 +647,9 @@ function make_voxel_editor()
 
             layer=mid(layer+msg.wheel,0,_grid_size-1)
 
-            local xyz=_grid_size/2
-            cam:control({xyz,xyz,layer},yangle,zangle,1.5*_grid_size)
-            cam2:control({xyz,xyz,layer},yangle,zangle,1.5*_grid_size)
+            local xy=(_grid_size+1)/2
+            cam:control({xy,xy,layer},yangle,zangle,1.5*_grid_size)
+            cam2:control({xy,xy,layer},yangle,zangle,1.5*_grid_size)
 
             -- selection
             if not rotation_mode then
@@ -603,12 +684,17 @@ function make_voxel_editor()
                         name="cursor",
                         cursor="aim"
                     })
-                    if msg.lmbp then
+                    if msg.lmb then
                         -- click!
                         local col=_editor_state.selected_color
-                        -- previous state for undo
-                        add(undo_stack,{idx=idx,col=_grid[idx] or 0})
-                        apply(idx,col)
+                        -- anything to do?
+                        if (_grid[idx] or 0)!=col then
+                            -- previous state for undo
+                            add(undo_stack,{idx=idx,col=_grid[idx] or 0})
+                            -- keep undo stack limited
+                            if(#undo_stack>250) deli(undo_stack,1)
+                            apply(idx,col)
+                        end
                     elseif msg.rmbp then
                         _editor_state.selected_color=_grid[idx] or 0
                     end            
@@ -622,67 +708,291 @@ function make_voxel_editor()
             undo_stack[#undo_stack]=nil
             apply(prev.idx,prev.col)
         end,
-        save=function(self,msg) 
-            -- version
-            poke(0x0,1)           
-            local mem,size=0x3,0
-            for z=0,_grid_size do
-                for y=0,_grid_size do
-                    local checksum,data,idx=0,{},y>>8|z
-                    -- capture only half of the voxel grid (mirror!)                    
-                    for x=0,7 do
-                        local id=_grid[idx|x>>16] or 0
-                        add(data,id)
-                        checksum+=id
-                    end
-                    -- voxels?
-                    if checksum!=0 then                        
-                        poke(mem,y<<4|z) mem+=1
-                        poke(mem,unpack(data)) mem+=8
-                        size+=1
-                    end
-                end
+        copy=function(self,msg)
+            printh("copied to clipboard")
+            blah=grid_tostr(_grid)
+            local s=str_esc(grid_tostr(_grid))
+            printh("copied:\n"..s)
+            printh(s,"@clip")
+        end,
+        paste=function(self,msg)
+            local s=str_unesc(stat(4))
+            for i=1,#s do
+                assert(blah[i]==s[i],"diff at:"..i.." : "..ord(blah[i]).." / "..ord(s[i]))
             end
-            poke2(0x1,size)
-            cstore(0,0,mem,msg.filename)
-            reload()              
+            _grid=grid_fromstr(blah)
         end,
         load=function(self,msg)            
             _grid={}
-            undo_stack={}            
-            reload(0,0,0x4300,msg.filename)
-            local mem,version,size=0x3,@0x0,peek2(0x1)
-            for i=1,size do
-                local idx=@mem
-                mem+=1
-                -- voxel idx
-                idx=(idx&0xf0)>>12|(idx&0xf)
-                local data={peek(mem,8)}
-                mem+=8
-                for x=0,7 do
-                    local id=data[x+1]
-                    if id!=0 then
-                        _grid[idx|x>>16]=id
-                        _grid[idx|(_grid_size-x)>>16]=id
-                    end
-                end 
+            undo_stack={}  
+            if msg.data then         
+                _grid=grid_fromstr(msg.data)
             end
-            reload()
         end
     })
+end
+
+function grid_tostr(grid)
+    local s,size="",0
+    for z=0,_grid_size do
+        for y=0,_grid_size do
+            local checksum,data,idx=0,{},y>>8|z
+            -- capture only half of the voxel grid (mirror!)                    
+            for x=0,7 do
+                local id=grid[idx|x>>16] or 0
+                add(data,id)
+                checksum+=id
+            end
+            -- voxels?
+            if checksum!=0 then                        
+                s..=chr(y<<4|z,unpack(data))
+                -- count number of 8 voxels blocks
+                size+=1
+            end
+        end
+    end
+    -- version + actual len (2 bytes) + data
+    return chr(1,size,size>><8)..s
+end
+
+function grid_fromstr(data)
+    local grid={}
+    -- note: version is ignored
+    local size=ord(data[2])|ord(data[3])<<8
+    for i=0,size-1 do
+        local base=4+9*i
+        local idx=ord(data[base])    
+        -- voxel idx
+        idx=(idx&0xf0)>>12|(idx&0xf)
+        for x=0,7 do
+            local id=ord(data[base+x+1])
+            if id!=0 then
+                grid[idx|x>>16]=id
+                grid[idx|(_grid_size-x)>>16]=id
+            end
+        end 
+    end
+    return grid         
+end
+
+function pack_archive()
+    -- pack current model
+    _current_entity.data=grid_tostr(_grid)
+    
+    --
+    local mem=0x0
+    -- save magic number
+    poke4(mem,_magic_number) mem+=4
+    -- save version
+    poke(mem,1) mem+=1            
+    -- 
+    local count_mem=mem
+    mem+=1
+    local n=0
+    for k,ent in pairs(_entities) do
+        if ent.data then
+            -- save id
+            poke(mem,k) mem+=1
+            -- data size
+            poke2(mem, #ent.data) mem+=2
+            -- data bytes 
+            poke(mem,ord(ent.data,1,#ent.data)) mem+=#ent.data
+            n+=1
+        end
+    end
+    -- number of entries
+    poke(count_mem,n)
+    cstore(0x0,0x0,mem,"daggers_assets.p8")
+    reload()
+end
+
+function unpack_archive()
+    -- clear up existing data
+    memset(0x0,0,0x16)
+
+    -- load any previous cart
+    if(reload(0x0,0x0,0x4300,"daggers_assets.p8")==0) return
+    -- check magic number
+    local mem=0x0
+    if($mem!=_magic_number) printh("archive: invalid magic number") return
+    mem+=4
+    local version,n=@mem,@(mem+1)
+    assert(version==1,"unknown/invalid version: "..version)
+    mem+=2
+    for i=1,n do
+        -- read string
+        local k=@mem
+        mem+=1
+        -- read data
+        local len=peek2(mem)
+        mem+=2
+        _entities[k].data=chr(peek(mem,len))
+        mem+=len
+    end
+    reload()
+end
+
+function collect_frames(ent,cb)
+    local cam=make_cam(16,16,16,2)
+    local grid,frames=grid_fromstr(ent.data),{}
+    -- find middle of voxel entity
+    local zmin,zmax=32000,-32000
+    for k=0,_grid_size do
+        -- find at least one non empty voxel            
+        for i=0,_grid_size do                
+            local done
+            for j=0,_grid_size do
+                if grid[i>>16|j>>8|k] then
+                    zmin=min(zmin,k)
+                    zmax=max(zmax,k)
+                    done=true
+                    break
+                end
+            end
+            if(done) break
+        end
+    end
+    -- find first row with non-null pixels
+    local function find_first_row(start,finish,dir)
+        for i=start,finish,dir do            
+            local mem=0x6000+i*64
+            if $(mem)|$(mem+4)|$(mem+8)|$(mem+12)!=0 then
+                return mid(i-dir,start,finish)
+            end
+        end
+        return finish        
+    end
+    -- find first column with non-null pixels
+    local function find_first_column(start,finish,dir)
+        for x=start,finish,dir do
+            for y=0,31 do
+                if(pget(x,y)!=0) return mid(x-1,start,finish)
+            end
+        end
+        return finish
+    end
+            
+    local xy,zoffset=(_grid_size+1)/2,(zmax+zmin+1)/2
+    local zangles={}
+    for i=0,0.5,0.125 do
+        add(zangles,i)
+    end
+    -- note: removed special top/down cases
+    local count=0
+    for y=0,-0.5,-0.125 do
+        for i,z in ipairs(zangles) do
+            cls()
+            cam:control({xy,xy,zoffset},y,z,2*_grid_size)
+            clip(0,0,32,32)
+            draw_grid(grid,cam,nil,true)            
+            clip()
+            -- find ymin,ymax
+            local ymin,ymax=find_first_row(0,31,1),find_first_row(31,0,-1)
+            local frame=add(frames,{
+                ymin=ymin,ymax=ymax,
+                -- x extent
+                xmin=find_first_column(0,31,1),
+                xmax=find_first_column(31,0,-1)
+            })
+            -- capture image in array
+            for j=ymin,ymax do
+                local mem=0x6000+j*64
+                add(frame,$mem)
+                add(frame,$(mem+4))
+                add(frame,$(mem+8))
+                add(frame,$(mem+12))
+            end
+            -- flip()
+            if(cb) cb(count)
+            count+=1
+        end
+    end 
+    return frames,count
+end
+
+-- export entities for game engine
+function pack_entities()
+    -- save carts
+    local mem,cart_id=0x0,0
+    local function pack_bytes(b,width)
+        width=width or 1
+        for i=0,width-1 do
+            poke(mem,(b>><(i*8))) mem+=1
+            -- end of cart?
+            if mem==0x4300 then
+                cstore(0x0,0x0,mem,"pic_"..cart_id..".p8")
+                mem=0
+                cart_id+=1
+            end
+        end
+    end
+
+    -- number of entities
+    pack_bytes(#_entities,2)
+    for i=1,#_entities do
+        local ent=_entities[i]
+        if ent.data then
+            holdframe()
+            local frames,count=collect_frames(ent,function(count)
+                if(count%2!=0) return
+                cls()
+                fillp()
+                rectfill(0,0,127,8,8)
+                print("eXPORTING SPRITES",1,1,0)
+                for j=1,i-1 do
+                    print(_entities[j].text..": 100%",2,j*6+4,7)
+                end
+                print(_entities[i].text..": "..flr(100*count/40).."%",2,i*6+4,7)
+                flip()
+                holdframe()
+            end)        
+            -- save entity identifier
+            pack_bytes(i)
+            -- number of frames
+            pack_bytes(count,2)
+            for i,frame in ipairs(frames) do
+                -- height
+                pack_bytes(frame.ymax-frame.ymin+1)
+                -- pack x min + width
+                pack_bytes(frame.xmin)
+                pack_bytes(frame.xmax-frame.xmin+1)
+                -- pack y min
+                pack_bytes(frame.ymin)                
+                -- pack pixels
+                for _,pixels in ipairs(frame) do
+                    pack_bytes(pixels,4)
+                end
+            end
+        else
+            -- "invalid entity"
+            pack_bytes(0)
+        end
+    end
+    -- any remaining data?
+    if mem!=0 then
+        cstore(0x0,0x0,mem,"pic_"..cart_id..".p8")
+    end        
+    reload()
+    cls()
+    -- deactivate holdframe
+    flip()   
 end
 
 function _init()  
     -- integrated fill colors
     poke(0x5f34, 1)
 
+    -- reload previous archive (if any)
+    unpack_archive()
+    
     -- create ui and callbacks
-    _main=main_window()
-    local banner=_main:add(make_static(0x88),0,0,127,7)
+    _main=main_window({cursor=0,pal={128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0}})
+    local banner=_main:add(make_static(8),0,0,127,7)
     local pickers=banner:add(make_list(64,8,8,bounded_binding(_editor_state,"selected_color",0,18)),64,0,80,7)
 
+    -- integrated fillp palette
     for i=0,15 do
-        _palette[i]=i|i<<4
+        _palette[i]=i|i<<4|0x1000
         _palette[15+i]=i|sget(57,i)<<4|0x1000.a5a5
     end
     for i=0,31 do
@@ -697,22 +1007,49 @@ function _init()
         _editor_state.selected_color=min(#pickers-1,_editor_state.selected_color+8)      
     end)),60,4,3,4)
 
-    -- load
-    _main:add(make_button(17,binding(function() 
-        _main:send({
-            name="load",
-            filename="level_".._editor_state.level..".p8"
-        })
+    -- hamburger menu
+    _main:add(make_button(32,binding(function() 
+        local dialog=_main:dialog({border=4},0,8,64,64)
+        dialog:add(make_static(8),0,8,64,64)
+
+        -- save entities (external cart)
+        dialog:add(make_button({text="sAVE",color=2},binding(function(e)
+            pack_archive()
+
+            dialog:close()
+        end)),2,10,63)
+        -- back to menu (to be back assets)
+        dialog:add(make_button({text="cLOSE",color=2},binding(function(e)
+            --
+            pack_archive()
+
+            load("title.p8")
+        end)),2,18,63)
+        dialog:add(make_static(8,read_binding(function() return "…………………",2 end)),1,25,63)
+
+        -- objects
+        local list=dialog:add(make_list(63,62,8,bounded_binding({selected=0},"selected",0,#_entities-1)),2,33,63,40)
+        for k,ent in pairs(_entities) do
+            list:add(make_button({text=ent.text,color=2},binding(function(e)
+                -- save entity?
+                if _current_entity!=ent then
+                    -- save current
+                    if(_current_entity) _current_entity.data=grid_tostr(_grid)
+                    -- load selected
+                    _current_entity=ent     
+                    _main:send({
+                        name="load",
+                        data=ent.data
+                    })
+                end
+                --
+                dialog:close()
+            end)))
+        end
     end)),1,0,7)
-    -- save
-    _main:add(make_button(16,binding(function()
-        _main:send({
-            name="save",
-            filename="level_".._editor_state.level..".p8"
-        })
-    end)),9,0)
+    
     -- level id
-    _main:add(make_static(0x22,binding(_editor_state,"level")),17,0,6,7)
+    _main:add(make_static(0x1022,binding(_editor_state,"level")),17,0,6,7)
     -- +-
     _main:add(make_button(21,binding(function()
         _editor_state.level=mid(_editor_state.level+1,1,9)
@@ -723,52 +1060,10 @@ function _init()
 
     -- generate images
     _main:add(make_button(4,binding(function()
-        local cam=make_cam(16,16,16,2)
-        local images={}
-        clip(0,0,32,32)
-        local xyz=_grid_size/2
-        local zangles={}
-        for i=0,1-0.125,0.125 do
-            add(zangles,i)
-        end
-        -- note: removed special top/down cases
-        local count=0
-        for y=0,-0.5,-0.125 do
-            for i,z in ipairs(zangles) do
-                cls()
-                cam:control({xyz,xyz,xyz},y,z,1.5*_grid_size)
-                draw_grid(cam,nil,true)
-                -- capture image in array
-                local mem=0x6000
-                for j=0,31 do
-                    add(images,peek4(mem))
-                    add(images,peek4(mem+4))
-                    add(images,peek4(mem+8))
-                    add(images,peek4(mem+12))
-                    mem+=64
-                end
-                flip()
-            end
-        end
-        clip()        
-        -- save carts
-        local mem,id=0x0,0
-        poke2(mem,#images\32)
-        mem+=2
-        for i,v in ipairs(images) do
-            poke4(mem,v)
-            mem+=4
-            if mem==0x4300 then
-                cstore(0x0,0x0,0x4300,"pic_"..id..".p8")
-                memset(0x0,0,0x4300)
-                mem=0
-                id+=1
-            end
-        end
-        if mem!=0 then
-            cstore(0x0,0x0,0x4300,"pic_"..id..".p8")
-        end        
-        reload()
+        -- commit latest changes
+        if(_current_entity) _current_entity.data=grid_tostr(_grid)
+        -- 
+        pack_entities()
     end)),29,0,6)
 
     -- edit/select/fill
@@ -791,4 +1086,11 @@ function _init()
             face[i]=cube[face[i]]
         end
     end
+
+    -- load "default" model
+    _current_entity=_entities[1]
+    _main:send({
+        name="load",
+        data=_current_entity.data
+    })    
 end

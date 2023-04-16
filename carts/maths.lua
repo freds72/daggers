@@ -67,8 +67,8 @@ end
 -- safe for overflow len
 -- faster than sqrt variant (23.5+14 vs. 27.5)
 -- credits: https://www.lexaloffle.com/bbs/?tid=49827
-function v_len(v)
-  local x,y,z=v[1],v[2],v[3]
+function v_len(a,b)
+  local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
   local ax=atan2(x,y)
   local d2=x*cos(ax)+y*sin(ax)
   local az=atan2(d2,z)
@@ -87,7 +87,7 @@ function v_dir(a,b)
 end 
 
 function v_normz(v)
-	local d=v_len(v)
+	local d=v_len({0,0,0},v)
 	return {v[1]/d,v[2]/d,v[3]/d},d
 end
 

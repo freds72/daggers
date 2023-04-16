@@ -42,8 +42,8 @@ function is_window(class)
 end
 
 -- main window: handles cursor layer
-function main_window(cursor,clear,is_dialog)
-    cursor=cursor or 0
+function main_window(params,is_dialog)
+    local cursor=params.cursor or 0
     local mx,my
     local mstate={}
     local kstate={}
@@ -76,10 +76,10 @@ function main_window(cursor,clear,is_dialog)
             cursor=cursors[msg.cursor] or cursors.pointer
             msg.handled=true
         end,
-        dialog=function(self,x,y,w,h,border)
-            has_dialog=true
+        dialog=function(self,dlg_params,x,y,w,h)
             local prev_update,prev_draw=_update,_draw
-            local win=main_window(cursor,clear,true)
+            local border=dlg_params.border
+            local win=main_window(params,true)
             local mm=win.mousemove
             win.close=function()
                 -- restore previous window
@@ -134,11 +134,18 @@ function main_window(cursor,clear,is_dialog)
             keys[k]=true
         end
         
-        -- ctrl+z = セ !!!
-        if kstate["セ"] and not keys["セ"] then            
-            win:onmessage({
-                name="undo"
-            })
+        -- hotkeys
+        local shortcuts={
+            ["セ"]="undo",
+            ["る"]="copy",
+            ["コ"]="paste",
+        }
+        for k,cmd in pairs(shortcuts) do
+            if kstate[k] and not keys[k] then            
+                win:onmessage({
+                    name=cmd
+                })
+            end
         end
         kstate=keys
 
@@ -154,7 +161,7 @@ function main_window(cursor,clear,is_dialog)
         if is_dialog then
             memcpy(0x6000,0x8000,0x2000)
         else
-            cls(clear)
+            cls(params.background or 0)
         end
         -- base draw
         win:onmessage({            
@@ -172,6 +179,8 @@ function main_window(cursor,clear,is_dialog)
             -- reset cursor each frame
             cursor=cursors.pointer
         end
+        -- palette?
+        if(params.pal) pal(params.pal,1)
     end
     return win
 end
@@ -380,6 +389,18 @@ function binding(env,prop)
         end,
         get=function(self)
             if(prop) return env[prop]
+        end
+    }
+end
+
+function read_binding(env,prop)
+    return {
+        set=function()
+            -- nope
+        end,
+        get=function(self)
+            if(prop) return env[prop]
+            return env()
         end
     }
 end

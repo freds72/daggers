@@ -2,12 +2,9 @@ pico-8 cartridge // http://www.pico-8.com
 version 39
 __lua__
 
-#include debug.lua
 #include maths.lua
-#include poly.lua
-#include plain.lua
 #include common.lua
-#include main.lua
+#include title.lua
 
 __gfx__
 000000000000eeeeeeee000000000000444000000000000000000000008000004311355555534555555555555555555511111111000000000000000000000000
