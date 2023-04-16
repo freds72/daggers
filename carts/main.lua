@@ -123,10 +123,12 @@ local _ground_extents={
 
 -- print helper
 function arizona_print(s,x,y,sel)
-  sel=sel and 1 or 0
+  sel=sel or 0
+  -- shadow
+  ?s,x,y+1,1
   for j=0,6 do
     clip(0,y+j,127,1)
-    print(s,x,y,sget(32+sel,j))
+    ?s,x,y,sget(32+sel,j)
   end
   clip()
 end
@@ -200,7 +202,7 @@ function make_player(origin,a)
         dangle=v_add(dangle,{stat(39),stat(38),0})
         self.tilt+=dx/40
         local c,s=cos(a),-sin(a)
-        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx})                 
+        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.9)                 
       end,
       update=function(self)
         -- damping      
@@ -227,7 +229,10 @@ function make_player(origin,a)
             if y<-64 then
               y=-64
               new_vel[2]=0
-              dead=true
+              if not dead then
+                dead=true
+                next_state(gameover_state)
+              end
             elseif y<0 then
               -- main grid?              
               local out=0
@@ -253,7 +258,7 @@ function make_player(origin,a)
 
         self.eye_pos=v_add(self.origin,{0,24,0})
 
-        -- check collisions     
+        -- check collisions    
         if not dead then   
           local things=_grid[world_to_grid(self.eye_pos)]
           for thing in pairs(things) do
@@ -268,6 +273,7 @@ function make_player(origin,a)
             end
           end
         end
+
         self.m=make_m_from_euler(unpack(angle))   
         self.angle=angle         
 
@@ -434,14 +440,14 @@ function mode7(p,np,light)
         local rx,lx,ru,rv,lu,lv=rx,lx,ru,rv,lu,lv
         local ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
         local ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
-        if(rx<0) ru-=rx*ddu rv-=rx*ddv rx=0
-        if(lx>=127) lu+=(128-lx)*ddu lv+=(128-lx)*ddv lx=128
+        --if(rx<0) ru-=rx*ddu rv-=rx*ddv rx=0
+        --if(lx>=127) lu+=(128-lx)*ddu lv+=(128-lx)*ddv lx=128
         if rx<lx then
           local pal1=rw>0.9375 and maxlight or (light*rw)\0.0625
-          if(pal0!=pal1) memcpy(0x5f00,0x4300|pal1<<4,16) pal0=pal1	-- color shift now to free up a variable
+          if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) pal0=pal1	-- color shift now to free up a variable
           -- refresh actual extent
-          ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
-          ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
+          -- ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
+          -- ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
           local pix=1-rx&0x0.ffff
           tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
       end
@@ -483,19 +489,19 @@ function rsort(_data)
   for shift=0,5,5 do
   	-- faster than for each/zeroing count array
     memset(0x4300,0,32)
-	for i,b in pairs(buffer1) do
-		local c=0x4300+((b.key>>shift)&31)
-		poke(c,@c+1)
-		idx[i]=c
-	end
+	  for i,b in pairs(buffer1) do
+		  local c=0x4300+((b.key>>shift)&31)
+		  poke(c,@c+1)
+		  idx[i]=c
+	  end
 				
-	-- shifting array
-	local c0=@0x4300
-	for mem=0x4301,0x431f do
-		local c1=@mem+c0
-		poke(mem,c1)
-		c0=c1
-	end
+    -- shifting array
+    local c0=@0x4300
+    for mem=0x4301,0x431f do
+      local c1=@mem+c0
+      poke(mem,c1)
+      c0=c1
+    end
 
     for i=_len,1,-1 do
 		local k=idx[i]
@@ -575,25 +581,29 @@ function draw_grid(cam,light)
   -- render in order
   local sprites,prev_base,pal0=_sprites
   for _,item in ipairs(things) do
-    local pal1=(light*min(15,item.key<<4))\1
-    if(pal0!=pal1) memcpy(0x5f00,0x4300|pal1<<4,16) palt(0,true) pal0=pal1   
+    local pal1
+    if item.thing.hit_ttl and item.thing.hit_ttl>0 then
+      pal1=16
+    else
+      pal1=(light*min(15,item.key<<4))\1
+    end    
+    if(pal0!=pal1) memcpy(0x5f00,0x8000+(pal1<<4),16) palt(0,true) pal0=pal1   
     if item.type==1 then
       -- draw things
       local w0,thing=item.key,item.thing
       local entity,origin=thing.ent,thing.origin
-      -- zangle
+      -- zangle (horizontal)
       local dx,dz=cx-origin[1],cz-origin[3]
       local zangle=atan2(dx,-dz)
-      local side,flip=8*((zangle-thing.zangle+0.5+0.0625)&0x0.ffff)\1
-      if(side>4) side=4-(side%5) flip=true
+      local side,flip=((zangle-thing.zangle+0.5+0.0625)&0x0.ffff)\0.125
+      if(side>4) side=4-(side%4) flip=true
       
-      local yside=8*((atan2(dx*cos(-zangle)+dz*sin(-zangle),cy-origin[2])-0.25+0.0625)&0x0.ffff)\1
-      if(yside>4) yside=4-(yside%5)
+      -- up/down angle
+      local yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),cy-origin[2])-0.25+0.0625)&0x0.ffff)\0.125
+      if(yside>4) yside=4-(yside%4)
       -- copy to spr
       -- skip top+top rotation
-      local frame=entity.frames[8*(5-yside)+side+1]
-      if(not frame) return
-      assert(frame,"angles: "..side.." "..yside)
+      local frame=entity.frames[5*yside+side+1]
       local mem,base=0x0,frame.base
       if prev_base!=base then
         for i=0,frame.height-1 do
@@ -603,7 +613,8 @@ function draw_grid(cam,light)
         end
         prev_base=base
       end
-      local h,w=frame.width,frame.height
+      w0*=2
+      local w,h=frame.width,frame.height
       local sx,sy=item.x-w*w0/4,item.y-h*w0/4
       --
       sspr(frame.xmin,0,w,h,sx,sy,w*w0/2+(sx&0x0.ffff),h*w0/2+(sy&0x0.ffff),flip)
@@ -616,6 +627,18 @@ function draw_grid(cam,light)
       pset(item.x,item.y,item.thing.c)
     end
   end 
+
+  --[[
+  for _,thing in pairs(_things) do
+    local x,_,z=unpack(thing.origin)
+    local x0,y0=128*((x-256)/512),128*((z-256)/512)
+    if thing==_plyr then
+      spr(7,x0,y0)
+    else
+      pset(x0,y0,9)
+    end
+  end
+  ]]
 end
 
 -- things
@@ -625,7 +648,7 @@ local _flying_target
 -- reaper
 function make_skull(_origin)
   local forces,vel={0,0,0},{0,0,0}
-  local seed,wobling=rnd(3),3+rnd(2)
+  local seed,wobling=rnd(8),3+rnd(2)
   local resolved={}
   local thing=add(_things,setmetatable({
     -- sprite id
@@ -633,10 +656,18 @@ function make_skull(_origin)
     origin=_origin,
     zangle=rnd(),
     yangle=0,
+    hp=2,
+    hit_ttl=0,
     hit=function(_ENV)
       if(dead) return
-      dead=true      
-      make_blood(origin)
+      hp-=1
+      if hp<=0 then
+        dead=true    
+        grid_unregister(_ENV)  
+        make_blood(origin)
+      else
+        hit_ttl=5
+      end
     end,
     apply=function(_ENV,other,force,t)
       forces[1]+=t*force[1]
@@ -646,7 +677,7 @@ function make_skull(_origin)
     end,
     update=function(_ENV)
       grid_unregister(_ENV)
-
+      hit_ttl=max(hit_ttl-1)
       -- some gravity
       if origin[2]<12 then 
         forces={0,wobling,0}
@@ -658,7 +689,7 @@ function make_skull(_origin)
       -- converge toward player
       if _flying_target then
         local dir=v_dir(origin,_flying_target)
-        forces=v_add(forces,dir,5+seed*cos(time()/5))
+        forces=v_add(forces,dir,8+seed*cos(time()/5))
       end
       -- todo: random target
       -- avoid others
@@ -670,7 +701,7 @@ function make_skull(_origin)
         if not resolved[other] then
           local avoid,avoid_dist=v_dir(origin,other.origin)
           if(avoid_dist<1) avoid_dist=1
-          local t=-4/avoid_dist
+          local t=-8/avoid_dist
           fx+=t*avoid[1]
           fy+=t*avoid[2]
           fz+=t*avoid[3]
@@ -683,10 +714,31 @@ function make_skull(_origin)
 
       local old_vel=vel
       vel=v_add(vel,forces,1/30)
+      -- fixed velocity (on x/z)
+      local vx,vz=vel[1],vel[3]
+      local vlen=sqrt(vx*vx+vz*vz)
+      vel[1]*=4/vlen
+      vel[3]*=4/vlen
       
       -- align direction and sprite direction
       local target_angle=atan2(old_vel[1]-vel[1],vel[3]-old_vel[3])
-      zangle=lerp(shortest_angle(target_angle,zangle),target_angle,0.2)
+      local shortest=shortest_angle(target_angle,zangle)
+      --[[
+      if abs(target_angle-shortest)>0.125/2 then
+        -- relative change
+        shortest=mid(shortest-target_angle,-0.125/2,0.125/2)
+        -- preserve length
+        local x,z=vel[1],vel[3]
+        local len=sqrt(x*x+z*z)
+        x,z=old_vel[1],old_vel[3]
+        local old_len=sqrt(x*x+z*z)
+        x/=old_len
+        z/=old_len
+        vel[1],vel[3]=len*(x*cos(shortest)+z*sin(shortest)),len*(-x*sin(shortest)+z*cos(shortest))
+        shortest+=target_angle
+      end
+      ]]
+      zangle=lerp(shortest,target_angle,0.2)
       
       -- move & clamp
       origin[1]=mid(origin[1]+vel[1],0,1024)
@@ -712,6 +764,7 @@ function make_blood(_origin)
     -- sprite id
     ent=_entities.blood0,
     origin=_origin,
+    -- random aspect
     zangle=rnd(),
     yangle=0,
     ttl=0,
@@ -719,7 +772,7 @@ function make_blood(_origin)
       ttl+=1
       if(ttl>15) dead=true return
       ent=ents[min(ttl\5+1,#ents)]
-      assert(ent,"invalid ttl:"..(ttl\5+1))
+      -- assert(ent,"invalid ttl:"..(ttl\5+1))
     end
   },{__index=_ENV}))
   return thing
@@ -762,7 +815,7 @@ function draw_world()
   memset(0x6000,0,512)
   memset(0x7e00,0,512)
 
-  --print(stat(0).."kb",2,2,3)
+  -- print(stat(0).."kb",2,2,3)
 
   --bench_print(2,8,7)
 end
@@ -799,7 +852,7 @@ function play_state()
 
   add(_things,_plyr)
   
-  -- make_skull({512,24,512})
+  --make_skull({512,24,512})
 
   -- scenario
   do_async(function()
@@ -843,7 +896,6 @@ function play_state()
       draw_world()
       -- todo: draw player hand
 
-
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
     end,
     -- init
@@ -854,8 +906,8 @@ end
 
 function test_state()
   local active_ent=_entities.reaper
-  local active_pose=1
-  local active_angle=1
+  local active_pose=0
+  local active_angle=0
   local sprites=_sprites
   return
     -- update
@@ -864,12 +916,15 @@ function test_state()
       if(btnp(1)) active_angle+=1
       if(btnp(2)) active_pose-=1
       if(btnp(3)) active_pose+=1
-      active_pose=mid(active_pose,0,8)
-      active_angle=mid(active_angle,0,14)
+      active_pose=mid(active_pose,0,4)
+      active_angle=mid(active_angle,0,7)
     end,
     -- draw
     function()
-      local frame=active_ent.frames[15*active_pose+active_angle+1]
+      --[[
+      local yangle,flipx=active_angle
+      if(yangle>4) yangle=4-(yangle%4) flipx=true
+      local frame=active_ent.frames[5*active_pose+yangle+1]
       local mem,base=0x0,frame.base
       for i=0,frame.height-1 do
         poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
@@ -878,11 +933,30 @@ function test_state()
       end
       cls()
       fillp(0xa5a5)
-      rect(0,0,31,31,1)
+      rect(0,0,frame.width,frame.height,1)
       fillp()
-      sspr(frame.xmin,0,frame.width,frame.height,0,0)
+      sspr(frame.xmin,0,frame.width,frame.height,0,0,frame.width,frame.height,flipx)
 
-      print("pose: "..active_pose.." angle: "..active_angle.."\nmem: "..stat(0).."\n#sprites:"..#_sprites,2,33,7)
+      print("pose: "..active_pose.." angle: "..yangle..(tostr(flipx)).."\nmem: "..stat(0).."\n#sprites:"..#_sprites,2,33,7)
+      ]]
+      cls()
+      local x,y=0,0
+      for pose=0,4 do
+        for angle=0,4 do
+          local frame=active_ent.frames[5*pose+angle+1]
+          local mem,base=0x0,frame.base
+          for i=0,frame.height-1 do
+            poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
+            mem+=64
+            base+=4
+          end
+          sspr(frame.xmin,0,frame.width,frame.height,x,y,frame.width,frame.height)          
+          x+=frame.width
+        end
+        x=0
+        y+=16
+      end
+      
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
     end
 end
@@ -932,7 +1006,7 @@ function leaderboard_state()
           mem+=64
           base+=4
         end
-        memcpy(0x5f00,0x4300|flr(16*s.origin[3])<<4,16) palt(0,true)
+        memcpy(0x5f00,0x8000|flr(16*s.origin[3])<<4,16) palt(0,true)
         sspr(frame.xmin,0,frame.width,frame.height,s.origin[1]-frame.width/2,s.origin[2]-frame.height/2,frame.width,frame.height,false,yflip)
       end
       pal()
@@ -944,7 +1018,7 @@ function gameover_state(obituary)
   local origin,tilt,deadtilt=_plyr.eye_pos,_plyr.tilt,rnd{-0.1,0.1}
   local target=v_add(_plyr.origin,{0,8,0})
   -- leaderboard/retry
-  local ttl,selected_tab,selected_btn,clicked=90,1,-1
+  local ttl,selected_tab,over_btn,clicked=90
   local buttons={
     {"retry",1,111,cb=function() 
       -- todo: fade to black
@@ -956,10 +1030,33 @@ function gameover_state(obituary)
         next_state(play_state)
       end)
     end},
-    {"lOCAL",1,16,cb=function() selected_tab,clicked=1 end},
-    {"oNLINE",46,16,cb=function() selected_tab,clicked=2 end},
-    {"sTATS",96,16,cb=function() selected_tab,clicked=3 end}
+    {"lOCAL",1,16,
+      cb=function(self) selected_tab,clicked=self end,
+      draw=function()
+        -- todo: local 
+        srand(42)
+        for i=1,5 do
+          arizona_print(i..". "..flr(rnd(1500)),1,23+i*7)
+        end
+      end},
+    {"oNLINE",46,16,
+      cb=function(self) selected_tab,clicked=self end,
+      draw=function()
+        -- todo: online
+        srand(42)
+        for i=1,5 do
+          arizona_print(i..". bOB48 "..flr(rnd(1500)),1,23+i*7)
+        end
+      end
+    },
+    {"sTATS",96,16,
+      cb=function(self) selected_tab,clicked=self end,
+      draw=function()
+      end
+    }
   }
+  -- default
+  selected_tab=buttons[2]
   -- get actual size
   clip(0,0,0,0)
   for _,btn in pairs(buttons) do
@@ -977,17 +1074,16 @@ function gameover_state(obituary)
       origin=v_lerp(origin,target,0.2)
       _cam:track(origin,_plyr.m,_plyr.angle,tilt)
       if ttl==0 then
-        mx,my=mid(mx+stat(38),0,127),mid(my+stat(39),0,127)
+        mx,my=mid(mx+stat(38)/2,0,127),mid(my+stat(39)/2,0,127)
         -- over button?
-        selected_btn=-1
+        over_btn=-1
         for i,btn in pairs(buttons) do
           local _,x,y=unpack(btn)          
           if mx>=x and my>=y and mx<=x+btn.width and my<=y+6 then            
-            selected_btn=i
+            over_btn=i
             -- click?
             if not clicked and btnp(5) then
-              clicked=true
-              btn.cb()
+              btn:cb()
             end
             break
           end
@@ -1002,7 +1098,7 @@ function gameover_state(obituary)
         palt(0,false)
         poke(0x5f54,0x60)
         -- shift palette
-        memcpy(0x5f00,0x4300|9<<4,16)
+        memcpy(0x5f00,0x8000|9<<4,16)
         spr(0,0,0,16,16)
         pal()
         -- reset
@@ -1012,28 +1108,15 @@ function gameover_state(obituary)
         if(obituary) arizona_print(obituary,1,9)
         for i,btn in pairs(buttons) do
           local s,x,y=unpack(btn)
-          arizona_print(s,x,y,i==selected_btn)
+          arizona_print(s,x,y,selected_tab==btn and 2 or i==over_btn and 1)
         end
         line(1,24,126,24,4)
         line(1,25,126,25,2)
         line(1,109,126,109,2)
         line(1,108,126,108,4)
 
-        if selected_tab==1 then
-          -- todo: local 
-          srand(42)
-          for i=1,5 do
-            arizona_print(i..". "..flr(rnd(1500)),1,23+i*7)
-          end
-        elseif selected_tab==2 then
-          -- todo: online
-          srand(42)
-          for i=1,5 do
-            arizona_print(i..". bOB48 "..flr(rnd(1500)),1,23+i*7)
-          end
-        else
+        selected_tab:draw()
 
-        end
         -- mouse cursor
         spr(20,mx,my)
       end
@@ -1065,13 +1148,16 @@ function _init()
 
   -- capture gradient
   -- todo: move to cart data
-  local mem=0x4300
+  local mem=0x8000
   for i=15,0,-1 do
     for j=0,15 do
       poke(mem,sget(i+32,j+16))
       mem+=1
     end
   end
+  -- hit palette
+  poke(mem,0)
+  memset(mem+1,0x7,15)  
 
   -- always needed  
   _cam=make_fps_cam()
@@ -1118,10 +1204,8 @@ function _update()
               hit=true
               hits+=1
             else
-              -- point to sphere
-              local ps=make_v(prev,thing.origin)
               -- projection on ray
-              local t=v_dot(b.velocity,ps)
+              local t=v_dot(b.velocity,make_v(prev,thing.origin))
               if t>=0 and t<=10 then
                 -- distance to sphere?
                 hit=v_len(v_scale(b.velocity,t),thing.origin)<16 
@@ -1213,8 +1297,8 @@ function unpack_entities()
   unpack_array(function(k)
     local id=mpeek()
     if id!=0 then  
-      printh("restoring:"..names[id])
-      entities[names[id]]={
+      printh("restoring:"..names[id].." #sprites:"..#sprites)
+      entities[names[id]]={        
         frames=unpack_frames(sprites)
       }
     end
@@ -1224,14 +1308,14 @@ end
 
 function unpack_frames(sprites)
   local frames={}
-  unpack_array(function(k)
+  unpack_array(function()
     local height=mpeek()
     local frame=add(frames,{
       xmin=mpeek(),
       width=mpeek(),
       ymin=mpeek(),   
       height=height,
-      base=#sprites+1  
+      base=#sprites+1
     })
     for i=1,height*4 do
       add(sprites,mpeek4())

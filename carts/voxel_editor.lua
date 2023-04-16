@@ -874,7 +874,7 @@ function collect_frames(ent,cb)
             
     local xy,zoffset=(_grid_size+1)/2,(zmax+zmin+1)/2
     local zangles={}
-    for i=0,1-0.125,0.125 do
+    for i=0,0.5,0.125 do
         add(zangles,i)
     end
     -- note: removed special top/down cases
