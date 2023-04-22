@@ -10,7 +10,40 @@ function arizona_print(s,x,y,sel)
   clip()
 end
   
-  
+-- radix sort
+function rsort(_data)  
+  local _len,buffer1,buffer2,idx=#_data, _data, {}, {}
+
+  -- radix shift
+  for shift=0,5,5 do
+  	-- faster than for each/zeroing count array
+    memset(0x4300,0,32)
+	  for i,b in pairs(buffer1) do
+		  local c=0x4300+((b.key>>shift)&31)
+		  poke(c,@c+1)
+		  idx[i]=c
+	  end
+				
+    -- shifting array
+    local c0=@0x4300
+    for mem=0x4301,0x431f do
+      local c1=@mem+c0
+      poke(mem,c1)
+      c0=c1
+    end
+
+    for i=_len,1,-1 do
+		local k=idx[i]
+      local c=@k
+      buffer2[c] = buffer1[i]
+      poke(k,c-1)
+    end
+
+    buffer1, buffer2 = buffer2, buffer1
+  end
+  return buffer2
+end
+
 -- game states
 function next_state(fn,...)
   local u,d,i=fn(...)
