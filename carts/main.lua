@@ -232,7 +232,6 @@ function make_player(origin,a)
         self.eye_pos=v_add(self.origin,{0,24,0})
 
         -- check collisions
-        --[[    
         if not dead then   
           local things=_grid[world_to_grid(self.eye_pos)]
           for thing in pairs(things) do
@@ -247,7 +246,6 @@ function make_player(origin,a)
             end
           end
         end
-        ]]
 
         self.m=make_m_from_euler(unpack(angle))   
         self.angle=angle         
@@ -263,13 +261,17 @@ end
 function make_bullet(origin,m)
   local fwd=m_fwd(m)
   local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
+  local angle=atan2(fwd[1],fwd[3])
   _bullets[#_bullets+1]={
     origin=o,
     velocity=fwd,
     -- fixed zangle
-    zangle=atan2(fwd[1],fwd[3]),
+    zangle=angle,
+    -- precomputed for collision detection
+    u=cos(angle),
+    v=-sin(angle),
     ttl=time()+3+rnd(2),
-    ent=rnd{_entities.fireball0,_entities.fireball1}
+    ent=rnd{_entities.dagger0,_entities.dagger1}
   }
 end
 
@@ -298,7 +300,7 @@ function draw_poly(poly,uindex,vindex,light)
         if(-ax>az) code|=4
         if(ax>az) code|=8
         
-        local w=128/az 
+        local w=64/az 
         verts[i]={ax,ay,az,u=v0[uindex]>>4,v=v0[vindex]>>4,x=63.5+ax*w,y=63.5-ay*w,w=w}
 
         outcode&=code
@@ -320,9 +322,9 @@ function draw_poly(poly,uindex,vindex,light)
             local v=v_lerp(v0,v1,t)
             -- project
             -- z is clipped to near plane
-            v.x=63.5+(v[1]<<4)
-            v.y=63.5-(v[2]<<4)
-            v.w=16
+            v.x=63.5+(v[1]<<3)
+            v.y=63.5-(v[2]<<3)
+            v.w=64/8
             v.u=lerp(v0.u,v1.u,t)
             v.v=lerp(v0.v,v1.v,t)
             res[#res+1]=v
@@ -475,7 +477,7 @@ function draw_grid(cam,light)
     if not thing.shadeless and az>8 and az<384 and ax<az and -ax<az then
       local ay=m2*x+m10*z+m14
       -- 
-      local w=128/az
+      local w=64/az
       -- thing offset+cam offset              
       local dx,dz=cx-x,cz-z
       local a=atan2(dx,dz)        
@@ -489,9 +491,9 @@ function draw_grid(cam,light)
     if thing!=_plyr then
       -- collect monsters
       local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
-      if az>8 and az<384 and ax<az and -ax<az then
+      if az>8 and az<384 and ax<2*az and -ax<2*az then
         local ay=m2*x+m6*y+m10*z+m14
-        local w=128/az
+        local w=64/az
         things[#things+1]={key=w,type=1,thing=thing,x=63.5+ax*w,y=63.5-ay*w}      
       end
     end
@@ -507,7 +509,7 @@ function draw_grid(cam,light)
     if az>8 and az<384 and ax<az and -ax<az then
       local ay=m2*x+m6*y+m10*z+m14
     
-      local w=128/az
+      local w=64/az
       things[#things+1]={key=w,type=1,thing=bullet,x=63.5+ax*w,y=63.5-ay*w}      
     end
   end
@@ -628,7 +630,7 @@ function make_skull(_origin)
       -- converge toward player
       if _flying_target then
         local dir=v_dir(origin,_flying_target)
-        --forces=v_add(forces,dir,8+seed*cos(time()/5))
+        forces=v_add(forces,dir,8+seed*cos(time()/5))
       end
       -- todo: random target
       -- avoid others
@@ -755,7 +757,7 @@ function draw_world()
   memset(0x6000,0,512)
   memset(0x7e00,0,512)
 
-  print(stat(0).."kb",2,2,3)
+  print("BULLETS:"..(#_bullets).."\n"..stat(0).."kb",2,2,3)
 
   --bench_print(2,8,7)
 end
@@ -770,6 +772,7 @@ function play_state()
   -- spatial partitioning grid
   _grid=setmetatable({},{
       __index=function(self,k)
+        -- automatic creation of buckets
         local t={}
         self[k]=t
         return t
@@ -778,7 +781,7 @@ function play_state()
 
   add(_things,_plyr)
   
-  make_skull({512,24,512})
+  -- make_skull({512,24,512})
 
   -- scenario
   do_async(function()
@@ -798,7 +801,7 @@ function play_state()
     end
   end)
   -- todo: move to string/table
-  --[[
+
   do_async(function()
     -- player just spawned
     wait_async(90)
@@ -811,7 +814,7 @@ function play_state()
       wait_async(90)
     end
   end)
-  ]]
+
   return
     -- update
     function()
@@ -1038,64 +1041,111 @@ function _init()
   next_state(play_state)
 end
 
+-- collect all grids touched by (a,b) vector
+function collect_grid(a,b,u,v,cb)
+  local mapx,mapy,mapdx,mapdy=a[1]\32,a[3]\32
+  local dest_mapx,dest_mapy=b[1]\32,b[3]\32
+  -- check first cell
+  cb(mapx>>16|(a[2]\32)>>8|mapy)
+  -- early exit
+  if dest_mapx==mapx and dest_mapy==mapy then    
+    return
+  end
+  local ddx,ddy,distx,disty=abs(1/u),abs(1/v)
+  if u<0 then
+    mapdx=-1
+    distx=(a[1]/32-mapx)*ddx
+  else
+    mapdx=1
+    distx=(mapx+1-a[1]/32)*ddx
+  end
+  
+  if v<0 then
+    mapdy=-1
+    disty=(a[3]/32-mapy)*ddy
+  else
+    mapdy=1
+    disty=(mapy+1-a[3]/32)*ddy
+  end
+  
+  while dest_mapx!=mapx and dest_mapy!=mapy do
+    if distx<disty then
+      distx+=ddx
+      mapx+=mapdx
+    else
+      disty+=ddy
+      mapy+=mapdy
+    end
+    cb(mapx>>16|(a[2]\32)>>8|mapy)
+  end  
+end
+
+local _frame=0
 function _update()
-  -- keep world running  
+  -- keep world running    
   local t=time()
+  _frame+=1
+  -- bullets collisions
   for i=#_bullets,1,-1 do
     local b=_bullets[i]
     if b.ttl<t then
       deli(_bullets,i)
     else
-      local prev,origin=b.origin,v_add(b.origin,b.velocity,10)     
-      local prev_idx,origin_idx=world_to_grid(prev),world_to_grid(origin)
-      -- test things first
-      local dead
-      if prev_idx==origin_idx then
-        -- todo: advanced bullets can traverse enemies
-        local hits=0
-        for thing in pairs(_grid[origin_idx]) do
-          -- hitable?
-          if thing!=_plyr and thing.hit then
-            local hit
-            -- edge case: base or tip inside sphere
-            -- todo: faster first test?
-            if v_len(prev,thing.origin)<16 or v_len(origin,thing.origin)<16 then
-              hit=true
-              hits+=1
-            else
-              -- projection on ray
-              local t=v_dot(b.velocity,make_v(prev,thing.origin))
-              if t>=0 and t<=10 then
-                -- distance to sphere?
-                hit=v_len(v_scale(b.velocity,t),thing.origin)<16 
+      local prev,origin,len,dead=b.origin,v_add(b.origin,b.velocity,10),10
+      -- out of bounds?
+      if origin[1]>64 and origin[1]<1024 and origin[3]>64 and origin[3]<1024 then
+        if origin[2]<0 then
+          -- hit ground?
+          -- intersection with ground
+          local dy=(prev[2])/(origin[2]-prev[2])
+          origin={
+            lerp(prev[1],origin[1],dy),
+            0,
+            lerp(prev[3],origin[3],dy)
+          }
+          -- adjust length
+          len=v_len(prev,origin)
+          -- not matter what - we hit the ground!
+          dead=true
+          make_blood(origin)
+        end
+        -- collect touched grid indices
+        collect_grid(prev,origin,b.u,b.v,function(idx)
+          -- todo: advanced bullets can traverse enemies
+          local hits=0
+          for thing in pairs(_grid[idx]) do
+            -- hitable?
+            if not thing.dead and thing!=_plyr and thing.hit then
+              local hit
+              -- edge case: base or tip inside sphere
+              -- todo: faster first test (abs)
+              if v_len(prev,thing.origin)<16 or v_len(origin,thing.origin)<16 then
+                hit=true
                 hits+=1
+              else
+                -- projection on ray
+                local t=v_dot(b.velocity,make_v(prev,thing.origin))
+                if t>=0 and t<=len then
+                  -- distance to sphere?
+                  hit=v_len(v_scale(b.velocity,t),thing.origin)<16 
+                  hits+=1
+                end
+              end
+              if hit then
+                thing:hit()
+                dead=true
+                -- todo: allow for multiple hits
+                break
               end
             end
-            if hit then
-              thing:hit()
-              dead=true
-              -- todo: allow for multiple hits
-              break
-            end
           end
-        end  
+        end)
       else
-        -- todo: iterate over all touching cells
-        -- printh("touching #cells:"..prev_idx.." "..origin_idx)
+        dead=true
       end
 
       if dead then
         -- hit something?
-        deli(_bullets,i)
-      elseif origin[2]<0 then
-        -- hit ground?
-        -- intersection with ground
-        local dy=(b.prev[2])/(b.origin[2]-b.prev[2])
-        make_blood({
-          lerp(b.prev[1],b.origin[1],dy),
-          0,
-          lerp(b.prev[3],b.origin[3],dy)
-        })
         deli(_bullets,i)
       else
         b.prev=prev
