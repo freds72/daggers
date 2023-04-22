@@ -1,6 +1,10 @@
+-- globals
+local _entities,_sprites={},{}
 
 -- main menu
 function menu_state()
+  local skulls,ent,sprites={},_entities.skull,_sprites
+
   -- leaderboard/retry
   local over_btn,clicked=90
   local buttons={
@@ -9,9 +13,13 @@ function menu_state()
     end},
     {"lEADERBOARD",1,64,
       cb=function(self) end},
-    {"eDITOR",1,72,
+    {"eDITOR",1,74,
       cb=function(self) 
         load("editor.p8")
+      end},
+    {"cREDITS",1,84,
+      cb=function(self) 
+        -- todo: credits!
       end}
   }
   -- get actual size
@@ -40,17 +48,57 @@ function menu_state()
           break
         end
       end
+
+      -- skull background
+      if #skulls<40 then
+        local s=add(skulls,{
+          origin={38+rnd(48),140,0.5+rnd()/2},
+          velocity={(1-rnd(2))/12,-rnd(0.8)-0.2,0},
+          zangle=rnd(),
+          yangle=rnd(),
+          yangle_vel=rnd()/64
+        })
+        -- sort key        
+        s.key=10+8*s.origin[3]
+      end      
+
+      for i=#skulls,1,-1 do
+        local s=skulls[i]
+        s.origin=v_add(s.origin,s.velocity)
+        if s.origin[2]<-16 then
+          deli(skulls,i)          
+        else
+          s.yangle+=s.yangle_vel
+        end
+      end
     end,
     -- draw
     function()    
       cls()  
+      pal()
       local r0=16-abs(2*cos(time()/4))+0x0.0001
       fillp(0xa5a5)
       ovalfill(0,128-r0,127,128+r0,1)
       fillp()
       ovalfill(r0/3,128-r0*0.95,127-r0/3,128+r0*0.95,1)
       ovalfill(r0/2,128-r0*0.75,127-r0/2,128+r0*0.75,2)
-
+      rsort(skulls)
+      for i=1,#skulls do
+        local s=skulls[i]
+        local yangle=(8*(s.yangle&0x0.ffff))\1
+        local yflip=false
+        if(yangle>4) yflip=true yangle=4-(yangle%4) 
+        local frame=ent.frames[5*yangle+flr(5*s.zangle)+1]
+        local mem,base=0x0,frame.base
+        for i=0,frame.height-1 do
+          poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
+          mem+=64
+          base+=4
+        end
+        memcpy(0x5f00,0x8000|flr(16*s.origin[3])<<4,16) palt(0,true)
+        sspr(frame.xmin,0,frame.width,frame.height,s.origin[1]-frame.width/2,s.origin[2]-frame.height/2,frame.width,frame.height,false,yflip)
+      end
+      pal()
       -- draw menu & all
       for i,btn in pairs(buttons) do
         local s,x,y=unpack(btn)
@@ -89,6 +137,19 @@ function _init()
   poke(mem,0)
   memset(mem+1,0x7,15)  
 
+  -- todo: generate assets if not there
+  --
+  -- load background assets
+  decompress("pic",0,0,function()
+      -- drop array
+      mpeek2()
+      local id=mpeek()
+      _entities.skull={        
+        frames=unpack_frames(_sprites)
+      }
+  end)
+  reload()
+
   -- init game
   next_state(menu_state)
 end
@@ -97,3 +158,4 @@ function _update()
   update_asyncs()
   _update_state()
 end
+

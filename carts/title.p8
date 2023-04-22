@@ -4,6 +4,8 @@ __lua__
 
 #include maths.lua
 #include common.lua
+#include plain.lua
+#include assets.lua
 #include title.lua
 
 __gfx__

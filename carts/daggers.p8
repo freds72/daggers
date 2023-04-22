@@ -4,9 +4,9 @@ __lua__
 
 #include debug.lua
 #include maths.lua
-#include poly.lua
 #include plain.lua
 #include common.lua
+#include assets.lua
 #include main.lua
 
 __gfx__

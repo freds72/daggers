@@ -1,5 +1,5 @@
 local _plyr,_cam,_things,_grid,_futures
-local _entities,_sprites,_particles,_bullets
+local _entities,_particles,_bullets
 local _ground={
   -- middle chunk
   {
@@ -231,7 +231,8 @@ function make_player(origin,a)
 
         self.eye_pos=v_add(self.origin,{0,24,0})
 
-        -- check collisions    
+        -- check collisions
+        --[[    
         if not dead then   
           local things=_grid[world_to_grid(self.eye_pos)]
           for thing in pairs(things) do
@@ -246,6 +247,7 @@ function make_player(origin,a)
             end
           end
         end
+        ]]
 
         self.m=make_m_from_euler(unpack(angle))   
         self.angle=angle         
@@ -293,9 +295,8 @@ function draw_poly(poly,uindex,vindex,light)
         local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
         if(az>8) code=0
         if(az>384) code|=1
-        -- fov adjustment
-        if(-ax<<1>az) code|=4
-        if(ax<<1>az) code|=8
+        if(-ax>az) code|=4
+        if(ax>az) code|=8
         
         local w=128/az 
         verts[i]={ax,ay,az,u=v0[uindex]>>4,v=v0[vindex]>>4,x=63.5+ax*w,y=63.5-ay*w,w=w}
@@ -454,40 +455,6 @@ function grid_unregister(thing)
   _grid[id][thing]=nil
 end
 
--- radix sort
-function rsort(_data)  
-  local _len,buffer1,buffer2,idx=#_data, _data, {}, {}
-
-  -- radix shift
-  for shift=0,5,5 do
-  	-- faster than for each/zeroing count array
-    memset(0x4300,0,32)
-	  for i,b in pairs(buffer1) do
-		  local c=0x4300+((b.key>>shift)&31)
-		  poke(c,@c+1)
-		  idx[i]=c
-	  end
-				
-    -- shifting array
-    local c0=@0x4300
-    for mem=0x4301,0x431f do
-      local c1=@mem+c0
-      poke(mem,c1)
-      c0=c1
-    end
-
-    for i=_len,1,-1 do
-		local k=idx[i]
-      local c=@k
-      buffer2[c] = buffer1[i]
-      poke(k,c-1)
-    end
-
-    buffer1, buffer2 = buffer2, buffer1
-  end
-  return buffer2
-end
-
 function draw_grid(cam,light)
   local m,fov=cam.m,cam.fov
   local cx,cy,cz=unpack(cam.origin)
@@ -505,7 +472,7 @@ function draw_grid(cam,light)
     local x,z=origin[1],origin[3]
     -- draw shadows (y=0)
     local ax,az=m1*x+m9*z+m13,m3*x+m11*z+m15
-    if az>8 and az<384 and ax<az and -ax<az then
+    if not thing.shadeless and az>8 and az<384 and ax<az and -ax<az then
       local ay=m2*x+m10*z+m14
       -- 
       local w=128/az
@@ -524,7 +491,6 @@ function draw_grid(cam,light)
       local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
       if az>8 and az<384 and ax<az and -ax<az then
         local ay=m2*x+m6*y+m10*z+m14
-      
         local w=128/az
         things[#things+1]={key=w,type=1,thing=thing,x=63.5+ax*w,y=63.5-ay*w}      
       end
@@ -552,7 +518,7 @@ function draw_grid(cam,light)
   bench_end()
 
   -- render in order
-  local sprites,prev_base,pal0=_sprites
+  local prev_base,prev_sprites,pal0
   for _,item in ipairs(things) do
     local pal1
     if item.thing.hit_ttl and item.thing.hit_ttl>0 then
@@ -576,15 +542,15 @@ function draw_grid(cam,light)
       if(yside>4) yside=4-(yside%4)
       -- copy to spr
       -- skip top+top rotation
-      local frame=entity.frames[5*yside+side+1]
+      local frame,sprites=entity.frames[5*yside+side+1],entity.sprites
       local mem,base=0x0,frame.base
-      if prev_base!=base then
+      if prev_base!=base and prev_sprites!=sprites then
         for i=0,frame.height-1 do
           poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
           mem+=64
           base+=4
         end
-        prev_base=base
+        prev_base,prev_sprites=base,sprites
       end
       w0*=2
       local w,h=frame.width,frame.height
@@ -662,7 +628,7 @@ function make_skull(_origin)
       -- converge toward player
       if _flying_target then
         local dir=v_dir(origin,_flying_target)
-        forces=v_add(forces,dir,8+seed*cos(time()/5))
+        --forces=v_add(forces,dir,8+seed*cos(time()/5))
       end
       -- todo: random target
       -- avoid others
@@ -741,6 +707,7 @@ function make_blood(_origin)
     zangle=rnd(),
     yangle=0,
     ttl=0,
+    shadeless=true,
     update=function(_ENV)
       ttl+=1
       if(ttl>15) dead=true return
@@ -788,7 +755,7 @@ function draw_world()
   memset(0x6000,0,512)
   memset(0x7e00,0,512)
 
-  -- print(stat(0).."kb",2,2,3)
+  print(stat(0).."kb",2,2,3)
 
   --bench_print(2,8,7)
 end
@@ -811,7 +778,7 @@ function play_state()
 
   add(_things,_plyr)
   
-  --make_skull({512,24,512})
+  make_skull({512,24,512})
 
   -- scenario
   do_async(function()
@@ -831,6 +798,7 @@ function play_state()
     end
   end)
   -- todo: move to string/table
+  --[[
   do_async(function()
     -- player just spawned
     wait_async(90)
@@ -843,6 +811,7 @@ function play_state()
       wait_async(90)
     end
   end)
+  ]]
   return
     -- update
     function()
@@ -867,7 +836,6 @@ function test_state()
   local active_ent=_entities.reaper
   local active_pose=0
   local active_angle=0
-  local sprites=_sprites
   return
     -- update
     function()
@@ -916,59 +884,6 @@ function test_state()
         y+=16
       end
       
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
-    end
-end
-
-function leaderboard_state()
-  local skulls,ent,sprites={},_entities.skull,_sprites
-  return
-    -- update
-    function()
-      if #skulls<40 then
-        add(skulls,{
-          origin={38+rnd(48),140,0.5+rnd()/2},
-          velocity={(1-rnd(2))/32,-rnd(0.8)-0.2,0},
-          zangle=rnd(),
-          yangle=rnd(),
-          yangle_vel=rnd()/64
-        })        
-      end
-
-      for i=#skulls,1,-1 do
-        local s=skulls[i]
-        s.origin=v_add(s.origin,s.velocity)
-        if s.origin[2]<-16 then
-          deli(skulls,i)          
-        else
-          s.yangle+=s.yangle_vel
-        end
-      end
-    end,
-    function()
-      cls(0)
-      local r0=16-abs(2*cos(time()/4))+0x0.0001
-      fillp(0xa5a5)
-      ovalfill(0,128-r0,127,128+r0,1)
-      fillp()
-      ovalfill(r0/3,128-r0*0.95,127-r0/3,128+r0*0.95,1)
-      ovalfill(r0/2,128-r0*0.75,127-r0/2,128+r0*0.75,2)
-      for i=1,#skulls do
-        local s=skulls[i]
-        local yangle=(14*(s.yangle%1))\1
-        local yflip=false
-        if(yangle>7) yflip=true yangle=7-(yangle%8) 
-        local frame=ent.frames[15*yangle+flr(14*s.zangle)+1]
-        local mem,base=0x0,frame.base
-        for i=0,frame.height-1 do
-          poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
-          mem+=64
-          base+=4
-        end
-        memcpy(0x5f00,0x8000|flr(16*s.origin[3])<<4,16) palt(0,true)
-        sspr(frame.xmin,0,frame.width,frame.height,s.origin[1]-frame.width/2,s.origin[2]-frame.height/2,frame.width,frame.height,false,yflip)
-      end
-      pal()
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
     end
 end
@@ -1108,7 +1023,7 @@ function _init()
 
   _bullets,_things,_futures={},{},{}
   -- load images
-  _entities,_sprites=decompress("pic",0,0,unpack_entities)
+  _entities=decompress("pic",0,0,unpack_entities)
   reload()
   
   -- init ground vectors
@@ -1175,17 +1090,12 @@ function _update()
       elseif origin[2]<0 then
         -- hit ground?
         -- intersection with ground
-        -- todo: effect
-        --[[
         local dy=(b.prev[2])/(b.origin[2]-b.prev[2])
-        for i=0,rnd(4) do
-          make_particle({
-            lerp(b.prev[1],b.origin[1],dy),
-            0,
-            lerp(b.prev[3],b.origin[3],dy)
-          },{1-rnd(2),2+rnd(),1-rnd(2)})
-        end
-        ]]
+        make_blood({
+          lerp(b.prev[1],b.origin[1],dy),
+          0,
+          lerp(b.prev[3],b.origin[3],dy)
+        })
         deli(_bullets,i)
       else
         b.prev=prev
@@ -1211,50 +1121,19 @@ function _update()
   _update_state()
 end
 
--- data unpacking functions
-function mpeek2()
-	return mpeek()|mpeek()<<8
-end
--- unpack a fixed 16:16 value or 4 bytes
-function mpeek4()
-	return mpeek2()|mpeek()>>>16|mpeek()>>8
-end
-
--- unpack an array of bytes
-function unpack_array(fn)
-	for i=1,mpeek2() do
-		fn(i)
-	end
-end
-
+-- unpack assets
 function unpack_entities()
-  local sprites,entities,names={},{},split"skull,reaper,blood0,blood1,blood2,fireball0,fireball1,fireball2,hand0,hand1,hand2"
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1"
   unpack_array(function(k)
     local id=mpeek()
-    if id!=0 then  
-      printh("restoring:"..names[id].." #sprites:"..#sprites)
-      entities[names[id]]={        
+    if id!=0 then
+      local sprites={}
+      entities[names[id]]={  
+        sprites=sprites,      
         frames=unpack_frames(sprites)
       }
+      printh("restored:"..names[id].." #sprites:"..#sprites)
     end
   end)
-  return entities,sprites
-end
-
-function unpack_frames(sprites)
-  local frames={}
-  unpack_array(function()
-    local height=mpeek()
-    local frame=add(frames,{
-      xmin=mpeek(),
-      width=mpeek(),
-      ymin=mpeek(),   
-      height=height,
-      base=#sprites+1
-    })
-    for i=1,height*4 do
-      add(sprites,mpeek4())
-    end
-  end)
-  return frames
+  return entities
 end
