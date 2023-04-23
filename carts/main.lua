@@ -1,5 +1,8 @@
 local _plyr,_cam,_things,_grid,_futures
 local _entities,_particles,_bullets
+-- stats
+local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
+
 local _ground={
   -- middle chunk
   {
@@ -252,6 +255,7 @@ function make_player(origin,a)
 
         if fire then
           fire=nil
+          _total_bullets+=0x0.0001
           make_bullet(v_add(self.origin,{0,18,0}),self.m)
         end
       end
@@ -540,7 +544,7 @@ function draw_grid(cam,light)
       if(side>4) side=4-(side%4) flip=true
       
       -- up/down angle
-      local yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),cy-origin[2])-0.25+0.0625)&0x0.ffff)\0.125
+      local yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+0.0625)&0x0.ffff)\0.125
       if(yside>4) yside=4-(yside%4)
       -- copy to spr
       -- skip top+top rotation
@@ -764,8 +768,6 @@ end
 
 -- gameplay state
 function play_state()
-  local start_time
-
   -- camera & player & misc tables
   _plyr=make_player({512,24,512},0)
   _things,_particles,_bullets,_futures={},{},{},{}
@@ -831,7 +833,7 @@ function play_state()
     end,
     -- init
     function()
-      start_time=time()
+      _start_time=time()
     end
 end
 
@@ -891,8 +893,8 @@ function test_state()
     end
 end
 
-function gameover_state(obituary)
-  local origin,tilt,deadtilt=_plyr.eye_pos,_plyr.tilt,rnd{-0.1,0.1}
+function gameover_state(obituary)  
+  local play_time,origin,tilt,deadtilt=time()-_start_time,_plyr.eye_pos,_plyr.tilt,rnd{-0.1,0.1}
   local target=v_add(_plyr.origin,{0,8,0})
   -- leaderboard/retry
   local ttl,selected_tab,over_btn,clicked=90
@@ -907,7 +909,16 @@ function gameover_state(obituary)
         next_state(play_state)
       end)
     end},
-    {"lOCAL",1,16,
+    {"sTATS",1,16,
+      cb=function(self) selected_tab,clicked=self end,
+      draw=function()
+        arizona_print("\147 "..play_time.."S\t \130 "..tostr(obituary),1,30)
+        local pct=_total_hits==0 and 0 or 1000*(_total_hits/_total_bullets)
+        arizona_print("\143 ".._total_jewels.."\t \134 "..tostr(_total_bullets,2).."\t \136 "..(flr(pct)/10).."%",1,38)
+
+      end
+    },
+    {"lOCAL",46,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
         -- todo: local 
@@ -916,7 +927,7 @@ function gameover_state(obituary)
           arizona_print(i..". "..flr(rnd(1500)),1,23+i*7)
         end
       end},
-    {"oNLINE",46,16,
+    {"oNLINE",96,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
         -- todo: online
@@ -925,14 +936,9 @@ function gameover_state(obituary)
           arizona_print(i..". bOB48 "..flr(rnd(1500)),1,23+i*7)
         end
       end
-    },
-    {"sTATS",96,16,
-      cb=function(self) selected_tab,clicked=self end,
-      draw=function()
-      end
     }
   }
-  -- default
+  -- default (stats)
   selected_tab=buttons[2]
   -- get actual size
   clip(0,0,0,0)
@@ -982,7 +988,7 @@ function gameover_state(obituary)
         poke(0x5f54,0x00)
       
         -- draw menu & all
-        if(obituary) arizona_print(obituary,1,9)
+        arizona_print("hIGHSCORES",1,8)
         for i,btn in pairs(buttons) do
           local s,x,y=unpack(btn)
           arizona_print(s,x,y,selected_tab==btn and 2 or i==over_btn and 1)
@@ -1134,6 +1140,7 @@ function _update()
               if hit then
                 thing:hit()
                 dead=true
+                _total_hits+=0x0.0001
                 -- todo: allow for multiple hits
                 break
               end
