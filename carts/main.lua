@@ -207,7 +207,7 @@ function make_player(origin,a)
               new_vel[2]=0
               if not dead then
                 dead=true
-                next_state(gameover_state)
+                next_state(gameover_state,"FLOORED")
               end
             elseif y<0 then
               -- main grid?              
@@ -235,6 +235,7 @@ function make_player(origin,a)
         self.eye_pos=v_add(self.origin,{0,24,0})
 
         -- check collisions
+        --[[
         if not dead then   
           local things=_grid[world_to_grid(self.eye_pos)]
           for thing in pairs(things) do
@@ -243,12 +244,13 @@ function make_player(origin,a)
               if dist<16 then
                 -- avoid reentrancy
                 dead=true
-                next_state(gameover_state)
+                next_state(gameover_state,thing.obituary)
                 break
               end
             end
           end
         end
+        ]]
 
         self.m=make_m_from_euler(unpack(angle))   
         self.angle=angle         
@@ -271,6 +273,7 @@ function make_bullet(origin,m)
     velocity=fwd,
     -- fixed zangle
     zangle=angle,
+    yangle=rnd(),
     -- precomputed for collision detection
     u=cos(angle),
     v=-sin(angle),
@@ -544,14 +547,15 @@ function draw_grid(cam,light)
       if(side>4) side=4-(side%4) flip=true
       
       -- up/down angle
-      local yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+0.0625)&0x0.ffff)\0.125
+      local yangle=thing.yangle or 0
+      local yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+0.0625+yangle)&0x0.ffff)\0.125
       if(yside>4) yside=4-(yside%4)
       -- copy to spr
       -- skip top+top rotation
       local frame,sprites=entity.frames[5*yside+side+1],entity.sprites
-      local mem,base=0x0,frame.base
+      local mem,base,w,h=0x0,frame.base,frame.width,frame.height
       if prev_base!=base and prev_sprites!=sprites then
-        for i=0,frame.height-1 do
+        for i=0,h-1 do
           poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
           mem+=64
           base+=4
@@ -559,7 +563,6 @@ function draw_grid(cam,light)
         prev_base,prev_sprites=base,sprites
       end
       w0*=2
-      local w,h=frame.width,frame.height
       local sx,sy=item.x-w*w0/4,item.y-h*w0/4
       --
       sspr(frame.xmin,0,w,h,sx,sy,w*w0/2+(sx&0x0.ffff),h*w0/2+(sy&0x0.ffff),flip)
@@ -782,7 +785,8 @@ function play_state()
     })
 
   add(_things,_plyr)
-  
+
+    
   -- make_skull({512,24,512})
 
   -- scenario
@@ -912,10 +916,18 @@ function gameover_state(obituary)
     {"sTATS",1,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
-        arizona_print("\147 "..play_time.."S\t \130 "..tostr(obituary),1,30)
+        local x=arizona_print("\147 ",1,30,3)
+        x=arizona_print(play_time.."S\t ",x,30)
+        x=arizona_print("\130 ",x,30,3)
+        x=arizona_print(tostr(obituary),x,30)
+        --
         local pct=_total_hits==0 and 0 or 1000*(_total_hits/_total_bullets)
-        arizona_print("\143 ".._total_jewels.."\t \134 "..tostr(_total_bullets,2).."\t \136 "..(flr(pct)/10).."%",1,38)
-
+        x=arizona_print("\143 ",1,38,3)
+        x=arizona_print(_total_jewels.."\t ",x,38)
+        x=arizona_print("\134 ",x,38,3)
+        x=arizona_print(tostr(_total_bullets,2).."\t ",x,38)
+        x=arizona_print("\136 ",x,38,3)
+        x=arizona_print((flr(pct)/10).."%",x,38)
       end
     },
     {"lOCAL",46,16,
@@ -993,10 +1005,10 @@ function gameover_state(obituary)
           local s,x,y=unpack(btn)
           arizona_print(s,x,y,selected_tab==btn and 2 or i==over_btn and 1)
         end
-        line(1,24,126,24,4)
-        line(1,25,126,25,2)
-        line(1,109,126,109,2)
-        line(1,108,126,108,4)
+        line(unpack(split"1,24,126,24,4"))
+        line(unpack(split"1,25,126,25,2"))
+        line(unpack(split"1,109,126,109,2"))
+        line(unpack(split"1,108,126,108,4"))
 
         selected_tab:draw()
 
@@ -1097,6 +1109,7 @@ function _update()
     if b.ttl<t then
       deli(_bullets,i)
     else
+      b.yangle+=0.1
       local prev,origin,len,dead=b.origin,v_add(b.origin,b.velocity,10),10
       -- out of bounds?
       if origin[1]>64 and origin[1]<1024 and origin[3]>64 and origin[3]<1024 then
