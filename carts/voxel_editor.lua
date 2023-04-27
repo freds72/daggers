@@ -998,7 +998,7 @@ function _init()
     unpack_archive()
     
     -- create ui and callbacks
-    _main=main_window({cursor=0,pal={128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0}})
+    _main=main_window({cursor=0,pal={128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0}})
     local banner=_main:add(make_static(8),0,0,127,7)
     local pickers=banner:add(make_list(64,8,8,bounded_binding(_editor_state,"selected_color",0,18)),64,0,80,7)
 

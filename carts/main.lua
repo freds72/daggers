@@ -160,25 +160,23 @@ function make_player(origin,a)
         if(dead) return
         -- move
         local dx,dz,a,jmp=0,0,angle[2],0
-        if(btn(0,1)) dx=1
-        if(btn(1,1)) dx=-1
-        if(btn(2,1)) dz=1
-        if(btn(3,1)) dz=-1
+        if(btn(0,1)) dx=3
+        if(btn(1,1)) dx=-3
+        if(btn(2,1)) dz=3
+        if(btn(3,1)) dz=-3
         if(on_ground and btnp(4)) jmp=12 on_ground=false
-        -- normalize move (avoid faster diagonals)
-        if dx!=0 or dz!=0 then
-          local len=sqrt(dx*dx+dz*dz)/3
-          dx/=len
-          dz/=len
-        end
+
+        -- straffing = faster!
+        
         if btn(5) and fire_ttl<=0 then
+          sfx(48)
           fire_ttl,fire=3,true
         end
 
         dangle=v_add(dangle,{stat(39),stat(38),0})
         self.tilt+=dx/40
         local c,s=cos(a),-sin(a)
-        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.9)                 
+        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.5)                 
       end,
       update=function(self)
         -- damping      
@@ -190,7 +188,7 @@ function make_player(origin,a)
         --velocity[2]*=0.9
         velocity[3]*=0.7
         -- gravity
-        velocity[2]-=1
+        velocity[2]-=0.8
         
         -- avoid overflow!
         fire_ttl=max(fire_ttl-1)
@@ -287,7 +285,7 @@ function make_particle(origin,fwd)
     origin=origin,
     velocity=fwd,
     ttl=time()+0.25+rnd()/5,
-    c=rnd(2)+10
+    c=15
   }
 end
 
@@ -449,7 +447,7 @@ end
 
 -- grid helpers
 function world_to_grid(p)
-  return (p[1]\32)>>16|(p[2]\32)>>8|(p[3]\32)
+  return (p[1]\32)>>16|(p[3]\32)
 end
 
 -- adds thing in the collision grid
@@ -470,8 +468,8 @@ function draw_grid(cam,light)
   local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
 
   local things={}
-  -- bullets
-  poke4(0x5f38,0x0004.0101)
+  -- particles
+  poke4(0x5f38,0x0400.0101)
 
   -- render shadows (& collect)
   poke(0x5f5e, 0b11111110)
@@ -507,19 +505,24 @@ function draw_grid(cam,light)
   end
   poke(0x5f5e, 0xff)
 
-  -- collect bullets
-  for i,bullet in pairs(_bullets) do
-    local origin=bullet.origin
-    local x,y,z=origin[1],origin[2],origin[3]
-    -- 
-    local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
-    if az>8 and az<384 and ax<az and -ax<az then
-      local ay=m2*x+m6*y+m10*z+m14
-    
-      local w=64/az
-      things[#things+1]={key=w,type=1,thing=bullet,x=63.5+ax*w,y=63.5-ay*w}      
+  local function project_array(array,type)
+    for i,a in pairs(array) do
+      local origin=a.origin
+      local x,y,z=origin[1],origin[2],origin[3]
+      -- 
+      local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
+      if az>8 and az<384 and ax<az and -ax<az then
+        local ay=m2*x+m6*y+m10*z+m14
+      
+        local w=64/az
+        things[#things+1]={key=w,type=type,thing=a,x=63.5+ax*w,y=63.5-ay*w}      
+      end
     end
   end
+  -- collect bullets
+  project_array(_bullets,1)
+  -- collect particles
+  project_array(_particles,3)
 
   -- radix sort
   bench_start("rsort")
@@ -529,9 +532,9 @@ function draw_grid(cam,light)
   -- render in order
   local prev_base,prev_sprites,pal0
   for _,item in ipairs(things) do
-    local pal1
-    if item.thing.hit_ttl and item.thing.hit_ttl>0 then
-      pal1=16
+    local hit_ttl,pal1=item.thing.hit_ttl
+    if hit_ttl and hit_ttl>0 then
+      pal1=16+(4-hit_ttl)
     else
       pal1=(light*min(15,item.key<<4))\1
     end    
@@ -572,7 +575,14 @@ function draw_grid(cam,light)
     elseif item.type==2 then
       tline(item.x0,item.y0,item.x1,item.y1,item.thing.c,0,0,1/8)
     elseif item.type==3 then
-      pset(item.x,item.y,item.thing.c)
+      local origin=item.thing.prev
+      local x,y,z=origin[1],origin[2],origin[3]
+      -- 
+      local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
+      if az>8 then
+        local ay,w=m2*x+m6*y+m10*z+m14,64/az
+        tline(item.x,item.y,63.5+ax*w,63.5-ay*w,0,0,1/8,0)
+      end
     end
   end 
 
@@ -833,7 +843,7 @@ function play_state()
       draw_world()
       -- todo: draw player hand
 
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
+      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
     -- init
     function()
@@ -893,7 +903,7 @@ function test_state()
         y+=16
       end
       
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
+      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 10,0},1)
     end
 end
 
@@ -1016,7 +1026,7 @@ function gameover_state(obituary)
         spr(20,mx,my)
       end
       -- hw palette
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
+      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end
 end
 
@@ -1064,7 +1074,7 @@ function collect_grid(a,b,u,v,cb)
   local mapx,mapy,mapdx,mapdy=a[1]\32,a[3]\32
   local dest_mapx,dest_mapy=b[1]\32,b[3]\32
   -- check first cell
-  cb(mapx>>16|(a[2]\32)>>8|mapy)
+  cb(mapx>>16|mapy)
   -- early exit
   if dest_mapx==mapx and dest_mapy==mapy then    
     return
@@ -1094,7 +1104,7 @@ function collect_grid(a,b,u,v,cb)
       disty+=ddy
       mapy+=mapdy
     end
-    cb(mapx>>16|(a[2]\32)>>8|mapy)
+    cb(mapx>>16|mapy)
   end  
 end
 
@@ -1127,6 +1137,12 @@ function _update()
           -- not matter what - we hit the ground!
           dead=true
           make_blood(origin)
+          for i=1,rnd(5) do
+            local a=b.zangle+(1-rnd(2))/8
+            local cc,ss,r=cos(a),sin(a),2+rnd(2)
+            local o={origin[1]+r*cc,origin[2],origin[3]+r*ss}
+            make_particle(o,{cc,1+rnd(),ss})
+          end
         end
         -- collect touched grid indices
         collect_grid(prev,origin,b.u,b.v,function(idx)
@@ -1168,11 +1184,28 @@ function _update()
         -- hit something?
         deli(_bullets,i)
       else
-        b.prev=prev
-        b.origin=origin
+        b.prev,b.origin=prev,origin
       end
     end
   end
+  -- effects
+  for i=#_particles,1,-1 do
+    local p=_particles[i]
+    if p.ttl<t then
+      deli(_particles,i)
+    else
+      local velocity=v_scale(p.velocity,0.8)
+      velocity[2]-=0.8
+      local origin=v_add(p.origin,velocity,5)
+      if origin[2]<0 then
+        origin[2]=0
+        -- fake rebound
+        velocity[2]*=-0.5
+      end
+      p.prev,p.origin,p.velocity=p.origin,origin,velocity
+    end
+  end
+
   bench_start("things")
   for i=#_things,1,-1 do
     local thing=_things[i]

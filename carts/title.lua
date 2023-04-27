@@ -108,7 +108,7 @@ function menu_state()
       -- mouse cursor
       spr(20,mx,my)
       -- hw palette
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 12,0},1)
+      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end
 end
 
@@ -134,8 +134,11 @@ function _init()
     end
   end
   -- hit palette
-  poke(mem,0)
-  memset(mem+1,0x7,15)  
+  for _,c in pairs{15,6,4,2} do
+    poke(mem,0)
+    memset(mem+1,c,15)  
+    mem+=16
+  end
 
   -- todo: generate assets if not there
   --
