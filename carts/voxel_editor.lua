@@ -49,6 +49,8 @@ local _entities={
     -- worm head+segment
     {text="wORM0"},
     {text="wORM1"},
+    -- jewel
+    {text="jEWEL"},
 }
 local _current_entity
 
@@ -962,8 +964,9 @@ function pack_entities()
             pack_bytes(i)
             -- number of frames
             pack_bytes(count,2)
-            for i,frame in ipairs(frames) do
+            for j,frame in ipairs(frames) do
                 -- height
+                -- note: can be negative!!
                 pack_bytes(frame.ymax-frame.ymin+1)
                 -- pack x min + width
                 pack_bytes(frame.xmin)
