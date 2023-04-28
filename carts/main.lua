@@ -201,10 +201,9 @@ function make_player(origin,a)
       end,
       update=function(self)
         -- damping      
-        angle[3]*=0.8
         dangle=v_scale(dangle,0.6)
         self.tilt*=0.6
-        if(abs(self.tilt)<0.0001) self.tilt=0
+        if(abs(self.tilt)<=0.0001) self.tilt=0
         velocity[1]*=0.7
         --velocity[2]*=0.9
         velocity[3]*=0.7
@@ -277,7 +276,7 @@ function make_player(origin,a)
         -- normal fire
         if fire==1 then          
           _total_bullets+=0x0.0001
-          make_bullet(v_add(self.origin,{0,18,0}),angle[2],angle[1],rnd(0.02))
+          make_bullet(v_add(self.origin,{0,18,0}),angle[2],angle[1],0.02)
         elseif fire==2 then
           -- shotgun
           _total_bullets+=0x0.000a
@@ -602,7 +601,7 @@ function draw_grid(cam,light)
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
     elseif item.type==2 then
-      tline(item.x0,item.y0,item.x1,item.y1,item.thing.c,0,0,1/8)
+      --tline(item.x0,item.y0,item.x1,item.y1,item.thing.c,0,0,1/8)
     elseif item.type==3 then
       local origin=item.thing.prev
       local x,y,z=origin[1],origin[2],origin[3]
@@ -678,7 +677,6 @@ function make_skull(_origin)
         local dir=v_dir(origin,_flying_target)
         forces=v_add(forces,dir,8+seed*cos(time()/5))
       end
-      -- todo: random target
       -- avoid others
       local idx=world_to_grid(origin)
       
