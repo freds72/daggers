@@ -135,7 +135,8 @@ function make_fps_cam()
             m[2],m[5]=m[5],m[2]
             m[3],m[9]=m[9],m[3]
             m[7],m[10]=m[10],m[7]
-            --
+
+            -- todo: remove mxm code!
             self.m=m_x_m(m,{
                 1,0,0,0,
                 0,1,0,0,
@@ -149,7 +150,7 @@ end
 
 function make_player(origin,a)
     local angle,dangle,velocity,on_ground,dead={0,a,0},{0,0,0},{0,0,0,}
-    local fire_ttl,fire=0
+    local fire_ttl,fire_released,fire_frames,dblclick_ttl,fire=0,true,0,0
     return {
       -- start above floor
       origin=v_add(origin,{0,1,0}), 
@@ -167,10 +168,30 @@ function make_player(origin,a)
         if(on_ground and btnp(4)) jmp=12 on_ground=false
 
         -- straffing = faster!
-        
-        if btn(5) and fire_ttl<=0 then
-          sfx(48)
-          fire_ttl,fire=3,true
+
+        -- double-click detector
+        dblclick_ttl=max(dblclick_ttl-1)
+        if btn(5) then
+          if fire_released then
+            fire_released=false
+          end
+          fire_frames+=1
+          -- regular fire      
+          if dblclick_ttl==0 and fire_ttl<=0 then
+            sfx(48)
+            fire_ttl,fire=3,1
+          end          
+        elseif not fire_released then
+          if dblclick_ttl>0  then
+            -- double click timer still active?
+            fire_ttl,fire=0,2
+            dblclick_ttl=0				
+            sfx(49)
+          elseif fire_frames<4 then
+           -- candidate for double click?
+           dblclick_ttl=8
+          end           
+          fire_released,fire_frames=true,0
         end
 
         dangle=v_add(dangle,{stat(39),stat(38),0})
@@ -253,28 +274,36 @@ function make_player(origin,a)
         self.m=make_m_from_euler(unpack(angle))   
         self.angle=angle         
 
-        if fire then
-          fire=nil
+        -- normal fire
+        if fire==1 then          
           _total_bullets+=0x0.0001
-          make_bullet(v_add(self.origin,{0,18,0}),self.m)
+          make_bullet(v_add(self.origin,{0,18,0}),angle[2],angle[1],rnd(0.02))
+        elseif fire==2 then
+          -- shotgun
+          _total_bullets+=0x0.000a
+          local o=v_add(self.origin,{0,18,0})
+          for i=1,10 do
+            make_bullet(o,angle[2],angle[1],0.025)
+          end
         end
+        fire=nil          
       end
     } 
 end
 
-function make_bullet(origin,m)
-  local fwd=m_fwd(m)
-  local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
-  local angle=atan2(fwd[1],fwd[3])
+function make_bullet(origin,zangle,yangle,spread)
+  local zangle,yscale=0.25-zangle+(1-rnd(2))*spread,yangle+(1-rnd(2))*spread
+  local u,v,r=cos(zangle),-sin(zangle),cos(yscale)
+  -- local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
   _bullets[#_bullets+1]={
-    origin=o,
-    velocity=fwd,
+    origin=v_clone(origin),
+    velocity={r*u,sin(yscale),r*v},
     -- fixed zangle
-    zangle=angle,
+    zangle=zangle,
     yangle=rnd(),
     -- precomputed for collision detection
-    u=cos(angle),
-    v=-sin(angle),
+    u=u,
+    v=v,
     ttl=time()+3+rnd(2),
     ent=rnd{_entities.dagger0,_entities.dagger1}
   }
@@ -774,7 +803,17 @@ function draw_world()
   memset(0x6000,0,512)
   memset(0x7e00,0,512)
 
-  print("BULLETS:"..(#_bullets).."\n"..stat(0).."kb",2,2,3)
+  local stats={
+    BULLETS=_bullets,
+    PARTICLE=_particles,
+    THINGS=_things,
+    FUTURES=_futures
+  }
+  local s=""
+  for k,v in pairs(stats) do
+    s..=k.."# "..#v.."\n"
+  end
+  -- print(s..stat(0).."kb",2,2,3)
 
   --bench_print(2,8,7)
 end
@@ -1122,16 +1161,14 @@ function _update()
       b.yangle+=0.1
       local prev,origin,len,dead=b.origin,v_add(b.origin,b.velocity,10),10
       -- out of bounds?
-      if origin[1]>64 and origin[1]<1024 and origin[3]>64 and origin[3]<1024 then
+      local x,z=origin[1],origin[3]
+      if x>64 and x<1024 and z>64 and z<1024 then
         if origin[2]<0 then
           -- hit ground?
           -- intersection with ground
           local dy=(prev[2])/(origin[2]-prev[2])
-          origin={
-            lerp(prev[1],origin[1],dy),
-            0,
-            lerp(prev[3],origin[3],dy)
-          }
+          x,z=lerp(prev[1],x,dy),lerp(prev[3],z,dy)
+          origin={x,0,z}
           -- adjust length
           len=v_len(prev,origin)
           -- not matter what - we hit the ground!
@@ -1139,8 +1176,8 @@ function _update()
           make_blood(origin)
           for i=1,rnd(5) do
             local a=b.zangle+(1-rnd(2))/8
-            local cc,ss,r=cos(a),sin(a),2+rnd(2)
-            local o={origin[1]+r*cc,origin[2],origin[3]+r*ss}
+            local cc,ss,r=cos(a),-sin(a),2+rnd(2)
+            local o={x+r*cc,0,z+r*ss}
             make_particle(o,{cc,1+rnd(),ss})
           end
         end
@@ -1226,8 +1263,8 @@ end
 
 -- unpack assets
 function unpack_entities()
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1"
-  unpack_array(function(k)
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel"
+  unpack_array(function()
     local id=mpeek()
     if id!=0 then
       local sprites={}

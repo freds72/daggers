@@ -18,7 +18,8 @@ end
 function unpack_frames(sprites)
   local frames={}
   unpack_array(function()
-    local height=mpeek()
+    -- recover sign (empty picetures)
+    local height=(mpeek()<<8)>>8
     local frame=add(frames,{
       xmin=mpeek(),
       width=mpeek(),

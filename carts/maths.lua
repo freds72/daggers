@@ -28,12 +28,6 @@ end
 function v_dot(a,b)
 	return a[1]*b[1]+a[2]*b[2]+a[3]*b[3]
 end
--- returns scaled down dot, safe for overflow
-function v_dotsign(a,b)
-  local x0,y0,z0=a[1]>>4,a[2]>>4,a[3]>>4
-  local x1,y1,z1=b[1]>>4,b[2]>>4,b[3]>>4
-	return x0*x1+y0*y1+z0*z1
-end
 
 function v_scale(v,scale)
 	return {
