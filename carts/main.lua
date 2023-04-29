@@ -155,7 +155,8 @@ function make_player(origin,a)
       -- start above floor
       origin=v_add(origin,{0,1,0}), 
       eye_pos=v_add(origin,{0,24,0}),
-      tilt=0,   
+      tilt=0, 
+      attract_power=0,  
       m=make_m_from_euler(unpack(angle)),
       control=function(self)
         if(dead) return
@@ -169,6 +170,9 @@ function make_player(origin,a)
 
         -- straffing = faster!
 
+        -- restore attrack power
+        self.attract_power=min(self.attract_power+0.2,1)
+
         -- double-click detector
         dblclick_ttl=max(dblclick_ttl-1)
         if btn(5) then
@@ -180,13 +184,17 @@ function make_player(origin,a)
           if dblclick_ttl==0 and fire_ttl<=0 then
             sfx(48)
             fire_ttl,fire=3,1
-          end          
+          end
+          -- 
+          self.attract_power=0
         elseif not fire_released then
           if dblclick_ttl>0  then
             -- double click timer still active?
             fire_ttl,fire=0,2
             dblclick_ttl=0				
             sfx(49)
+            -- shotgun (repulsive!)
+            self.attract_power=-1
           elseif fire_frames<4 then
            -- candidate for double click?
            dblclick_ttl=8
@@ -627,114 +635,182 @@ function draw_grid(cam,light)
   ]]
 end
 
+function inherit(t,env)
+  return setmetatable(t,{__index=env or _ENV})
+end
+
 -- things
 -- flying things:
 local _flying_target
--- skull
--- reaper
-function make_skull(_origin)
-  local forces,vel={0,0,0},{0,0,0}
-  local seed,wobling=rnd(8),3+rnd(2)
+-- skull I II III
+function make_skull(actor,_origin)
+  local vel={0,0,0}
+  local wobling=3+rnd(2)
   local resolved={}
-  local thing=add(_things,setmetatable({
-    -- sprite id
-    ent=_entities.skull,
-    origin=_origin,
-    zangle=rnd(),
-    yangle=0,
-    hp=2,
-    hit_ttl=0,
-    hit=function(_ENV)
-      if(dead) return
-      hp-=1
-      if hp<=0 then
-        dead=true    
-        grid_unregister(_ENV)  
-        make_blood(origin)
-      else
-        hit_ttl=5
+  local thing=add(_things,
+    inherit({
+      origin=_origin,
+      zangle=rnd(),
+      yangle=0,
+      hit_ttl=0,
+      forces={0,0,0},
+      seed=rnd(16),
+      hit=function(_ENV)
+        -- avoid reentrancy
+        if(dead) return
+        hp-=1
+        if hp<=0 then
+          dead=true   
+          -- draw jewel?
+          if jewel then
+            make_jewel(origin,vel)
+          end 
+          grid_unregister(_ENV)  
+          make_blood(origin)
+        else
+          hit_ttl=5
+        end
+      end,
+      apply=function(_ENV,other,force,t)
+        forces[1]+=t*force[1]
+        forces[2]+=t*force[2]
+        forces[3]+=t*force[3]
+        resolved[other]=true
+      end,
+      update=function(_ENV)
+        grid_unregister(_ENV)
+        hit_ttl=max(hit_ttl-1)
+        -- some gravity
+        if origin[2]<12 then 
+          forces={0,wobling,0}
+        elseif origin[2]>80 then
+          forces={0,-wobling*2,0}
+        end
+        -- some friction
+        vel=v_scale(vel,0.9)
+
+        -- custom think function
+        think(_ENV)
+
+        -- avoid others
+        local idx=world_to_grid(origin)
+        
+        local fx,fy,fz=forces[1],forces[2],forces[3]
+        for other in pairs(_grid[idx]) do
+          -- todo: apply inverse force to other (and keep track)
+          if not resolved[other] then
+            local avoid,avoid_dist=v_dir(origin,other.origin)
+            if(avoid_dist<1) avoid_dist=1
+            local t=-12/avoid_dist
+            fx+=t*avoid[1]
+            fy+=t*avoid[2]
+            fz+=t*avoid[3]
+
+            other:apply(_ENV,avoid,-t)
+            resolved[other]=true
+          end
+        end
+        forces={fx,fy,fz}
+
+        local old_vel=vel
+        vel=v_add(vel,forces,1/30)
+        -- fixed velocity (on x/z)
+        local vx,vz=vel[1],vel[3]
+        local vlen=sqrt(vx*vx+vz*vz)
+        vel[1]*=4/vlen
+        vel[3]*=4/vlen
+        
+        -- align direction and sprite direction
+        local target_angle=atan2(old_vel[1]-vel[1],vel[3]-old_vel[3])
+        local shortest=shortest_angle(target_angle,zangle)
+        --[[
+        if abs(target_angle-shortest)>0.125/2 then
+          -- relative change
+          shortest=mid(shortest-target_angle,-0.125/2,0.125/2)
+          -- preserve length
+          local x,z=vel[1],vel[3]
+          local len=sqrt(x*x+z*z)
+          x,z=old_vel[1],old_vel[3]
+          local old_len=sqrt(x*x+z*z)
+          x/=old_len
+          z/=old_len
+          vel[1],vel[3]=len*(x*cos(shortest)+z*sin(shortest)),len*(-x*sin(shortest)+z*cos(shortest))
+          shortest+=target_angle
+        end
+        ]]
+        zangle=lerp(shortest,target_angle,0.2)
+        
+        -- move & clamp
+        origin[1]=mid(origin[1]+vel[1],0,1024)
+        origin[2]=max(4,origin[2]+vel[2])
+        origin[3]=mid(origin[3]+vel[3],0,1024)
+
+        forces={0,0,0}
+        resolved={}
+        grid_register(_ENV)
       end
-    end,
-    apply=function(_ENV,other,force,t)
-      forces[1]+=t*force[1]
-      forces[2]+=t*force[2]
-      forces[3]+=t*force[3]
-      resolved[other]=true
+    },
+    inherit(actor)))
+  grid_register(thing)
+  return thing
+end
+
+function make_jewel(_origin,vel)
+  local thing=add(_things,inherit({    
+    ent=_entities.jewel,    
+    origin=v_clone(_origin),
+    -- random aspect
+    zangle=rnd(),
+    ttl=3000,
+    -- 
+    pickup=true,
+    apply=function()
+      -- do not react to others
     end,
     update=function(_ENV)
       grid_unregister(_ENV)
-      hit_ttl=max(hit_ttl-1)
-      -- some gravity
-      if origin[2]<12 then 
-        forces={0,wobling,0}
-      elseif origin[2]>80 then
-        forces={0,-wobling*2,0}
+      ttl-=1
+      if ttl<0 then
+        dead=true
+        return
       end
-      -- some friction
-      vel=v_scale(vel,0.9)
-      -- converge toward player
-      if _flying_target then
-        local dir=v_dir(origin,_flying_target)
-        forces=v_add(forces,dir,8+seed*cos(time()/5))
+      -- friction
+      if on_ground then
+        vel[1]*=0.9
+        vel[3]*=0.9
       end
-      -- avoid others
-      local idx=world_to_grid(origin)
-      
-      local fx,fy,fz=forces[1],forces[2],forces[3]
-      for other in pairs(_grid[idx]) do
-        -- todo: apply inverse force to other (and keep track)
-        if not resolved[other] then
-          local avoid,avoid_dist=v_dir(origin,other.origin)
-          if(avoid_dist<1) avoid_dist=1
-          local t=-8/avoid_dist
-          fx+=t*avoid[1]
-          fy+=t*avoid[2]
-          fz+=t*avoid[3]
+      -- gravity
+      vel[2]-=0.8
 
-          other:apply(_ENV,avoid,-t)
-          resolved[other]=true
+      -- pulled by player?
+      if not _plyr.dead then
+        local force=_plyr.attract_power
+        if force!=0 then
+          local a=atan2(origin[1]-_plyr.origin[1],origin[3]-_plyr.origin[3])
+          -- boost repulsive force
+          if(force<0) force*=8
+          local vx,vz=vel[1]-force*cos(a),vel[3]-force*sin(a)
+          if force>0 then
+            -- limit attraction velocity
+            local a=atan2(vx,vz)
+            local len=vx*cos(a)+vz*sin(a)
+            if len>3 then
+              vx*=3/len
+              vz*=3/len
+            end
+          end
+          vel[1],vel[3]=vx,vz
         end
       end
-      forces={fx,fy,fz}
-
-      local old_vel=vel
-      vel=v_add(vel,forces,1/30)
-      -- fixed velocity (on x/z)
-      local vx,vz=vel[1],vel[3]
-      local vlen=sqrt(vx*vx+vz*vz)
-      vel[1]*=4/vlen
-      vel[3]*=4/vlen
-      
-      -- align direction and sprite direction
-      local target_angle=atan2(old_vel[1]-vel[1],vel[3]-old_vel[3])
-      local shortest=shortest_angle(target_angle,zangle)
-      --[[
-      if abs(target_angle-shortest)>0.125/2 then
-        -- relative change
-        shortest=mid(shortest-target_angle,-0.125/2,0.125/2)
-        -- preserve length
-        local x,z=vel[1],vel[3]
-        local len=sqrt(x*x+z*z)
-        x,z=old_vel[1],old_vel[3]
-        local old_len=sqrt(x*x+z*z)
-        x/=old_len
-        z/=old_len
-        vel[1],vel[3]=len*(x*cos(shortest)+z*sin(shortest)),len*(-x*sin(shortest)+z*cos(shortest))
-        shortest+=target_angle
+      origin=v_add(origin,vel)
+      -- on ground?
+      if origin[2]<8 then
+        origin[2]=8
+        vel[2]=0
+        on_ground=true
       end
-      ]]
-      zangle=lerp(shortest,target_angle,0.2)
-      
-      -- move & clamp
-      origin[1]=mid(origin[1]+vel[1],0,1024)
-      origin[2]=max(4,origin[2]+vel[2])
-      origin[3]=mid(origin[3]+vel[3],0,1024)
-
-      forces={0,0,0}
-      resolved={}
-      grid_register(_ENV)
     end
-  },{__index=_ENV}))
+  }))
   grid_register(thing)
   return thing
 end
@@ -835,7 +911,40 @@ function play_state()
 
     
   -- make_skull({512,24,512})
+    make_jewel({512,48,512},{0,0,0})
 
+  -- enemies
+  local skull1={
+    ent=_entities.skull,
+    hp=2,
+    think=function(_ENV)
+      -- converge toward player
+      if _flying_target then
+        local dir=v_dir(origin,_flying_target)
+        forces=v_add(forces,dir,8+seed*cos(time()/5))
+      end
+    end
+  }
+
+  local skull2={
+    ent=_entities.reaper,
+    hp=5,    
+    target_ttl=0,
+    jewel=true,
+    think=function(_ENV)      
+      target_ttl-=1
+      if target_ttl<0 then  
+        -- go opposite from where it stands!  
+        local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd(0.25)
+        local r=64+rnd(64)
+        target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
+        target_ttl=90+rnd(10)
+      end
+      -- navigate to target
+      local dir=v_dir(origin,target)
+      forces=v_add(forces,dir,8+seed*cos(time()/5))
+    end
+  }
   -- scenario
   do_async(function()
     -- circle around player
@@ -862,8 +971,9 @@ function play_state()
     for i=0,0.75,0.25 do
       local x,z=512+256*cos(i),512-256*sin(i)
       for i=1,8 do
-        make_skull({x,64,z})
+        make_skull(skull1,{x,64,z})
       end
+      make_skull(skull2,{x,64,z})
       wait_async(90)
     end
   end)
@@ -1132,7 +1242,6 @@ function collect_grid(a,b,u,v,cb)
     mapdy=1
     disty=(mapy+1-a[3]/32)*ddy
   end
-  
   while dest_mapx!=mapx and dest_mapy!=mapy do
     if distx<disty then
       distx+=ddx
@@ -1161,10 +1270,11 @@ function _update()
       -- out of bounds?
       local x,z=origin[1],origin[3]
       if x>64 and x<1024 and z>64 and z<1024 then
-        if origin[2]<0 then
+        local y=origin[2]
+        if y<0 then
           -- hit ground?
           -- intersection with ground
-          local dy=(prev[2])/(origin[2]-prev[2])
+          local dy=prev[2]/(prev[2]-y)
           x,z=lerp(prev[1],x,dy),lerp(prev[3],z,dy)
           origin={x,0,z}
           -- adjust length
