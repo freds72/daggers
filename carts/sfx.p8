@@ -5,12 +5,13 @@ __lua__
 --by ridgek
 
 --sfx
---48: finger guns
---49: finger blast
---50: squid spawn?
+--48: rapid1
+--49: shot1
+--50: eggbounce
 
 --music
---00: respawn
+--00: daggercollect
+--32: spawnplayer
 
 -->8
 ---remove unused instrument sfx
