@@ -6,6 +6,7 @@ sdl_controllers.txt
 /bbs/
 /carts/demos
 /carts/*.p8.png
+/carts/pic_*.p8
 /cdata/
 /cstore/
 *.bin
