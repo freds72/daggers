@@ -695,7 +695,7 @@ function make_skull(actor,_origin)
         hp-=1
         if hp<=0 then
           dead=true   
-          sfx(50)
+          sfx(52)
           -- draw jewel?
           if jewel then
             make_jewel(origin,vel)
