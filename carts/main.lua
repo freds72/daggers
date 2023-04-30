@@ -1034,7 +1034,7 @@ function play_state()
 
     
   -- make_skull({512,24,512})
-  make_worm({512,48,512})
+  make_worm({612,32,612})
   make_worm({256,48,386})
   
   make_jewel({512,48,512},{0,0,0})
