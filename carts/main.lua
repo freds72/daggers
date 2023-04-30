@@ -561,9 +561,7 @@ function draw_grid(cam,light)
   project_array(_particles,3)
 
   -- radix sort
-  bench_start("rsort")
   rsort(things)
-  bench_end()
 
   -- render in order
   local prev_base,prev_sprites,pal0
@@ -639,6 +637,42 @@ function inherit(t,env)
 end
 
 -- things
+function make_blast(_ents,_origin)  
+  return add(_things,inherit{
+    -- sprite id
+    ent=_ents[1],
+    origin=_origin,
+    -- random aspect
+    zangle=rnd(),
+    yangle=0,
+    ttl=0,
+    shadeless=true,
+    update=function(_ENV)
+      ttl+=1
+      if(ttl>15) dead=true return
+      ent=_ents[min(ttl\5+1,#_ents)]
+    end
+  })
+end
+
+function make_blood(_origin)
+  local ents={
+    _entities.blood0,
+    _entities.blood1,
+    _entities.blood2
+  }
+  return make_blast(ents,_origin)
+end
+
+function make_goo(_origin)
+  local ents={
+    _entities.goo0,
+    _entities.goo1,
+    _entities.goo2
+  }
+  return make_blast(ents,_origin)
+end
+
 -- flying things:
 local _flying_target
 -- skull I II III
@@ -661,12 +695,14 @@ function make_skull(actor,_origin)
         hp-=1
         if hp<=0 then
           dead=true   
+          sfx(50)
           -- draw jewel?
           if jewel then
             make_jewel(origin,vel)
           end 
           grid_unregister(_ENV)  
-          make_blood(origin)
+          -- custom explosion?
+          if blast then blast(origin) else make_blood(origin) end
         else
           hit_ttl=5
         end
@@ -885,10 +921,10 @@ function make_egg(_origin,vel)
       if(dead) return
       hp-=1
       if hp<=0 then
-        dead=true   
+        dead=true
         grid_unregister(_ENV)
         -- todo: make green goo
-        make_blood(origin)
+        make_goo(origin)
       else
         hit_ttl=5
       end
@@ -901,10 +937,13 @@ function make_egg(_origin,vel)
       ttl-=1
       if ttl<0 then
         dead=true
+        sfx(51)
+        make_goo(origin)
         make_skull({
           ent=_entities.spider0,
           hp=2,
           on_ground=true,
+          blast=make_goo,
           apply=function(_ENV,other,force,t)
             if other.ent==ent then
               forces[1]+=t*force[1]
@@ -925,31 +964,6 @@ function make_egg(_origin,vel)
   grid_register(thing)
 end
 
-function make_blood(_origin)  
-  local ents={
-    _entities.blood0,
-    _entities.blood1,
-    _entities.blood2
-  }
-  local thing=add(_things,setmetatable({
-    -- sprite id
-    ent=_entities.blood0,
-    origin=_origin,
-    -- random aspect
-    zangle=rnd(),
-    yangle=0,
-    ttl=0,
-    shadeless=true,
-    update=function(_ENV)
-      ttl+=1
-      if(ttl>15) dead=true return
-      ent=ents[min(ttl\5+1,#ents)]
-      -- assert(ent,"invalid ttl:"..(ttl\5+1))
-    end
-  },{__index=_ENV}))
-  return thing
-end
-
 -- draw game world
 function draw_world()
   cls(0)
@@ -965,9 +979,7 @@ function draw_world()
   end        
 
   -- draw things
-  bench_start("draw_grid")
   draw_grid(_cam,1)      
-  bench_end()
 
   -- tilt!
   -- screen = gfx
@@ -987,6 +999,7 @@ function draw_world()
   memset(0x6000,0,512)
   memset(0x7e00,0,512)
 
+  --[[
   local stats={
     BULLETS=_bullets,
     PARTICLE=_particles,
@@ -998,8 +1011,8 @@ function draw_world()
     s..=k.."# "..#v.."\n"
   end
   print(s..stat(0).."kb",2,2,3)
+  ]]
 
-  --bench_print(2,8,7)
 end
 
 -- gameplay state
@@ -1113,6 +1126,7 @@ function play_state()
     end,
     -- init
     function()
+      music(32)
       _start_time=time()
     end
 end
@@ -1470,7 +1484,6 @@ function _update()
     end
   end
 
-  bench_start("things")
   for i=#_things,1,-1 do
     local thing=_things[i]
     if thing.dead then
@@ -1480,7 +1493,6 @@ function _update()
       thing:update()
     end
   end
-  bench_end()
 
   -- any futures?
   update_asyncs()
