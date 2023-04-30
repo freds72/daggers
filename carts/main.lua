@@ -594,9 +594,8 @@ function draw_grid(cam,light)
       local frame,sprites=entity.frames[5*yside+side+1],entity.sprites
       local mem,base,w,h=0x0,frame.base,frame.width,frame.height
       if prev_base!=base and prev_sprites!=sprites then
-        for i=0,h-1 do
-          poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
-          mem+=64
+        for i=mem,mem+(h-1)<<6,64 do
+          poke4(i,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
           base+=4
         end
         prev_base,prev_sprites=base,sprites
@@ -643,6 +642,7 @@ end
 -- flying things:
 local _flying_target
 -- skull I II III
+-- spiderling
 function make_skull(actor,_origin)
   local vel={0,0,0}
   local wobling=3+rnd(2)
@@ -681,10 +681,12 @@ function make_skull(actor,_origin)
         grid_unregister(_ENV)
         hit_ttl=max(hit_ttl-1)
         -- some gravity
-        if origin[2]<12 then 
-          forces={0,wobling,0}
-        elseif origin[2]>80 then
-          forces={0,-wobling*2,0}
+        if not on_ground then
+          if origin[2]<12 then 
+            forces={0,wobling,0}
+          elseif origin[2]>80 then
+            forces={0,-wobling*2,0}
+          end
         end
         -- some friction
         vel=v_scale(vel,0.9)
@@ -745,6 +747,9 @@ function make_skull(actor,_origin)
         origin[2]=max(4,origin[2]+vel[2])
         origin[3]=mid(origin[3]+vel[3],0,1024)
 
+        -- for centipede
+        if(post_think) post_think(_ENV)
+
         forces={0,0,0}
         resolved={}
         grid_register(_ENV)
@@ -753,6 +758,58 @@ function make_skull(actor,_origin)
     inherit(actor)))
   grid_register(thing)
   return thing
+end
+
+-- centipede
+function make_worm(_origin)  
+  local segments,prev,target_ttl={},{},0
+
+  for i=1,20 do
+    local seg=add(segments,add(_things,inherit{
+      ent=_entities.worm1,
+      zangle=0.25,
+      origin={0,0,0},
+      apply=function()
+        -- do not interact with others
+      end,
+      hit=function(_ENV)
+        -- avoid reentrancy
+        if(dead) return
+        make_jewel(origin,{0,0,0})
+        dead=true
+      end
+    }))
+    grid_register(seg)
+  end
+
+  make_skull({
+    ent=_entities.worm0,
+    hp=200,
+    apply=function()
+      -- 
+    end,
+    think=function(_ENV)
+      target_ttl-=1
+      if target_ttl<0 then  
+        -- circle
+        local a=atan2(origin[1]-512,origin[3]-512)+rnd(0.1)
+        local r=96+rnd(32)
+        target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
+        target_ttl=90+rnd(10)
+      end
+      -- navigate to target
+      local dir=v_dir(origin,target)
+      forces=v_add(forces,dir,8+seed*cos(time()/5))
+    end,
+    post_think=function(_ENV)
+      origin[2]=40+24*sin(time()/6)
+      add(prev,v_clone(origin),1)
+      if(#prev>40) deli(prev)
+      for i=1,#prev,2 do
+        segments[i\2+1].origin=prev[i]
+      end
+    end
+  },_origin)
 end
 
 function make_jewel(_origin,vel)
@@ -813,6 +870,59 @@ function make_jewel(_origin,vel)
   }))
   grid_register(thing)
   return thing
+end
+
+function make_egg(_origin,vel)
+  -- spider spawn time
+  local ttl=300+rnd(10)
+  local thing=add(_things,inherit{
+    ent=_entities.egg,
+    origin=v_clone(_origin),
+    hp=2,
+    zangle=0,
+    hit=function(_ENV)
+      -- avoid reentrancy
+      if(dead) return
+      hp-=1
+      if hp<=0 then
+        dead=true   
+        grid_unregister(_ENV)
+        -- todo: make green goo
+        make_blood(origin)
+      else
+        hit_ttl=5
+      end
+    end,
+    apply=function()
+      -- cannot move
+    end,
+    update=function(_ENV)
+      if(dead) return
+      ttl-=1
+      if ttl<0 then
+        dead=true
+        make_skull({
+          ent=_entities.spider0,
+          hp=2,
+          on_ground=true,
+          apply=function(_ENV,other,force,t)
+            if other.ent==ent then
+              forces[1]+=t*force[1]
+              forces[2]=0
+              forces[3]+=t*force[3]
+            end
+            resolved[other]=true
+          end,
+          think=function(_ENV)
+            -- navigate to target
+            local dir=v_dir(origin,_plyr.origin)
+            forces=v_add(forces,dir,8+seed*cos(time()/5))
+          end
+        },origin)
+      end
+    end
+  })
+  grid_register(thing)
 end
 
 function make_blood(_origin)  
@@ -887,7 +997,7 @@ function draw_world()
   for k,v in pairs(stats) do
     s..=k.."# "..#v.."\n"
   end
-  -- print(s..stat(0).."kb",2,2,3)
+  print(s..stat(0).."kb",2,2,3)
 
   --bench_print(2,8,7)
 end
@@ -911,7 +1021,15 @@ function play_state()
 
     
   -- make_skull({512,24,512})
-    make_jewel({512,48,512},{0,0,0})
+  make_worm({512,48,512})
+  make_worm({256,48,386})
+  
+  make_jewel({512,48,512},{0,0,0})
+
+  for i=0,3 do
+    local a=i/4
+    make_egg({512+32*cos(a),4,512-32*sin(a)},{0,0,0})
+  end
 
   -- enemies
   local skull1={
@@ -945,6 +1063,7 @@ function play_state()
       forces=v_add(forces,dir,8+seed*cos(time()/5))
     end
   }
+
   -- scenario
   do_async(function()
     -- circle around player

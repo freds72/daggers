@@ -723,10 +723,8 @@ function make_voxel_editor()
             apply(prev.idx,prev.col)
         end,
         copy=function(self,msg)
-            printh("copied to clipboard")
             blah=grid_tostr(_grid)
             local s=str_esc(grid_tostr(_grid))
-            printh("copied:\n"..s)
             printh(s,"@clip")
         end,
         paste=function(self,msg)
