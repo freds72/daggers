@@ -124,30 +124,6 @@ local _ground_extents={
   split"768,832,256,768"
 }
 
-function make_fps_cam()
-    return {
-        origin={0,0,0},    
-        track=function(self,origin,m,angles,tilt)
-            self.tilt=tilt or 0
-            local m={unpack(m)}		
-
-            -- inverse view matrix
-            m[2],m[5]=m[5],m[2]
-            m[3],m[9]=m[9],m[3]
-            m[7],m[10]=m[10],m[7]
-
-            -- todo: remove mxm code!
-            self.m=m_x_m(m,{
-                1,0,0,0,
-                0,1,0,0,
-                0,0,1,0,
-                -origin[1],-origin[2],-origin[3],1
-            })
-            self.origin=origin
-        end
-    }
-end
-
 function make_player(origin,a)
     local angle,dangle,velocity,on_ground,dead={0,a,0},{0,0,0},{0,0,0,}
     local fire_ttl,fire_released,fire_frames,dblclick_ttl,fire=0,true,0,0
@@ -365,7 +341,7 @@ function draw_poly(poly,uindex,vindex,light)
             -- z is clipped to near plane
             v.x=63.5+(v[1]<<3)
             v.y=63.5-(v[2]<<3)
-            v.w=64/8
+            v.w=8 -- 64/8
             v.u=lerp(v0.u,v1.u,t)
             v.v=lerp(v0.v,v1.v,t)
             res[#res+1]=v
@@ -1305,7 +1281,27 @@ function _init()
   end)
 
   -- always needed  
-  _cam=make_fps_cam()
+  _cam=inherit{
+    origin={0,0,0},    
+    track=function(_ENV,_origin,_m,angles,_tilt)
+        tilt=_tilt or 0
+        m={unpack(_m)}		
+
+        -- inverse view matrix
+        m[2],m[5]= m[5], m[2]
+        m[3],m[9]= m[9], m[3]
+        m[7],m[10]=m[10],m[7]
+
+        -- todo: remove mxm code!
+        m=m_x_m(m,{
+            1,0,0,0,
+            0,1,0,0,
+            0,0,1,0,
+            -_origin[1],-_origin[2],-_origin[3],1
+        })
+        origin=_origin
+    end
+  }
 
   _bullets,_things,_futures={},{},{}
   -- load images
