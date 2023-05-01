@@ -675,12 +675,13 @@ end
 
 -- flying things:
 local _flying_target
+-- base class for:
 -- skull I II III
+-- centipede
 -- spiderling
 function make_skull(actor,_origin)
-  local vel={0,0,0}
+  local vel,resolved={0,0,0},{}
   local wobling=3+rnd(2)
-  local resolved={}
   local thing=add(_things,
     inherit({
       origin=_origin,
@@ -694,8 +695,13 @@ function make_skull(actor,_origin)
         if(dead) return
         hp-=1
         if hp<=0 then
-          dead=true   
-          sfx(52)
+          dead=true
+          -- custom death function?
+          if die then
+            die(_ENV)
+          else
+            sfx(death_sfx or 52)
+          end
           -- draw jewel?
           if jewel then
             make_jewel(origin,vel)
@@ -798,7 +804,7 @@ end
 
 -- centipede
 function make_worm(_origin)  
-  local segments,prev,target_ttl={},{},0
+  local t_offset,segments,prev,target_ttl=rnd(),{},{},0
 
   for i=1,20 do
     local seg=add(segments,add(_things,inherit{
@@ -810,9 +816,9 @@ function make_worm(_origin)
       end,
       hit=function(_ENV)
         -- avoid reentrancy
-        if(dead) return
+        if(touched) return
         make_jewel(origin,{0,0,0})
-        dead=true
+        touched=true
       end
     }))
     grid_register(seg)
@@ -820,7 +826,20 @@ function make_worm(_origin)
 
   make_skull({
     ent=_entities.worm0,
-    hp=200,
+    hp=10,
+    die=function(_ENV)
+      music(54)
+      -- clean segment
+      do_async(function()
+        while #segments>0 do
+          local seg=deli(segments,1)
+          grid_unregister(seg)
+          seg.dead=true
+          make_blood(seg.origin)
+          wait_async(3)
+        end
+      end)
+    end,
     apply=function()
       -- 
     end,
@@ -828,21 +847,24 @@ function make_worm(_origin)
       target_ttl-=1
       if target_ttl<0 then  
         -- circle
-        local a=atan2(origin[1]-512,origin[3]-512)+rnd(0.1)
+        local a=atan2(origin[1]-512,origin[3]-512)+rnd(0.05)
         local r=96+rnd(32)
         target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
-        target_ttl=90+rnd(10)
+        target_ttl=60+rnd(10)
       end
       -- navigate to target
       local dir=v_dir(origin,target)
       forces=v_add(forces,dir,8+seed*cos(time()/5))
     end,
     post_think=function(_ENV)
-      origin[2]=40+24*sin(time()/6)
+      origin[2]=40+24*sin(t_offset+time()/3)
       add(prev,v_clone(origin),1)
       if(#prev>40) deli(prev)
       for i=1,#prev,2 do
-        segments[i\2+1].origin=prev[i]
+        local seg=segments[i\2+1]
+        grid_unregister(seg)
+        seg.origin=prev[i]
+        grid_register(seg)
       end
     end
   },_origin)
@@ -944,9 +966,11 @@ function make_egg(_origin,vel)
           hp=2,
           on_ground=true,
           blast=make_goo,
+          death_sfx=53,
           apply=function(_ENV,other,force,t)
             if other.ent==ent then
               forces[1]+=t*force[1]
+              -- stays on ground
               forces[2]=0
               forces[3]+=t*force[3]
             end
@@ -1012,7 +1036,7 @@ function draw_world()
   end
   print(s..stat(0).."kb",2,2,3)
   ]]
-
+  print(flr(stat(0)).."kb",2,2,3)
 end
 
 -- gameplay state
@@ -1128,62 +1152,6 @@ function play_state()
     function()
       music(32)
       _start_time=time()
-    end
-end
-
-function test_state()
-  local active_ent=_entities.reaper
-  local active_pose=0
-  local active_angle=0
-  return
-    -- update
-    function()
-      if(btnp(0)) active_angle-=1
-      if(btnp(1)) active_angle+=1
-      if(btnp(2)) active_pose-=1
-      if(btnp(3)) active_pose+=1
-      active_pose=mid(active_pose,0,4)
-      active_angle=mid(active_angle,0,7)
-    end,
-    -- draw
-    function()
-      --[[
-      local yangle,flipx=active_angle
-      if(yangle>4) yangle=4-(yangle%4) flipx=true
-      local frame=active_ent.frames[5*active_pose+yangle+1]
-      local mem,base=0x0,frame.base
-      for i=0,frame.height-1 do
-        poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
-        mem+=64
-        base+=4
-      end
-      cls()
-      fillp(0xa5a5)
-      rect(0,0,frame.width,frame.height,1)
-      fillp()
-      sspr(frame.xmin,0,frame.width,frame.height,0,0,frame.width,frame.height,flipx)
-
-      print("pose: "..active_pose.." angle: "..yangle..(tostr(flipx)).."\nmem: "..stat(0).."\n#sprites:"..#_sprites,2,33,7)
-      ]]
-      cls()
-      local x,y=0,0
-      for pose=0,4 do
-        for angle=0,4 do
-          local frame=active_ent.frames[5*pose+angle+1]
-          local mem,base=0x0,frame.base
-          for i=0,frame.height-1 do
-            poke4(mem,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
-            mem+=64
-            base+=4
-          end
-          sspr(frame.xmin,0,frame.width,frame.height,x,y,frame.width,frame.height)          
-          x+=frame.width
-        end
-        x=0
-        y+=16
-      end
-      
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 10,0},1)
     end
 end
 
