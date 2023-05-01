@@ -205,7 +205,7 @@ function make_player(origin,a)
         dangle=v_add(dangle,{stat(39),stat(38),0})
         self.tilt+=dx/40
         local c,s=cos(a),-sin(a)
-        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.5)                 
+        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
       end,
       update=function(self)
         -- damping      
@@ -504,9 +504,10 @@ function draw_grid(cam,light)
   local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
 
   local things={}
-  -- particles
+  -- particles texture
   poke4(0x5f38,0x0400.0101)
 
+  pal()
   -- render shadows (& collect)
   poke(0x5f5e, 0b11111110)
   color(1)
@@ -516,9 +517,7 @@ function draw_grid(cam,light)
     -- draw shadows (y=0)
     local ax,az=m1*x+m9*z+m13,m3*x+m11*z+m15
     if not thing.shadeless and az>8 and az<384 and ax<az and -ax<az then
-      local ay=m2*x+m10*z+m14
-      -- 
-      local w=64/az
+      local ay,w=m2*x+m10*z+m14,64/az
       -- thing offset+cam offset              
       local dx,dz=cx-x,cz-z
       local a=atan2(dx,dz)        
@@ -543,7 +542,7 @@ function draw_grid(cam,light)
 
   local function project_array(array,type)
     for i,a in pairs(array) do
-      local origin=a.origin
+      local origin=a.origin      
       local x,y,z=origin[1],origin[2],origin[3]
       -- 
       local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
@@ -584,6 +583,7 @@ function draw_grid(cam,light)
       if(side>4) side=4-(side%4) flip=true
       
       -- up/down angle
+      -- todo: adjust with height*w/2 ?
       local yangle=thing.yangle or 0
       local yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+0.0625+yangle)&0x0.ffff)\0.125
       if(yside>4) yside=4-(yside%4)
@@ -680,7 +680,7 @@ local _flying_target
 -- centipede
 -- spiderling
 function make_skull(actor,_origin)
-  local vel,resolved={0,0,0},{}
+  local resolved={}
   local wobling=3+rnd(2)
   local thing=add(_things,
     inherit({
@@ -689,6 +689,7 @@ function make_skull(actor,_origin)
       yangle=0,
       hit_ttl=0,
       forces={0,0,0},
+      velocity={0,0,0},
       seed=rnd(16),
       hit=function(_ENV)
         -- avoid reentrancy
@@ -704,7 +705,7 @@ function make_skull(actor,_origin)
           end
           -- draw jewel?
           if jewel then
-            make_jewel(origin,vel)
+            make_jewel(origin,velocity)
           end 
           grid_unregister(_ENV)  
           -- custom explosion?
@@ -731,7 +732,7 @@ function make_skull(actor,_origin)
           end
         end
         -- some friction
-        vel=v_scale(vel,0.9)
+        velocity=v_scale(velocity,0.9)
 
         -- custom think function
         think(_ENV)
@@ -744,8 +745,9 @@ function make_skull(actor,_origin)
           -- todo: apply inverse force to other (and keep track)
           if not resolved[other] then
             local avoid,avoid_dist=v_dir(origin,other.origin)
-            if(avoid_dist<1) avoid_dist=1
-            local t=-12/avoid_dist
+            if(avoid_dist<4) avoid_dist=1
+            -- todo: tune...
+            local t=-32/avoid_dist
             fx+=t*avoid[1]
             fy+=t*avoid[2]
             fz+=t*avoid[3]
@@ -756,16 +758,16 @@ function make_skull(actor,_origin)
         end
         forces={fx,fy,fz}
 
-        local old_vel=vel
-        vel=v_add(vel,forces,1/30)
+        local old_vel=velocity
+        velocity=v_add(velocity,forces,1/30)
         -- fixed velocity (on x/z)
-        local vx,vz=vel[1],vel[3]
+        local vx,vz=velocity[1],velocity[3]
         local vlen=sqrt(vx*vx+vz*vz)
-        vel[1]*=4/vlen
-        vel[3]*=4/vlen
+        velocity[1]*=3/vlen
+        velocity[3]*=3/vlen
         
         -- align direction and sprite direction
-        local target_angle=atan2(old_vel[1]-vel[1],vel[3]-old_vel[3])
+        local target_angle=atan2(old_vel[1]-velocity[1],velocity[3]-old_vel[3])
         local shortest=shortest_angle(target_angle,zangle)
         --[[
         if abs(target_angle-shortest)>0.125/2 then
@@ -785,9 +787,9 @@ function make_skull(actor,_origin)
         zangle=lerp(shortest,target_angle,0.2)
         
         -- move & clamp
-        origin[1]=mid(origin[1]+vel[1],0,1024)
-        origin[2]=max(4,origin[2]+vel[2])
-        origin[3]=mid(origin[3]+vel[3],0,1024)
+        origin[1]=mid(origin[1]+velocity[1],0,1024)
+        origin[2]=max(4,origin[2]+velocity[2])
+        origin[3]=mid(origin[3]+velocity[3],0,1024)
 
         -- for centipede
         if(post_think) post_think(_ENV)
@@ -804,7 +806,7 @@ end
 
 -- centipede
 function make_worm(_origin)  
-  local t_offset,segments,prev,target_ttl=rnd(),{},{},0
+  local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
 
   for i=1,20 do
     local seg=add(segments,add(_things,inherit{
@@ -817,14 +819,17 @@ function make_worm(_origin)
       hit=function(_ENV)
         -- avoid reentrancy
         if(touched) return
-        make_jewel(origin,{0,0,0})
+        make_blood(origin)
+        make_jewel(origin,head.velocity)
         touched=true
+        -- change sprite (no jewels)
+        ent=_entities.worm2
       end
     }))
     grid_register(seg)
   end
 
-  make_skull({
+  head=make_skull({
     ent=_entities.worm0,
     hp=10,
     die=function(_ENV)
@@ -859,11 +864,13 @@ function make_worm(_origin)
     post_think=function(_ENV)
       origin[2]=40+24*sin(t_offset+time()/3)
       add(prev,v_clone(origin),1)
-      if(#prev>40) deli(prev)
-      for i=1,#prev,2 do
-        local seg=segments[i\2+1]
+      add(prev_angles,zangle,1)
+      if(#prev>20*seg_delta) deli(prev) deli(prev_angles)
+      for i=1,#prev,seg_delta do
+        local seg=segments[i\seg_delta+1]
         grid_unregister(seg)
         seg.origin=prev[i]
+        seg.zangle=prev_angles[i]
         grid_register(seg)
       end
     end
@@ -1036,7 +1043,7 @@ function draw_world()
   end
   print(s..stat(0).."kb",2,2,3)
   ]]
-  print(flr(stat(0)).."kb",2,2,3)
+  print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
 end
 
 -- gameplay state
@@ -1470,7 +1477,7 @@ end
 
 -- unpack assets
 function unpack_entities()
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel"
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel,worm2"
   unpack_array(function()
     local id=mpeek()
     if id!=0 then
