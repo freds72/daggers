@@ -45,7 +45,7 @@ function _init()
   for i=1,100 do
     local thing=add(_things,{
       p={rnd(128),rnd(128)},
-      r=4+rnd(8)
+      r=12--4+rnd(12) -- max: 12
     })
     local node=classify_point(_nodes,thing.p,thing.r)
     node.things[thing]=true
@@ -80,11 +80,12 @@ function intersect(root,p0,p1,cb)
   local side,dist=root.classify(p0,0)
   local other_side,other_dist=root.classify(p1,0)
   -- use current node
-  cb(root,p0,p1)
+  if root.leaf or side!=other_side or dist<24 or other_dist<24 then
+    cb(root,p0,p1)
+  end
   if(root.leaf) return
 
   if side==other_side then
-    -- stradling?
     if side!=3 then
       -- go left or right
       intersect(root[side],p0,p1,cb)
@@ -134,13 +135,14 @@ function _draw()
     
   line(_p0[1],_p0[2],_p1[1],_p1[2],7)
   local count=0
-  intersect(_nodes,_p0,_p1,function(node)
+  intersect(_nodes,_p0,_p1,function(node,p0,p1)
+    local c=5
     local x0,y0=unpack(node.mins)
     local x1,y1=unpack(node.maxs)
     rect(x0,y0,x1,y1,1)
     for thing in pairs(node.things) do
       local x,y=thing.p[1],thing.p[2]
-      circ(x,y,thing.r,5)
+      circ(x,y,thing.r,c)
       count+=1
     end
   end)
