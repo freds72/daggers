@@ -11,11 +11,11 @@ function make_collmap(max_depth)
     -- debug
     node.mins=mins
     node.maxs=maxs
-    --
+    -- note: always returns a positive distance
     node.classify=function(p,r)
       local d=p[dir]-cp
       if d>r then return 2,d
-      elseif d<-r then return 1,d end
+      elseif d<-r then return 1,-d end
       -- stradling
       return 3,0
     end
@@ -85,11 +85,7 @@ function intersect(root,p0,p1,cb)
 
   if side==other_side then
     -- stradling?
-    if side==3 then
-      -- go left AND right
-      intersect(root[1],p0,p1,cb)
-      intersect(root[2],p0,p1,cb)
-    else
+    if side!=3 then
       -- go left or right
       intersect(root[side],p0,p1,cb)
     end
@@ -98,7 +94,7 @@ function intersect(root,p0,p1,cb)
   -- anything to cross to? 
   local leaf,other_leaf=root[side],root[other_side]
   if leaf or other_leaf then
-    local tmid=abs(dist)/(abs(dist)+abs(other_dist))
+    local tmid=dist/(dist+other_dist)
     local pmid={
       lerp(p0[1],p1[1],tmid),
       lerp(p0[2],p1[2],tmid)
