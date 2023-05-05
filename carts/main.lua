@@ -430,20 +430,14 @@ function mode7(p,np,light)
         xmax=64+xmax
         --rectfill(-x+64,y,64+x,y,3)
         --]]
-        local rx,lx,ru,rv,lu,lv=rx,lx,ru,rv,lu,lv
-        local ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
-        local ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
-        --if(rx<0) ru-=rx*ddu rv-=rx*ddv rx=0
-        --if(lx>=127) lu+=(128-lx)*ddu lv+=(128-lx)*ddv lx=128
-        if rx<lx then
-          local pal1=rw>0.9375 and maxlight or (light*rw)\0.0625
-          if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) pal0=pal1	-- color shift now to free up a variable
-          -- refresh actual extent
-          -- ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
-          -- ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
-          local pix=1-rx&0x0.ffff
-          tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
-      end
+        local ddu,ddv=(lu-ru)/(lx-rx),(lv-rv)/(lx-rx)
+        local pal1=rw>0.9375 and maxlight or (light*rw)\0.0625
+        if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) pal0=pal1	-- color shift now to free up a variable
+        -- refresh actual extent
+        -- ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
+        -- ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
+        local pix=1-rx&0x0.ffff
+        tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
     end
 
     lx+=ldx
@@ -475,8 +469,7 @@ function grid_unregister(thing)
 end
 
 function draw_grid(cam,light)
-  local m,fov=cam.m,cam.fov
-  local cx,cy,cz=unpack(cam.origin)
+  local m,cx,cy,cz=cam.m,unpack(cam.origin)
   local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
 
   local things={}
@@ -508,8 +501,7 @@ function draw_grid(cam,light)
       -- collect monsters
       local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
       if az>8 and az<384 and ax<2*az and -ax<2*az then
-        local ay=m2*x+m6*y+m10*z+m14
-        local w=64/az
+        local ay,w=m2*x+m6*y+m10*z+m14,64/az
         things[#things+1]={key=w,type=1,thing=thing,x=63.5+ax*w,y=63.5-ay*w}      
       end
     end
@@ -523,9 +515,7 @@ function draw_grid(cam,light)
       -- 
       local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
       if az>8 and az<384 and ax<az and -ax<az then
-        local ay=m2*x+m6*y+m10*z+m14
-      
-        local w=64/az
+        local ay,w=m2*x+m6*y+m10*z+m14,64/az
         things[#things+1]={key=w,type=type,thing=a,x=63.5+ax*w,y=63.5-ay*w}      
       end
     end

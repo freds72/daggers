@@ -15,8 +15,8 @@ end
 function rsort(_data)  
   local _len,buffer1,buffer2,idx=#_data, _data, {}, {}
 
-  -- radix shift
-  for shift=0,10,5 do
+  -- radix shift (multiplied by 64 to get more precision)
+  for shift=-8,-3,5 do
   	-- faster than for each/zeroing count array
     memset(0x4300,0,32)
 	  for i,b in pairs(buffer1) do
