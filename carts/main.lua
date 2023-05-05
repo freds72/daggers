@@ -1011,14 +1011,15 @@ function draw_world()
   --memcpy(0x5f00,0x4300,16)
   pal()
   palt(0,false)
-  local yshift=8*sin(_cam.tilt)/128
+  local yshift=sin(_cam.tilt)>>4
   poke(0x5f54,0x60)
-  for i=0,127 do
-    sspr(i,0,1,128,i,(i-64)*yshift)
+  for i=0,127,16 do
+    sspr(i,0,16,128,i,(i-64)*yshift+0.5)
   end
   palt(0,true)
   -- reset
   poke(0x5f54,0x00)
+
   -- hide trick top/bottom 8 pixel rows :)
   memset(0x6000,0,512)
   memset(0x7e00,0,512)
