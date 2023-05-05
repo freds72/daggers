@@ -52,12 +52,6 @@ function v_lerp(a,b,t)
 	}
 end
 
-function v_cross(a,b)
-	local ax,ay,az=a[1],a[2],a[3]
-	local bx,by,bz=b[1],b[2],b[3]
-	return {ay*bz-az*by,az*bx-ax*bz,ax*by-ay*bx}
-end
-
 -- safe for overflow len
 -- faster than sqrt variant (23.5+14 vs. 27.5)
 -- credits: https://www.lexaloffle.com/bbs/?tid=49827
@@ -72,11 +66,7 @@ end
 -- normalized direction 
 -- same as v_len without building a vector
 function v_dir(a,b)
-	local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
-	local ax=atan2(x,y)
-	local d2=x*cos(ax)+y*sin(ax)
-	local az=atan2(d2,z)
-	local d=d2*cos(az)+z*sin(az)
+	local x,y,z,d=b[1]-a[1],b[2]-a[2],b[3]-a[3],v_len(a,b)
 	return {x/d,y/d,z/d},d
 end 
 
@@ -104,17 +94,6 @@ function make_m_from_euler(x,y,z)
 	  de*b-cf,a*e,df+ce*b,0,
 	  a*d,-b,a*c,0,
 	  0,0,0,1}
-end
-
-function make_m_look_at(up,fwd)
-	local right=v_normz(v_cross(up,fwd))
-	fwd=v_cross(right,up)
-	return {
-		right[1],right[2],right[3],0,
-		up[1],up[2],up[3],0,
-		fwd[1],fwd[2],fwd[3],0,
-		0,0,0,1
-	}
 end
 
 -- returns basis vectors from matrix

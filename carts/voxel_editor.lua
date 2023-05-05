@@ -51,6 +51,8 @@ local _entities={
     {text="wORM1"},
     -- jewel
     {text="jEWEL"},
+    -- worm segment without jewel
+    {text="wORM2"},
 }
 local _current_entity
 
