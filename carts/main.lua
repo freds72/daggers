@@ -484,16 +484,18 @@ function draw_grid(cam,light)
     local origin=thing.origin
     local x,z=origin[1],origin[3]
     -- draw shadows (y=0)
-    local ax,az=m1*x+m9*z+m13,m3*x+m11*z+m15
-    if not thing.shadeless and az>8 and az<384 and ax<az and -ax<az then
-      local ay,w=m2*x+m10*z+m14,64/az
-      -- thing offset+cam offset              
-      local dx,dz=cx-x,cz-z
-      local a=atan2(dx,dz)        
-      local a,r=atan2(dx*cos(a)+dz*sin(a),cy),4*w
-      local ry=-r*sin(a)
-      local x0,y0=63.5+ax*w,63.5-ay*w
-      ovalfill(x0-r,y0-ry,x0+r,y0+ry)
+    if not thing.shadeless then
+      local ax,az=m1*x+m9*z+m13,m3*x+m11*z+m15
+      if az>8 and az<384 and ax<az and -ax<az then
+        local ay,w=m2*x+m10*z+m14,64/az
+        -- thing offset+cam offset              
+        local dx,dz=cx-x,cz-z
+        local a=atan2(dx,dz)        
+        local a,r=atan2(dx*cos(a)+dz*sin(a),cy),4*w
+        local ry=r*sin(a)
+        local x0,y0=63.5+ax*w,63.5-ay*w
+        ovalfill(x0-r,y0+ry,x0+r,y0-ry)
+      end
     end
 
     local x,y,z=origin[1],origin[2],origin[3]
