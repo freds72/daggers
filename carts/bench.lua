@@ -36,6 +36,7 @@ end
 
 local _things={}
 function _init()
+  printh("*****************")
   -- mouse
   poke(0x5f2d,0x7)
 
@@ -44,13 +45,73 @@ function _init()
   srand(42)
   for i=1,100 do
     local thing=add(_things,{
-      p={rnd(128),rnd(128)},
-      r=12--4+rnd(12) -- max: 12
+      grid={},
+      p={12+rnd(128),12+rnd(128)},
+      r=16 -- max: 12
     })
-    local node=classify_point(_nodes,thing.p,thing.r)
-    node.things[thing]=true
-    thing.node=node
+    thing.hr=thing.r/2
   end
+
+  local t0=stat(1)
+  for i=1,#_things do
+    local thing=_things[i]
+    collmap_register(_nodes,thing)
+  end
+  printh("+collmap:"..stat(1)-t0.." cycles")
+
+  local t0=stat(1)
+  for i=1,#_things do
+    local thing=_things[i]
+    collmap_unregister(_nodes,thing)
+  end
+  printh("-collmap:"..stat(1)-t0.." cycles")
+
+  local grid={}
+  for i=0,4 do
+    for j=0,4 do
+      grid[i>>16|j]={things={}}
+    end
+  end
+
+  local t0=stat(1)
+  for i=1,#_things do
+    local thing=_things[i]
+    gridmap_register(grid,thing)
+  end
+  printh("+gridmap:"..stat(1)-t0.." cycles")
+
+  local t0=stat(1)
+  for i=1,#_things do
+    local thing=_things[i]
+    gridmap_unregister(grid,thing)
+  end
+  printh("-gridmap:"..stat(1)-t0.." cycles")
+
+  srand(34)
+  local t0=stat(1)
+  for i=1,100 do
+    local x0,y0=rnd(128),rnd(128)
+    local x1,y1=rnd(128),rnd(128)
+    local dx,dy=x1-x0,y1-y0
+    local a=atan2(dx,dy)
+    local u,v=cos(a),sin(v)
+    grid_collect(grid,{x0,y0},{x1,y1},u,v,function() end)
+  end
+
+  printh("hit gridmap:"..stat(1)-t0.." cycles")
+
+  srand(34)
+  local t0=stat(1)
+  for i=1,100 do
+    local x0,y0=rnd(128),rnd(128)
+    local x1,y1=rnd(128),rnd(128)
+    local dx,dy=x1-x0,y1-y0
+    local a=atan2(dx,dy)
+    local u,v=cos(a),sin(v)
+    intersect(_nodes,{x0,y0},{x1,y1},function() end)
+  end
+
+  printh("hit collmap:"..stat(1)-t0.." cycles")
 
 end
 
@@ -67,7 +128,7 @@ end
 
 -- return first node that contains given point at radius r
 function classify_point(root,p,r)
-  local side,dist=root.classify(p,r)
+  local side=root.classify(p,r)
   -- either straddling or no childs
   if not root[side] then
     return root
@@ -76,11 +137,81 @@ function classify_point(root,p,r)
   return classify_point(root[side],p,r)
 end
 
+function gridmap_unregister(_,thing)
+  for idx,grid in inext,thing.grid do
+    grid.things[thing]=nil
+    thing.grid[idx]=nil
+  end
+end 
+
+function gridmap_register(grid,thing)
+  local r,p=thing.hr,thing.p
+  local x,y=p[1],p[2]
+  local y0,y1=(y-r)\32,(y+r)\32
+  -- \32 + >>16
+  for idx=(x-r)>>21,(x+r)>>21,0x0.0001 do
+    for y=y0,y1 do
+      local grid=grid[idx|y]
+      grid.things[thing]=true
+      -- for fast unregister
+      thing.grid[idx|y]=grid
+    end
+  end
+end
+
+function collmap_unregister(root,thing)
+  thing.node.things[thing]=nil
+  thing.node=nil
+end
+
+function collmap_register(root,thing)
+  local node=classify_point(root,thing.p,thing.r)
+  node.things[thing]=true
+  thing.node=node
+end
+
+-- collect all grids touched by (a,b) vector
+function grid_collect(grid,a,b,u,v,cb)
+  local mapx,mapy,dest_mapx,dest_mapy,mapdx,mapdy=a[1]\32,a[2]\32,b[1]\32,b[2]\32
+  -- check first cell
+  cb(grid[mapx>>16|mapy])
+  -- early exit
+  if dest_mapx==mapx and dest_mapy==mapy then    
+    return
+  end
+  local ddx,ddy,distx,disty=abs(1/u),abs(1/v)
+  if u<0 then
+    mapdx=-1
+    distx=(a[1]/32-mapx)*ddx
+  else
+    mapdx=1
+    distx=(mapx+1-a[1]/32)*ddx
+  end
+  
+  if v<0 then
+    mapdy=-1
+    disty=(a[2]/32-mapy)*ddy
+  else
+    mapdy=1
+    disty=(mapy+1-a[2]/32)*ddy
+  end
+  while dest_mapx!=mapx and dest_mapy!=mapy do
+    if distx<disty then
+      distx+=ddx
+      mapx+=mapdx
+    else
+      disty+=ddy
+      mapy+=mapdy
+    end
+    cb(grid[mapx>>16|mapy])
+  end  
+end
+
 function intersect(root,p0,p1,cb)
   local side,dist=root.classify(p0,0)
   local other_side,other_dist=root.classify(p1,0)
   -- use current node
-  if root.leaf or side!=other_side or dist<24 or other_dist<24 then
+  if root.leaf or side!=other_side or dist<32 or other_dist<32 then
     cb(root,p0,p1)
   end
   if(root.leaf) return
@@ -93,17 +224,14 @@ function intersect(root,p0,p1,cb)
     return
   end
   -- anything to cross to? 
+  local tmid=dist/(dist+other_dist)
+  local pmid={
+    lerp(p0[1],p1[1],tmid),
+    lerp(p0[2],p1[2],tmid)
+  }
   local leaf,other_leaf=root[side],root[other_side]
-  if leaf or other_leaf then
-    local tmid=dist/(dist+other_dist)
-    local pmid={
-      lerp(p0[1],p1[1],tmid),
-      lerp(p0[2],p1[2],tmid)
-    }
-    if(leaf) intersect(leaf,p0,pmid,cb)
-    if(other_leaf) intersect(other_leaf,pmid,p1,cb)
-    pset(pmid[1],pmid[2],11)
-  end
+  if(leaf) intersect(leaf,p0,pmid,cb)
+  if(other_leaf) intersect(other_leaf,pmid,p1,cb)
 end
 
 local _swap=false
