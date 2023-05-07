@@ -1402,13 +1402,10 @@ function ray_sphere_intersect(a,b,dir,len,origin,r)
   local xmin,xmax,ymin,ymax,zmin,zmax=ox-r,ox+r,oy-r,oy+r,oz-r,oz+r
   local ax,ay,az,bx,by,bz=a[1],a[2],a[3],b[1],b[2],b[3]
   -- 2d SAT check
-  if(ax<xmin and bx<xmin) return
-  if(ax>xmax and bx>xmax) return
-  if(az<zmin and bz<zmin) return
-  if(az>zmax and bz>zmax) return
+  if(ax<xmin and bx<xmin or ax>xmax and bx>xmax) return
+  if(az<zmin and bz<zmin or az>zmax and bz>zmax) return
   -- 3d check  
-  if(ay<ymin and by<ymin) return
-  if(ay>ymax and by>ymax) return
+  if(ay<ymin and by<ymin or ay>ymax and by>ymax) return
 
   -- projection on ray
   local dx,dy,dz=dir[1],dir[2],dir[3]
@@ -1418,6 +1415,7 @@ function ray_sphere_intersect(a,b,dir,len,origin,r)
     dx=t*dx-ox
     dy=t*dy-oy
     dz=t*dz-oz
+    --assert(dx*dx+dy*dy+dz*dz>=0)
     return dx*dx+dy*dy+dz*dz<r*r,t
   end
 end
