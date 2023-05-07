@@ -464,14 +464,27 @@ end
 
 -- adds thing in the collision grid
 function grid_register(thing)
-  local id=world_to_grid(thing.origin)
-  _grid[id][thing]=true
+  local r,o=thing.radius>>1,thing.origin
+  local x,z=o[1],o[3]
+  local z0,z1=(z-r)\32,(z+r)\32
+  -- \32 + >>16
+  for idx=(x-r)>>21,(x+r)>>21,0x0.0001 do
+    for z=z0,z1 do
+      local cell=_grid[idx|z]
+      cell.things[thing]=true
+      -- for fast unregister
+      if(not thing.cells) thing.cells={}
+      thing.cells[idx|z]=cell
+    end
+  end
 end
 
 -- removes thing from the collision grid
 function grid_unregister(thing)
-  local id=world_to_grid(thing.origin)
-  _grid[id][thing]=nil
+  for idx,cell in pairs(thing.cells) do
+    cell.things[thing]=nil
+    thing.cells[idx]=nil
+  end
 end
 
 function draw_grid(cam,light)
@@ -498,8 +511,7 @@ function draw_grid(cam,light)
         local dx,dz=cx-x,cz-z
         local a=atan2(dx,dz)        
         local a,r=atan2(dx*cos(a)+dz*sin(a),cy),thing.radius*w>>2
-        local ry=r*sin(a)
-        local x0,y0=63.5+ax*w,63.5-ay*w
+        local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
         ovalfill(x0-r,y0+ry,x0+r,y0-ry)
       end
     end
@@ -665,6 +677,8 @@ function make_skull(actor,_origin)
       forces={0,0,0},
       velocity={0,0,0},
       seed=rnd(16),
+      -- grid cells
+      cells={},
       hit=function(_ENV)
         -- avoid reentrancy
         if(dead) return
@@ -715,7 +729,7 @@ function make_skull(actor,_origin)
         local idx=world_to_grid(origin)
         
         local fx,fy,fz=forces[1],forces[2],forces[3]
-        for other in pairs(_grid[idx]) do
+        for other in pairs(_grid[idx].things) do
           -- todo: apply inverse force to other (and keep track)
           if not resolved[other] then
             local avoid,avoid_dist=v_dir(origin,other.origin)
@@ -1023,7 +1037,6 @@ function draw_world()
   end
   print(s..stat(0).."kb",2,2,3)
   ]]
-  print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
 end
 
 -- gameplay state
@@ -1035,7 +1048,8 @@ function play_state()
   _grid=setmetatable({},{
       __index=function(self,k)
         -- automatic creation of buckets
-        local t={}
+        -- + array to store things at cell
+        local t={things={}}
         self[k]=t
         return t
       end
@@ -1134,6 +1148,21 @@ function play_state()
     function()
       draw_world()
       -- todo: draw player hand
+      --[[
+      for x=0,31 do
+        for y=0,31 do
+          local idx,count=x>>16|y,0
+          for _ in pairs(_grid[idx].things) do
+            count+=1
+          end
+          rectfill(x*4,y*4,(x+1)*4-1,(y+1)*4-1,count%16)
+        end
+      end
+      spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      ]]
+  
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
 
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
@@ -1329,10 +1358,9 @@ end
 
 -- collect all grids touched by (a,b) vector
 function collect_grid(a,b,u,v,cb)
-  local mapx,mapy,mapdx,mapdy=a[1]\32,a[3]\32
-  local dest_mapx,dest_mapy=b[1]\32,b[3]\32
-  -- check first cell
-  cb(_grid[mapx>>16|mapy])
+  local mapx,mapy,dest_mapx,dest_mapy,mapdx,mapdy=a[1]\32,a[3]\32,b[1]\32,b[3]\32
+  -- check first cell (always)
+  cb(_grid[mapx>>16|mapy].things)
   -- early exit
   if dest_mapx==mapx and dest_mapy==mapy then    
     return
@@ -1361,7 +1389,7 @@ function collect_grid(a,b,u,v,cb)
       disty+=ddy
       mapy+=mapdy
     end
-    cb(_grid[mapx>>16|mapy])
+    cb(_grid[mapx>>16|mapy].things)
   end  
 end
 
@@ -1390,7 +1418,7 @@ function ray_sphere_intersect(a,b,dir,len,origin,r)
     dx=t*dx-ox
     dy=t*dy-oy
     dz=t*dz-oz
-    return dx*dx+dy*dy+dz*dz<r*r 
+    return dx*dx+dy*dy+dz*dz<r*r,t
   end
 end
 
@@ -1430,26 +1458,28 @@ function _update()
           end
         end
         -- collect touched grid indices
-        collect_grid(prev,origin,b.u,b.v,function(grid_cell)
+        local hit_t,hit_thing=32000
+        collect_grid(prev,origin,b.u,b.v,function(things)
           -- todo: advanced bullets can traverse enemies
-          local hits=0
-          for thing in pairs(grid_cell) do
+          for thing in pairs(things) do
             -- hitable?
             -- avoid checking the same enemy twice
-            if not thing.dead and thing!=_plyr and thing.hit and thing.checked!=_checked then
+            if not thing.dead and thing.hit and thing.checked!=_checked then
               thing.checked=_checked
-              local hit=ray_sphere_intersect(prev,origin,b.velocity,len,thing.origin,thing.radius)
-              if hit then
-                hits+=1
-                thing:hit()
-                dead=true
-                _total_hits+=0x0.0001
-                -- todo: allow for multiple hits
-                break
+              local hit,t=ray_sphere_intersect(prev,origin,b.velocity,len,thing.origin,thing.radius)
+              if hit and t<hit_t then
+                hit_thing,hit_t=thing,t
               end
             end
           end
         end)
+        -- apply hit on closest thing
+        if hit_thing then
+          hit_thing:hit()
+          dead=true
+          _total_hits+=0x0.0001
+          -- todo: allow for multiple hits
+        end
       else
         dead=true
       end
