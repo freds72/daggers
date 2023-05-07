@@ -124,17 +124,18 @@ local _ground_extents={
   split"768,832,256,768"
 }
 
-function make_player(origin,a)
-    local angle,dangle,velocity,on_ground,dead={0,a,0},{0,0,0},{0,0,0,}
+function make_player(_origin,_a)
+    local angle,dangle,velocity,on_ground,dead={0,_a,0},{0,0,0},{0,0,0,}
     local fire_ttl,fire_released,fire_frames,dblclick_ttl,fire=0,true,0,0
-    return {
+    return inherit{
       -- start above floor
-      origin=v_add(origin,{0,1,0}), 
-      eye_pos=v_add(origin,{0,24,0}),
+      origin=v_add(_origin,{0,1,0}), 
+      eye_pos=v_add(_origin,{0,24,0}),
       tilt=0, 
+      radius=24,
       attract_power=0,  
       m=make_m_from_euler(unpack(angle)),
-      control=function(self)
+      control=function(_ENV)
         if(dead) return
         -- move
         local dx,dz,a,jmp=0,0,angle[2],0
@@ -147,7 +148,7 @@ function make_player(origin,a)
         -- straffing = faster!
 
         -- restore attrack power
-        self.attract_power=min(self.attract_power+0.2,1)
+        attract_power=min(attract_power+0.2,1)
 
         -- double-click detector
         dblclick_ttl=max(dblclick_ttl-1)
@@ -162,7 +163,7 @@ function make_player(origin,a)
             fire_ttl,fire=3,1
           end
           -- 
-          self.attract_power=0
+          attract_power=0
         elseif not fire_released then
           if dblclick_ttl>0  then
             -- double click timer still active?
@@ -170,7 +171,7 @@ function make_player(origin,a)
             dblclick_ttl=0				
             sfx(49)
             -- shotgun (repulsive!)
-            self.attract_power=-1
+            attract_power=-1
           elseif fire_frames<4 then
            -- candidate for double click?
            dblclick_ttl=8
@@ -179,15 +180,15 @@ function make_player(origin,a)
         end
 
         dangle=v_add(dangle,{stat(39),stat(38),0})
-        self.tilt+=dx/40
+        tilt+=dx/40
         local c,s=cos(a),-sin(a)
         velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
       end,
-      update=function(self)
+      update=function(_ENV)
         -- damping      
         dangle=v_scale(dangle,0.6)
-        self.tilt*=0.6
-        if(abs(self.tilt)<=0.0001) self.tilt=0
+        tilt*=0.6
+        if(abs(tilt)<=0.0001) tilt=0
         velocity[1]*=0.7
         --velocity[2]*=0.9
         velocity[3]*=0.7
@@ -201,7 +202,7 @@ function make_player(origin,a)
   
         -- check next position
         local vn,vl=v_normz(velocity)      
-        local new_pos,new_vel,new_ground=v_add(self.origin,velocity),velocity,self.ground
+        local prev_pos,new_pos,new_vel=v_clone(origin),v_add(origin,velocity),velocity
         if vl>0.1 then
             local x,y,z=unpack(new_pos)
             if y<-64 then
@@ -230,41 +231,46 @@ function make_player(origin,a)
               end
             end
             -- use corrected velocity + stays within grid
-            self.origin={mid(x,0,1024),y,mid(z,0,1024)}
+            origin={mid(x,0,1024),y,mid(z,0,1024)}
             velocity=new_vel
         end
 
-        self.eye_pos=v_add(self.origin,{0,24,0})
+        eye_pos=v_add(origin,{0,24,0})
 
         -- check collisions
         --[[
         if not dead then   
-          local things=_grid[world_to_grid(self.eye_pos)]
-          for thing in pairs(things) do
-            if thing!=self then
-              local dist=v_len(self.eye_pos,thing.origin)
-              if dist<16 then
-                -- avoid reentrancy
-                dead=true
-                next_state(gameover_state,thing.obituary)
-                break
+          local a=atan2(prev_pos[1]-self.origin[1],prev_pos[3]-self.origin[3])
+          collect_grid(prev_pos,self.origin,cos(a),sin(a),function(grid_cell)
+            for thing in pairs(grid_cell) do
+              if thing!=self and not thing.dead then
+                local dist=v_len(self.eye_pos,thing.origin)
+                if dist<16 then
+                  if thing.pickup then
+                    _total_jewels+=1
+                    thing.dead=true
+                  else
+                    -- avoid reentrancy
+                    dead=true
+                    next_state(gameover_state,thing.obituary)
+                    break
+                  end
+                end
               end
-            end
+            end)
           end
         end
         ]]
-
-        self.m=make_m_from_euler(unpack(angle))   
-        self.angle=angle         
+        m=make_m_from_euler(unpack(angle))    
 
         -- normal fire
         if fire==1 then          
           _total_bullets+=0x0.0001
-          make_bullet(v_add(self.origin,{0,18,0}),angle[2],angle[1],0.02)
+          make_bullet(v_add(origin,{0,18,0}),angle[2],angle[1],0.02)
         elseif fire==2 then
           -- shotgun
           _total_bullets+=0x0.000a
-          local o=v_add(self.origin,{0,18,0})
+          local o=v_add(origin,{0,18,0})
           for i=1,10 do
             make_bullet(o,angle[2],angle[1],0.025)
           end
@@ -491,7 +497,7 @@ function draw_grid(cam,light)
         -- thing offset+cam offset              
         local dx,dz=cx-x,cz-z
         local a=atan2(dx,dz)        
-        local a,r=atan2(dx*cos(a)+dz*sin(a),cy),4*w
+        local a,r=atan2(dx*cos(a)+dz*sin(a),cy),thing.radius*w>>2
         local ry=r*sin(a)
         local x0,y0=63.5+ax*w,63.5-ay*w
         ovalfill(x0-r,y0+ry,x0+r,y0-ry)
@@ -700,12 +706,12 @@ function make_skull(actor,_origin)
           end
         end
         -- some friction
-        velocity=v_scale(velocity,0.9)
+        velocity=v_scale(velocity,0.8)
 
         -- custom think function
         think(_ENV)
 
-        -- avoid others
+        -- avoid others (noted: limited to a single grid cell)
         local idx=world_to_grid(origin)
         
         local fx,fy,fz=forces[1],forces[2],forces[3]
@@ -762,8 +768,7 @@ function make_skull(actor,_origin)
         -- for centipede
         if(post_think) post_think(_ENV)
 
-        forces={0,0,0}
-        resolved={}
+        forces,resolved={0,0,0},{}
         grid_register(_ENV)
       end
     },
@@ -779,6 +784,7 @@ function make_worm(_origin)
   for i=1,20 do
     local seg=add(segments,add(_things,inherit{
       ent=_entities.worm1,
+      radius=16,
       zangle=0.25,
       origin={0,0,0},
       apply=function()
@@ -792,6 +798,7 @@ function make_worm(_origin)
         touched=true
         -- change sprite (no jewels)
         ent=_entities.worm2
+        sfx(56)
       end
     }))
     grid_register(seg)
@@ -799,6 +806,7 @@ function make_worm(_origin)
 
   head=make_skull({
     ent=_entities.worm0,
+    radius=18,
     hp=10,
     die=function(_ENV)
       music(54)
@@ -820,10 +828,8 @@ function make_worm(_origin)
       target_ttl-=1
       if target_ttl<0 then  
         -- circle
-        local a=atan2(origin[1]-512,origin[3]-512)+rnd(0.05)
-        local r=96+rnd(32)
-        target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
-        target_ttl=60+rnd(10)
+        local a,r=atan2(origin[1]-512,origin[3]-512)+rnd(0.05),96+rnd(32)
+        target,target_ttl={512+r*cos(a),16+rnd(48),512-r*sin(a)},60+rnd(10)
       end
       -- navigate to target
       local dir=v_dir(origin,target)
@@ -847,7 +853,8 @@ end
 
 function make_jewel(_origin,vel)
   local thing=add(_things,inherit({    
-    ent=_entities.jewel,    
+    ent=_entities.jewel,
+    radius=8,    
     origin=v_clone(_origin),
     -- random aspect
     zangle=rnd(),
@@ -911,6 +918,7 @@ function make_egg(_origin,vel)
   local thing=add(_things,inherit{
     ent=_entities.egg,
     origin=v_clone(_origin),
+    radius=12,
     hp=2,
     zangle=0,
     hit=function(_ENV)
@@ -936,8 +944,11 @@ function make_egg(_origin,vel)
         dead=true
         sfx(51)
         make_goo(origin)
+        -- spiderling
         make_skull({
           ent=_entities.spider0,
+          radius=16,
+          friction=0.5,
           hp=2,
           on_ground=true,
           blast=make_goo,
@@ -1047,6 +1058,7 @@ function play_state()
   -- enemies
   local skull1={
     ent=_entities.skull,
+    radius=16,
     hp=2,
     think=function(_ENV)
       -- converge toward player
@@ -1059,6 +1071,7 @@ function play_state()
 
   local skull2={
     ent=_entities.reaper,
+    radius=18,
     hp=5,    
     target_ttl=0,
     jewel=true,
@@ -1132,7 +1145,7 @@ function play_state()
 end
 
 function gameover_state(obituary)  
-  local play_time,origin,tilt,deadtilt=time()-_start_time,_plyr.eye_pos,_plyr.tilt,rnd{-0.1,0.1}
+  local play_time,origin=time()-_start_time,_plyr.eye_pos
   local target=v_add(_plyr.origin,{0,8,0})
   -- leaderboard/retry
   local ttl,selected_tab,over_btn,clicked=90
@@ -1195,13 +1208,14 @@ function gameover_state(obituary)
   -- position cursor on retry
   local _,x,y=unpack(buttons[1])
   local mx,my=x+buttons[1].width/2,y+3
+  -- death music
+  music(8)
   return
     -- update
     function()
       ttl=max(ttl-1)
-      tilt=lerp(tilt,deadtilt,0.3)
       origin=v_lerp(origin,target,0.2)
-      _cam:track(origin,_plyr.m,_plyr.angle,tilt)
+      _cam:track(origin,_plyr.m,_plyr.angle,_plyr.tilt)
       if ttl==0 then
         mx,my=mid(mx+stat(38)/2,0,127),mid(my+stat(39)/2,0,127)
         -- over button?
@@ -1318,7 +1332,7 @@ function collect_grid(a,b,u,v,cb)
   local mapx,mapy,mapdx,mapdy=a[1]\32,a[3]\32
   local dest_mapx,dest_mapy=b[1]\32,b[3]\32
   -- check first cell
-  cb(mapx>>16|mapy)
+  cb(_grid[mapx>>16|mapy])
   -- early exit
   if dest_mapx==mapx and dest_mapy==mapy then    
     return
@@ -1347,17 +1361,46 @@ function collect_grid(a,b,u,v,cb)
       disty+=ddy
       mapy+=mapdy
     end
-    cb(mapx>>16|mapy)
+    cb(_grid[mapx>>16|mapy])
   end  
 end
 
-local _frame=0
+-- ray (a->b) intersection
+-- returns distance to target
+function ray_sphere_intersect(a,b,dir,len,origin,r)
+  -- todo: persist in mins,maxs extent (worth it?)
+  -- todo: with grid - may not be worth it...
+  local ox,oy,oz=origin[1],origin[2],origin[3]
+  local xmin,xmax,ymin,ymax,zmin,zmax=ox-r,ox+r,oy-r,oy+r,oz-r,oz+r
+  local ax,ay,az,bx,by,bz=a[1],a[2],a[3],b[1],b[2],b[3]
+  -- 2d SAT check
+  if(ax<xmin and bx<xmin) return
+  if(ax>xmax and bx>xmax) return
+  if(az<zmin and bz<zmin) return
+  if(az>zmax and bz>zmax) return
+  -- 3d check  
+  if(ay<ymin and by<ymin) return
+  if(ay>ymax and by>ymax) return
+
+  -- projection on ray
+  local dx,dy,dz=dir[1],dir[2],dir[3]
+  local t=dx*(ox-ax)+dy*(oy-ay)+dz*(oz-az)
+  if t>=-r and t<=len+r then
+    -- distance to sphere?
+    dx=t*dx-ox
+    dy=t*dy-oy
+    dz=t*dz-oz
+    return dx*dx+dy*dy+dz*dz<r*r 
+  end
+end
+
+local _checked=0
 function _update()
   -- keep world running    
   local t=time()
-  _frame+=1
   -- bullets collisions
   for i=#_bullets,1,-1 do
+    _checked+=1
     local b=_bullets[i]
     if b.ttl<t then
       deli(_bullets,i)
@@ -1376,7 +1419,7 @@ function _update()
           origin={x,0,z}
           -- adjust length
           len=v_len(prev,origin)
-          -- not matter what - we hit the ground!
+          -- no matter what - we hit the ground!
           dead=true
           make_blood(origin)
           for i=1,rnd(5) do
@@ -1387,28 +1430,17 @@ function _update()
           end
         end
         -- collect touched grid indices
-        collect_grid(prev,origin,b.u,b.v,function(idx)
+        collect_grid(prev,origin,b.u,b.v,function(grid_cell)
           -- todo: advanced bullets can traverse enemies
           local hits=0
-          for thing in pairs(_grid[idx]) do
+          for thing in pairs(grid_cell) do
             -- hitable?
-            if not thing.dead and thing!=_plyr and thing.hit then
-              local hit
-              -- edge case: base or tip inside sphere
-              -- todo: faster first test (abs)
-              if v_len(prev,thing.origin)<16 or v_len(origin,thing.origin)<16 then
-                hit=true
-                hits+=1
-              else
-                -- projection on ray
-                local t=v_dot(b.velocity,make_v(prev,thing.origin))
-                if t>=0 and t<=len then
-                  -- distance to sphere?
-                  hit=v_len(v_scale(b.velocity,t),thing.origin)<16 
-                  hits+=1
-                end
-              end
+            -- avoid checking the same enemy twice
+            if not thing.dead and thing!=_plyr and thing.hit and thing.checked!=_checked then
+              thing.checked=_checked
+              local hit=ray_sphere_intersect(prev,origin,b.velocity,len,thing.origin,thing.radius)
               if hit then
+                hits+=1
                 thing:hit()
                 dead=true
                 _total_hits+=0x0.0001
@@ -1437,6 +1469,7 @@ function _update()
       deli(_particles,i)
     else
       local velocity=v_scale(p.velocity,0.8)
+      -- gravity
       velocity[2]-=0.8
       local origin=v_add(p.origin,velocity,5)
       if origin[2]<0 then
