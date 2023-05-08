@@ -6,10 +6,18 @@ function menu_state()
   local skulls,ent,sprites={},_entities.skull,_sprites
 
   -- leaderboard/retry
-  local over_btn,clicked=90
+  local over_btn,clicked,starting=90
   local buttons={
-    {"pLAY",1,48,cb=function()
-      load("daggers.p8")
+    {"pLAY",1,48,cb=function()      
+      -- avoid reentrancy
+      if(starting) return
+      starting=true
+      music(-1,250)
+      -- todo: fade to black
+      do_async(function()
+        wait_async(10)
+        load("daggers.p8")
+      end)
     end},
     {"lEADERBOARD",1,64,
       cb=function(self) end},
@@ -31,6 +39,9 @@ function menu_state()
   -- position cursor on retry
   local _,x,y=unpack(buttons[1])
   local mx,my=x+buttons[1].width/2,y+3
+
+  -- background music
+  music(8)
   return
     -- update
     function()

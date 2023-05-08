@@ -123,18 +123,21 @@ local _ground_extents={
   split"192,256,256,768",
   split"768,832,256,768"
 }
+function nop() end
+function with_properties(props,dst)
+  local props=split(props)
+  for i=1,#props,2 do
+    local v=props[i+1]
+    dst[props[i]]=v=="nop" and nop or type(_ENV[v])=="function" and _ENV[v]() or v
+  end
+  return dst
+end
 
 function make_player(_origin,_a)
-    local angle,dangle,velocity,on_ground,dead={0,_a,0},{0,0,0},{0,0,0,}
-    local fire_ttl,fire_released,fire_frames,dblclick_ttl,fire=0,true,0,0
-    return inherit{
+    local angle,on_ground,dead={0,_a,0}
+    return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
       -- start above floor
       origin=v_add(_origin,{0,1,0}), 
-      eye_pos=v_add(_origin,{0,24,0}),
-      tilt=0, 
-      radius=24,
-      attract_power=0,  
-      m=make_m_from_euler(unpack(angle)),
       control=function(_ENV)
         if(dead) return
         -- move
@@ -201,7 +204,7 @@ function make_player(_origin,_a)
         angle=v_add(angle,dangle,1/1024)
   
         -- check next position
-        local vn,vl=v_normz(velocity)      
+        local vn,vl=v_dir({0,0,0},velocity)      
         local prev_pos,new_pos,new_vel=v_clone(origin),v_add(origin,velocity),velocity
         if vl>0.1 then
             local x,y,z=unpack(new_pos)
@@ -277,22 +280,24 @@ function make_player(_origin,_a)
         end
         fire=nil          
       end
-    } 
+    }))
 end
 
 function make_bullet(origin,zangle,yangle,spread)
   local zangle,yscale=0.25-zangle+(1-rnd(2))*spread,yangle+(1-rnd(2))*spread
-  local u,v,r=cos(zangle),-sin(zangle),cos(yscale)
+  local u,v,s=cos(zangle),-sin(zangle),cos(yscale)
   -- local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
   _bullets[#_bullets+1]={
     origin=v_clone(origin),
-    velocity={r*u,sin(yscale),r*v},
+    -- must be a unit vector  
+    velocity={s*u,sin(yscale),s*v},
     -- fixed zangle
     zangle=zangle,
     yangle=rnd(),
     -- precomputed for collision detection
     u=u,
     v=v,
+    shadeless=true,
     ttl=time()+3+rnd(2),
     ent=rnd{_entities.dagger0,_entities.dagger1}
   }
@@ -302,8 +307,8 @@ function make_particle(origin,fwd)
   _particles[#_particles+1]={
     origin=origin,
     velocity=fwd,
-    ttl=time()+0.25+rnd()/5,
-    c=15
+    shadeless=true,
+    ttl=time()+0.25+rnd()/5
   }
 end
 
@@ -311,13 +316,13 @@ end
 function draw_poly(poly,uindex,vindex,light)
     if(v_dot(_cam.origin,poly.n)<=poly.cp) return
 
-    local m=_cam.m
-    local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
+    local m,cx,cy,cz=_cam.m,unpack(_cam.origin)
+    local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
     local verts,outcode,nearclip={},0xffff,0  
     -- to cam space + clipping flags
     for i,v0 in ipairs(poly) do
-        local code,x,y,z=2,v0[1],v0[2],v0[3]
-        local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+        local code,x,y,z=2,v0[1]-cx,v0[2]-cy,v0[3]-cz
+        local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
         if(az>8) code=0
         if(az>384) code|=1
         if(-ax>az) code|=4
@@ -464,6 +469,7 @@ end
 
 -- adds thing in the collision grid
 function grid_register(thing)
+  -- need half-radius
   local r,o=thing.radius>>1,thing.origin
   local x,z=o[1],o[3]
   local z0,z1=(z-r)\32,(z+r)\32
@@ -489,57 +495,48 @@ end
 
 function draw_grid(cam,light)
   local m,cx,cy,cz=cam.m,unpack(cam.origin)
-  local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
+  local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
   local things={}
   -- particles texture
   poke4(0x5f38,0x0400.0101)
 
   pal()
+
+  local function project_array(array,type)
+    for i,obj in pairs(array) do
+      local origin=obj.origin      
+      local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
+      
+      -- draw shadows (y=0)
+      if not obj.shadeless then
+        local ax,az=m1*x+m9*z,m3*x+m11*z
+        if az>8 and az<384 and ax<az and -ax<az then
+          local ay,w=m2*x+m10*z,64/az
+          -- thing offset+cam offset              
+          local dx,dz=cx-x,cz-z
+          local a=atan2(dx,dz)        
+          local a,r=atan2(dx*cos(a)+dz*sin(a),cy),obj.radius*w>>2
+          local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
+          ovalfill(x0-r,y0+ry,x0+r,y0-ry)
+        end
+      end
+  
+      -- 
+      local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
+      if az>8 and az<384 and ax<az and -ax<az then
+        local ay,w=m2*x+m6*y+m10*z,64/az
+        things[#things+1]={key=w,type=type,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
+      end
+    end
+  end
+  -- 
   -- render shadows (& collect)
   poke(0x5f5e, 0b11111110)
   color(1)
-  for _,thing in pairs(_things) do
-    local origin=thing.origin
-    local x,z=origin[1],origin[3]
-    -- draw shadows (y=0)
-    if not thing.shadeless then
-      local ax,az=m1*x+m9*z+m13,m3*x+m11*z+m15
-      if az>8 and az<384 and ax<az and -ax<az then
-        local ay,w=m2*x+m10*z+m14,64/az
-        -- thing offset+cam offset              
-        local dx,dz=cx-x,cz-z
-        local a=atan2(dx,dz)        
-        local a,r=atan2(dx*cos(a)+dz*sin(a),cy),thing.radius*w>>2
-        local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
-        ovalfill(x0-r,y0+ry,x0+r,y0-ry)
-      end
-    end
-
-    local x,y,z=origin[1],origin[2],origin[3]
-    if thing!=_plyr then
-      -- collect monsters
-      local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
-      if az>8 and az<384 and ax<2*az and -ax<2*az then
-        local ay,w=m2*x+m6*y+m10*z+m14,64/az
-        things[#things+1]={key=w,type=1,thing=thing,x=63.5+ax*w,y=63.5-ay*w}      
-      end
-    end
-  end
+  project_array(_things,1)
   poke(0x5f5e, 0xff)
 
-  local function project_array(array,type)
-    for i,a in pairs(array) do
-      local origin=a.origin      
-      local x,y,z=origin[1],origin[2],origin[3]
-      -- 
-      local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
-      if az>8 and az<384 and ax<az and -ax<az then
-        local ay,w=m2*x+m6*y+m10*z+m14,64/az
-        things[#things+1]={key=w,type=type,thing=a,x=63.5+ax*w,y=63.5-ay*w}      
-      end
-    end
-  end
   -- collect bullets
   project_array(_bullets,1)
   -- collect particles
@@ -550,14 +547,14 @@ function draw_grid(cam,light)
 
   -- render in order
   local prev_base,prev_sprites,pal0
-  for _,item in ipairs(things) do
+  for _,item in inext,things do
     local hit_ttl,pal1=item.thing.hit_ttl
     if hit_ttl and hit_ttl>0 then
       pal1=16+(4-hit_ttl)
     else
       pal1=(light*min(15,item.key<<4))\1
     end    
-    if(pal0!=pal1) memcpy(0x5f00,0x8000+(pal1<<4),16) palt(0,true) pal0=pal1   
+    if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) palt(0,true) pal0=pal1   
     if item.type==1 then
       -- draw things
       local w0,thing=item.key,item.thing
@@ -595,11 +592,11 @@ function draw_grid(cam,light)
       --tline(item.x0,item.y0,item.x1,item.y1,item.thing.c,0,0,1/8)
     elseif item.type==3 then
       local origin=item.thing.prev
-      local x,y,z=origin[1],origin[2],origin[3]
+      local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
       -- 
-      local ax,az=m1*x+m5*y+m9*z+m13,m3*x+m7*y+m11*z+m15
+      local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
       if az>8 then
-        local ay,w=m2*x+m6*y+m10*z+m14,64/az
+        local ay,w=m2*x+m6*y+m10*z,64/az
         tline(item.x,item.y,63.5+ax*w,63.5-ay*w,0,0,1/8,0)
       end
     end
@@ -624,39 +621,32 @@ end
 
 -- things
 function make_blast(_ents,_origin)  
-  return add(_things,inherit{
+  add(_things,inherit(with_properties("zangle,rnd,yangle,0,ttl,0,shadeless,1",{
     -- sprite id
     ent=_ents[1],
     origin=_origin,
-    -- random aspect
-    zangle=rnd(),
-    yangle=0,
-    ttl=0,
-    shadeless=true,
     update=function(_ENV)
       ttl+=1
       if(ttl>15) dead=true return
       ent=_ents[min(ttl\5+1,#_ents)]
     end
-  })
+  })))
 end
 
 function make_blood(_origin)
-  local ents={
+  make_blast({
     _entities.blood0,
     _entities.blood1,
     _entities.blood2
-  }
-  return make_blast(ents,_origin)
+  },_origin)
 end
 
 function make_goo(_origin)
-  local ents={
+  return make_blast({
     _entities.goo0,
     _entities.goo1,
     _entities.goo2
-  }
-  return make_blast(ents,_origin)
+  },_origin)
 end
 
 -- flying things:
@@ -666,16 +656,10 @@ local _flying_target
 -- centipede
 -- spiderling
 function make_skull(actor,_origin)
-  local resolved={}
-  local wobling=3+rnd(2)
+  local resolved,wobling={},3+rnd(2)
   local thing=add(_things,
-    inherit({
+    inherit(with_properties("zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero",{
       origin=_origin,
-      zangle=rnd(),
-      yangle=0,
-      hit_ttl=0,
-      forces={0,0,0},
-      velocity={0,0,0},
       seed=rnd(16),
       -- grid cells
       cells={},
@@ -744,13 +728,15 @@ function make_skull(actor,_origin)
             resolved[other]=true
           end
         end
-        forces={fx,fy,fz}
+        -- make sure grounded entities keept on ground
+        forces={fx,on_ground and 0 or fy,fz}
 
         local old_vel=velocity
         velocity=v_add(velocity,forces,1/30)
         -- fixed velocity (on x/z)
         local vx,vz=velocity[1],velocity[3]
-        local vlen=sqrt(vx*vx+vz*vz)
+        local a=atan2(vx,vz)
+        local vlen=vx*cos(a)+vz*sin(a)
         velocity[1]*=3/vlen
         velocity[3]*=3/vlen
         
@@ -785,8 +771,7 @@ function make_skull(actor,_origin)
         forces,resolved={0,0,0},{}
         grid_register(_ENV)
       end
-    },
-    inherit(actor)))
+    }),inherit(actor)))
   grid_register(thing)
   return thing
 end
@@ -796,14 +781,8 @@ function make_worm(_origin)
   local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
 
   for i=1,20 do
-    local seg=add(segments,add(_things,inherit{
+    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop",{
       ent=_entities.worm1,
-      radius=16,
-      zangle=0.25,
-      origin={0,0,0},
-      apply=function()
-        -- do not interact with others
-      end,
       hit=function(_ENV)
         -- avoid reentrancy
         if(touched) return
@@ -814,14 +793,12 @@ function make_worm(_origin)
         ent=_entities.worm2
         sfx(56)
       end
-    }))
+    }))))
     grid_register(seg)
   end
 
-  head=make_skull({
+  head=make_skull(with_properties("radius,18,hp,10,apply,nop",{
     ent=_entities.worm0,
-    radius=18,
-    hp=10,
     die=function(_ENV)
       music(54)
       -- clean segment
@@ -834,9 +811,6 @@ function make_worm(_origin)
           wait_async(3)
         end
       end)
-    end,
-    apply=function()
-      -- 
     end,
     think=function(_ENV)
       target_ttl-=1
@@ -862,22 +836,13 @@ function make_worm(_origin)
         grid_register(seg)
       end
     end
-  },_origin)
+  }),_origin)
 end
 
 function make_jewel(_origin,vel)
-  local thing=add(_things,inherit({    
+  grid_register(add(_things,inherit(with_properties("radius,8,zangle,rnd,ttl,3000,pickup,1,apply,nop",{    
     ent=_entities.jewel,
-    radius=8,    
     origin=v_clone(_origin),
-    -- random aspect
-    zangle=rnd(),
-    ttl=3000,
-    -- 
-    pickup=true,
-    apply=function()
-      -- do not react to others
-    end,
     update=function(_ENV)
       grid_unregister(_ENV)
       ttl-=1
@@ -920,21 +885,17 @@ function make_jewel(_origin,vel)
         vel[2]=0
         on_ground=true
       end
+      grid_register(_ENV)
     end
-  }))
-  grid_register(thing)
-  return thing
+  }))))
 end
 
 function make_egg(_origin,vel)
   -- spider spawn time
   local ttl=300+rnd(10)
-  local thing=add(_things,inherit{
+  grid_register(add(_things,inherit(with_properties("radius,12,hp,2,zangle,0,apply,nop",{
     ent=_entities.egg,
     origin=v_clone(_origin),
-    radius=12,
-    hp=2,
-    zangle=0,
     hit=function(_ENV)
       -- avoid reentrancy
       if(dead) return
@@ -948,44 +909,34 @@ function make_egg(_origin,vel)
         hit_ttl=5
       end
     end,
-    apply=function()
-      -- cannot move
-    end,
     update=function(_ENV)
       if(dead) return
       ttl-=1
       if ttl<0 then
         dead=true
         sfx(51)
+        grid_unregister(_ENV)
         make_goo(origin)
         -- spiderling
-        make_skull({
+        make_skull(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53",{
           ent=_entities.spider0,
-          radius=16,
-          friction=0.5,
-          hp=2,
-          on_ground=true,
           blast=make_goo,
-          death_sfx=53,
           apply=function(_ENV,other,force,t)
-            if other.ent==ent then
+            if other.on_ground then
               forces[1]+=t*force[1]
-              -- stays on ground
-              forces[2]=0
               forces[3]+=t*force[3]
             end
             resolved[other]=true
           end,
           think=function(_ENV)
-            -- navigate to target
+            -- navigate to target (direct)
             local dir=v_dir(origin,_plyr.origin)
-            forces=v_add(forces,dir,8+seed*cos(time()/5))
+            forces=v_add(forces,dir,8)
           end
-        },origin)
+        }),origin)
       end
     end
-  })
-  grid_register(thing)
+  }))))
 end
 
 -- draw game world
@@ -1054,9 +1005,6 @@ function play_state()
         return t
       end
     })
-
-  add(_things,_plyr)
-
     
   -- make_skull({512,24,512})
   make_worm({612,32,612})
@@ -1070,10 +1018,8 @@ function play_state()
   end
 
   -- enemies
-  local skull1={
+  local skull1=with_properties("radius,16,hp,2",{
     ent=_entities.skull,
-    radius=16,
-    hp=2,
     think=function(_ENV)
       -- converge toward player
       if _flying_target then
@@ -1081,14 +1027,10 @@ function play_state()
         forces=v_add(forces,dir,8+seed*cos(time()/5))
       end
     end
-  }
+  })
 
-  local skull2={
+  local skull2=with_properties("radius,18,hp,5,target_ttl,0,jewel,1",{
     ent=_entities.reaper,
-    radius=18,
-    hp=5,    
-    target_ttl=0,
-    jewel=true,
     think=function(_ENV)      
       target_ttl-=1
       if target_ttl<0 then  
@@ -1102,7 +1044,7 @@ function play_state()
       local dir=v_dir(origin,target)
       forces=v_add(forces,dir,8+seed*cos(time()/5))
     end
-  }
+  })
 
   -- scenario
   do_async(function()
@@ -1129,7 +1071,7 @@ function play_state()
     -- 4 squids
     for i=0,0.75,0.25 do
       local x,z=512+256*cos(i),512-256*sin(i)
-      for i=1,8 do
+      for i=1,10 do
         make_skull(skull1,{x,64,z})
       end
       make_skull(skull2,{x,64,z})
@@ -1148,7 +1090,8 @@ function play_state()
     function()
       draw_world()
       -- todo: draw player hand
-      --[[
+    --[[
+
       for x=0,31 do
         for y=0,31 do
           local idx,count=x>>16|y,0
@@ -1158,11 +1101,9 @@ function play_state()
           rectfill(x*4,y*4,(x+1)*4-1,(y+1)*4-1,count%16)
         end
       end
-      spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)      
       ]]
-  
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
 
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
@@ -1174,11 +1115,9 @@ function play_state()
 end
 
 function gameover_state(obituary)  
-  local play_time,origin=time()-_start_time,_plyr.eye_pos
-  local target=v_add(_plyr.origin,{0,8,0})
+  local play_time,origin,target=time()-_start_time,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
   -- leaderboard/retry
-  local ttl,selected_tab,over_btn,clicked=90
-  local buttons={
+  local ttl,buttons,selected_tab,over_btn,clicked=90,{
     {"rETRY",1,111,cb=function() 
       -- todo: fade to black
       do_async(function()
@@ -1320,22 +1259,16 @@ function _init()
   _cam=inherit{
     origin={0,0,0},    
     track=function(_ENV,_origin,_m,angles,_tilt)
-        tilt=_tilt or 0
-        m={unpack(_m)}		
+      --
+      tilt=_tilt or 0
+      m={unpack(_m)}		
 
-        -- inverse view matrix
-        m[2],m[5]= m[5], m[2]
-        m[3],m[9]= m[9], m[3]
-        m[7],m[10]=m[10],m[7]
-
-        -- todo: remove mxm code!
-        m=m_x_m(m,{
-            1,0,0,0,
-            0,1,0,0,
-            0,0,1,0,
-            -_origin[1],-_origin[2],-_origin[3],1
-        })
-        origin=_origin
+      -- inverse view matrix
+      m[2],m[5]= m[5], m[2]
+      m[3],m[9]= m[9], m[3]
+      m[7],m[10]=m[10],m[7]
+      
+      origin=_origin
     end
   }
 
@@ -1399,8 +1332,7 @@ function ray_sphere_intersect(a,b,dir,len,origin,r)
   -- todo: persist in mins,maxs extent (worth it?)
   -- todo: with grid - may not be worth it...
   local ox,oy,oz=origin[1],origin[2],origin[3]
-  local xmin,xmax,ymin,ymax,zmin,zmax=ox-r,ox+r,oy-r,oy+r,oz-r,oz+r
-  local ax,ay,az,bx,by,bz=a[1],a[2],a[3],b[1],b[2],b[3]
+  local xmin,xmax,ymin,ymax,zmin,zmax,ax,ay,az,bx,by,bz=ox-r,ox+r,oy-r,oy+r,oz-r,oz+r,a[1],a[2],a[3],b[1],b[2],b[3]
   -- 2d SAT check
   if(ax<xmin and bx<xmin or ax>xmax and bx>xmax) return
   if(az<zmin and bz<zmin or az>zmax and bz>zmax) return
@@ -1412,11 +1344,11 @@ function ray_sphere_intersect(a,b,dir,len,origin,r)
   local t=dx*(ox-ax)+dy*(oy-ay)+dz*(oz-az)
   if t>=-r and t<=len+r then
     -- distance to sphere?
-    dx=t*dx-ox
-    dy=t*dy-oy
-    dz=t*dz-oz
+    ox-=t*dx
+    oy-=t*dy
+    oz-=t*dz
     --assert(dx*dx+dy*dy+dz*dz>=0)
-    return dx*dx+dy*dy+dz*dz<r*r,t
+    return ox*ox+oy*oy+oz*oz<r*r,t
   end
 end
 
@@ -1509,6 +1441,8 @@ function _update()
     end
   end
 
+  _plyr:update()
+  --
   for i=#_things,1,-1 do
     local thing=_things[i]
     if thing.dead then
