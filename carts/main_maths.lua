@@ -1,4 +1,5 @@
 
+-- trimmed for game purpose
 -- maths & cam
 function lerp(a,b,t)
 	return a*(1-t)+b*t
@@ -22,6 +23,9 @@ function make_v(a,b)
 		b[2]-a[2],
 		b[3]-a[3]}
 end
+
+function v_zero() return {0,0,0} end
+
 function v_clone(v)
 	return {v[1],v[2],v[3]}
 end
@@ -66,22 +70,11 @@ end
 -- normalized direction 
 -- same as v_len without building a vector
 function v_dir(a,b)
-	local x,y,z,d=b[1]-a[1],b[2]-a[2],b[3]-a[3],v_len(a,b)
-	return {x/d,y/d,z/d},d
+	local d=v_len(a,b)
+	return {(b[1]-a[1])/d,(b[2]-a[2])/d,(b[3]-a[3])/d},d
 end 
 
-function v_normz(v)
-	local d=v_len({0,0,0},v)
-	return {v[1]/d,v[2]/d,v[3]/d},d
-end
-
 -- matrix functions
--- matrix vector multiply
-function m_x_v(m,v)
-	local x,y,z=v[1],v[2],v[3]
-	return {m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14],m[3]*x+m[7]*y+m[11]*z+m[15]}
-end
-
 function make_m_from_euler(x,y,z)
 		local a,b = cos(x),-sin(x)
 		local c,d = cos(y),-sin(y)
@@ -105,17 +98,4 @@ function m_up(m)
 end
 function m_fwd(m)
 	return {m[9],m[10],m[11]}
-end
-
--- optimized 4x4 matrix mulitply
-function m_x_m(a,b)
-	local a11,a12,a13,a21,a22,a23,a31,a32,a33=a[1],a[5],a[9],a[2],a[6],a[10],a[3],a[7],a[11]
-	local b11,b12,b13,b14,b21,b22,b23,b24,b31,b32,b33,b34=b[1],b[5],b[9],b[13],b[2],b[6],b[10],b[14],b[3],b[7],b[11],b[15]
-
-	return {
-			a11*b11+a12*b21+a13*b31,a21*b11+a22*b21+a23*b31,a31*b11+a32*b21+a33*b31,0,
-			a11*b12+a12*b22+a13*b32,a21*b12+a22*b22+a23*b32,a31*b12+a32*b22+a33*b32,0,
-			a11*b13+a12*b23+a13*b33,a21*b13+a22*b23+a23*b33,a31*b13+a32*b23+a33*b33,0,
-			a11*b14+a12*b24+a13*b34+a[13],a21*b14+a22*b24+a23*b34+a[14],a31*b14+a32*b24+a33*b34+a[15],1
-		}
 end

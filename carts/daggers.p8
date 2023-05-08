@@ -3,7 +3,7 @@ version 39
 __lua__
 
 #include debug.lua
-#include maths.lua
+#include main_maths.lua
 #include plain.lua
 #include common.lua
 #include assets.lua
