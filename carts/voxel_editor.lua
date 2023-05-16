@@ -22,37 +22,38 @@ local _grid_size=14
 local _palette={}
 
 -- game entities
+local default_angles=0x88
 -- note: new entities must be added at the end
 local _entities={
-    {text="sKULL"},
-    {text="rEAPER"},
+    {text="sKULL",angles=default_angles},
+    {text="rEAPER",angles=default_angles},
     -- animation
-    {text="bLOOD0"},
-    {text="bLOOD1"},
-    {text="bLOOD2"},
-    {text="dAGGER0"},
-    {text="dAGGER1"},
-    {text="dAGGER2"},
+    {text="bLOOD0",angles=0},
+    {text="bLOOD1",angles=0},
+    {text="bLOOD2",angles=0},
+    {text="dAGGER0",angles=default_angles},
+    {text="dAGGER1",angles=default_angles},
+    {text="dAGGER2",angles=default_angles},
     -- resting hand
-    {text="hAND0"},
-    {text="hAND1"},
-    {text="hAND2"},
+    {text="hAND0",angles=0},
+    {text="hAND1",angles=0},
+    {text="hAND2",angles=0},
     -- green goo
-    {text="gOOO0"},
-    {text="gOOO1"},
-    {text="gOOO2"},
+    {text="gOOO0",angles=0},
+    {text="gOOO1",angles=0},
+    {text="gOOO2",angles=0},
     -- egg
-    {text="eGG"},
+    {text="eGG",angles=default_angles},
     -- spider0
-    {text="sPIDER0"},
-    {text="sPIDER1"},
+    {text="sPIDER0",angles=default_angles},
+    {text="sPIDER1",angles=default_angles},
     -- worm head+segment
-    {text="wORM0"},
-    {text="wORM1"},
+    {text="wORM0",angles=default_angles},
+    {text="wORM1",angles=default_angles},
     -- jewel
-    {text="jEWEL"},
+    {text="jEWEL",angles=default_angles},
     -- worm segment without jewel
-    {text="wORM2"},
+    {text="wORM2",angles=default_angles},
 }
 local _current_entity
 
@@ -273,70 +274,35 @@ function collect_blocks(grid,cam,extents,visible_blocks)
     }
     local lasti=last[majori][minori]
 
-    local cam_minor,cam_last=cam.pos[minori]\1,cam.pos[lasti]\1
-
-    local last0,last1=extents[lasti].lo,extents[lasti].hi
-    local last_fix=cam_last
-    local lastc=last_fix
-    if lastc<last0 then
-        lastc,last_fix=last0-1
-    elseif lastc>last1 then
-        lastc,last_fix=last1+1
-    end   
-    local last_shift=(3-lasti)<<3
-    local last_mask=0xff>>last_shift
-    local draw_last=function(face_mask,idx)
-        for last=last0,lastc-1 do        
-            local idx=idx|last>>>last_shift
-            local id=grid[idx]
-            if id then
-                add(visible_blocks,id)
-                add(visible_blocks,face_mask|(0x01.0101&last_mask))            
-                add(visible_blocks,idx)
-            end
-        end
-        -- flip side
-        for last=last1,lastc+1,-1 do        
-            local idx=idx|last>>>last_shift
-            local id=grid[idx]
-            if id then
-                add(visible_blocks,id)
-                add(visible_blocks,face_mask|(0x02.0202&last_mask))            
-                add(visible_blocks,idx)
-            end
-        end
-        if last_fix then
-            local idx=idx|lastc>>>last_shift
-            local id=grid[idx]
-            if id then
-                add(visible_blocks,id)
-                add(visible_blocks,face_mask)            
-                add(visible_blocks,idx)
-            end
-        end
-    end     
-
-    local minor0,minor1=extents[minori].lo,extents[minori].hi
-    local minor_fix=cam.pos[minori]\1
-    local minorc=minor_fix
-    if minorc<minor0 then
-        minorc,minor_fix=minor0-1
-    elseif minorc>minor1 then
-        minorc,minor_fix=minor1+1
-    end   
     local minor_shift=(3-minori)<<3
-    local minor_mask=0xff>>minor_shift
-    local draw_minor=function(face_mask,idx)
-        for minor=minor0,minorc-1 do        
-            draw_last(face_mask|(0x01.0101&minor_mask),idx|minor>>>minor_shift)
-        end
-        -- flip side
-        for minor=minor1,minorc+1,-1 do        
-            draw_last(face_mask|(0x02.0202&minor_mask),idx|minor>>>minor_shift)
-        end
-        -- camera fix?
-        if minor_fix then
-            draw_last(face_mask,idx|minorc>>>minor_shift)
+    local minor0,minor1=extents[minori].lo>>minor_shift,extents[minori].hi>>minor_shift
+
+    local last_shift=(3-lasti)<<3
+    local last0,last1=extents[lasti].lo>>last_shift,extents[lasti].hi>>last_shift
+    
+    local m,fov=cam.m,cam.fov
+    local xcenter,ycenter,scale=cam.xcenter,cam.ycenter,cam.scale
+    local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
+
+    local draw_minor=function(mask,idx)
+        for idx=minor0|idx,minor1|idx,1>>minor_shift do
+            for idx=last0|idx,last1|idx,1>>last_shift do
+                local id=grid[idx]
+                if id then
+                    local ox,oy,oz=(idx&0x0.00ff)<<16,(idx&0x0.ff)<<8,idx&0xff
+                    local x,y,z=ox+0.5,oy+0.5,oz+0.5
+                    local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+                    if az<-1 then
+                        -- a tiny bit of perspective
+                        local w=-fov/(fov-az)
+                        local x0,y0,r=xcenter+scale*ax*w,ycenter-scale*ay*w,-fov*w
+                        --rectfill(x0,y0,ceil(x0),ceil(y0),_palette[id])
+                        --circfill(x0,y0,r+0.5,_palette[id])
+                        rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
+                        --pset(x0,y0,_palette[id])
+                    end
+                end
+            end
         end
     end    
 
@@ -353,14 +319,14 @@ function collect_blocks(grid,cam,extents,visible_blocks)
     local major_mask=0xff>>major_shift
 
     for major=major0,majorc-1 do        
-        draw_minor(0x01.0101&major_mask,major>>>major_shift)
+        draw_minor(major_mask,major>>major_shift)
     end
     -- flip side
     for major=major1,majorc+1,-1 do        
-        draw_minor(0x02.0202&major_mask,major>>>major_shift)
+        draw_minor(major_mask,major>>major_shift)
     end
     if major_fix then
-        draw_minor(0,majorc>>>major_shift)
+        draw_minor(major_mask,majorc>>major_shift)
     end
 end
 
@@ -382,17 +348,13 @@ function draw_grid(grid,cam,layer,render)
     local cache,verts,faces={},{},cube.faces
 
     -- render in order
+    fillp()
     for i=1,#visible_blocks,3 do
         local id,current_mask,idx=visible_blocks[i],visible_blocks[i+1],visible_blocks[i+2]
         -- convert to coord offsets
         local ox,oy,oz=(idx&0x0.00ff)<<16,(idx&0x0.ff)<<8,idx\1
         -- printh("mask: "..tostr(visible_blocks[i],1).." idx: "..tostr(idx,1))
         -- solid block
-        local adj={ox,oy,oz}
-        local polydraw=function(p,np,c,side)
-            polyfill(p,np,c)
-            if(not render and layer and (side==0x02 or side==0x01)) polyline(p,np,sget(57,c&0xf))            
-        end
         local visible,force_adj=true
         if layer then
             if cam.pos[3]<layer then
@@ -405,62 +367,27 @@ function draw_grid(grid,cam,layer,render)
                 end
             end
             if layer!=oz then                
-                polydraw=function(p,np,c)
-                    polyfill(p,np,(c&0xff)|0x1100.5f5f)
-                end
+                --
             else
                 force_adj=true
             end
         end
         if visible then
-            for maski,mask in pairs(masks) do
-                local active_side=current_mask&mask
-                local side=faces[active_side]
-                if side then            
-                    -- check adjacent blocks
-                    -- todo: create a complement index base on face mask
-                    local backup=adj[maski]
-                    local adj_i=backup+side.k
-                    adj[maski]=adj_i
-                    local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
-                    adj[maski]=backup
-                    -- outside: draw faces
-                    -- or not next to block
-                    if adj_i<0 or adj_i>=_grid_size or (side!=0x02 and side!=0x01 and force_adj) or (not grid[adj_idx]) then
-                        local outcode,clipcode=0xffff,0
-                        for i=1,4 do
-                            local vert=side[i]
-                            local idx=idx+vert.idx
-                            local v=cache[idx]
-                            if not v then
-                                local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
-                                local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
-                                
-                                if az>-0.1 then code=2 end
-                                if fov*ax>-az then code+=4
-                                elseif fov*ax<az then code+=8 end
-                                if fov*ay>-az then code+=16
-                                elseif fov*ay<az then code+=32 end
-                                local w=fov/az
-                                v={ax,ay,az,x=xcenter+scale*ax*w,y=ycenter-scale*ay*w,outcode=code}
-                                cache[idx]=v
-                            end
-                            verts[i]=v
-                            outcode&=v.outcode
-                            clipcode+=v.outcode&2
-                        end
-                        --polyline(verts,4,maski+k+1)
-                        -- polyfill(verts,4,maski+k+1)
-                        if outcode==0 then 
-                            local np=4
-                            if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
-                            if np>2 then
-                                polydraw(verts,np,_palette[id],active_side)                            
-                            end
-                        end
-                    end
-                end
-            end  
+            local x,y,z,code=ox+0.5,oy+0.5,oz+0.5,0
+            local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+            
+            if az>-0.1 then code=2 end
+            if fov*ax>-az then code+=4
+            elseif fov*ax<az then code+=8 end
+            if fov*ay>-az then code+=16
+            elseif fov*ay<az then code+=32 end
+            local w=fov/az
+            local x0,y0=xcenter+scale*ax*w,ycenter-scale*ay*w
+            --polyline(verts,4,maski+k+1)
+            -- polyfill(verts,4,maski+k+1)
+            w*=48
+            -- rectfill(x0-w,y0-w,x0+w,y0+w,_palette[id])
+            circfill(x0,y0,-w,_palette[id])
         end
     end  
 end
@@ -847,7 +774,7 @@ function unpack_archive()
 end
 
 function collect_frames(ent,cb)
-    local cam=make_cam(16,16,16,2)
+    local cam=make_cam(15.5,15.5,32,1)
     local grid,frames=grid_fromstr(ent.data),{}
     -- find middle of voxel entity
     local zmin,zmax=32000,-32000
@@ -887,16 +814,32 @@ function collect_frames(ent,cb)
     end
             
     local xy,zoffset=(_grid_size+1)/2,(zmax+zmin+1)/2
-    local zangles={}
-    for i=0,0.5,0.125 do
-        add(zangles,i)
+    local count,zangles,yangles=0,{},{}
+    local angles=ent.angles
+    if ent.angles&0xf!=0 then
+        local step=1/(ent.angles&0xf)
+
+        for i=0,0.5,step/2 do
+            add(zangles,i)
+        end
+    else
+        -- single frame
+        zangles={0.25}
     end
-    -- note: removed special top/down cases
-    local count=0
-    for y=0,-0.5,-0.125 do
+    if ent.angles\16!=0 then
+        local step=1/(ent.angles\16)
+
+        for i=0,0.5,step/2 do
+            add(yangles,i)
+        end
+    else
+        -- single frame
+        yangles={0.25}
+    end    
+    for _,y in ipairs(yangles) do
         for i,z in ipairs(zangles) do
             cls()
-            cam:control({xy,xy,zoffset},y,z,2*_grid_size)
+            cam:control({xy,xy,zoffset},-y,z,2*_grid_size)
             clip(0,0,32,32)
             draw_grid(grid,cam,nil,true)            
             clip()
@@ -962,6 +905,8 @@ function pack_entities()
             end)        
             -- save entity identifier
             pack_bytes(i)
+            -- number of z/y angles (packed in 1 byte)
+            pack_bytes(ent.angles)
             -- number of frames
             pack_bytes(count,2)
             for j,frame in ipairs(frames) do
@@ -1062,18 +1007,38 @@ function _init()
             end)))
         end
     end)),1,0,7)
-    
-    -- level id
-    _main:add(make_static(0x1022,binding(_editor_state,"level")),17,0,6,7)
-    -- +-
-    _main:add(make_button(21,binding(function()
-        _editor_state.level=mid(_editor_state.level+1,1,9)
-    end)),25,0,3,4)
-    _main:add(make_button(22,binding(function()
-        _editor_state.level=mid(_editor_state.level-1,1,9)        
-    end)),25,4,3,4)
 
-    -- generate images
+    -- preview images
+    _main:add(make_button(33,binding(function()
+        -- 
+        cls()
+        _current_entity.data=grid_tostr(_grid)
+        local frames,count=collect_frames(_current_entity)
+        cls()
+        local x,y,hmax=0,0,0
+        for j,frame in ipairs(frames) do            
+            local h=frame.ymax-frame.ymin+1
+            if h>0 then
+                local w=32*ceil((frame.xmax-frame.xmin+1)/32)
+                if(h>hmax) hmax=h
+                if(x+w>128) printh(x+w) x=0 y+=hmax+1 hmax=0
+                rect(x,y,x+w,y+h,1)
+                local base,mem=1,0x6000+(x\2)+y*64
+                for i=mem,mem+((h-1)<<6),64 do
+                    poke4(i,frame[base],frame[base+1],frame[base+2],frame[base+3])
+                    base+=4
+                end
+                x+=w
+            end
+            flip()
+        end        
+        -- wait
+        while btn()&0x30==0 do
+            flip()
+        end
+    end)),21,0,6)
+
+    -- generate images to disk
     _main:add(make_button(4,binding(function()
         -- commit latest changes
         if(_current_entity) _current_entity.data=grid_tostr(_grid)
@@ -1103,9 +1068,45 @@ function _init()
     end
 
     -- load "default" model
-    _current_entity=_entities[1]
+    _current_entity=_entities[1]    
     _main:send({
         name="load",
         data=_current_entity.data
     })    
+    -- clear grid
+    --[[
+    _grid={}
+    for i=0,_grid_size do
+        for j=0,_grid_size do
+            for k=0,_grid_size do
+                local idx=i>>16|j>>8|k
+                _grid[idx]=7
+            end
+        end
+    end
+    for i=1,_grid_size-1 do
+        for j=1,_grid_size-1 do
+            for k=0,_grid_size do
+                local idx=i>>16|j>>8|k
+                _grid[idx]=nil
+            end
+        end
+    end
+    for i=1,_grid_size-1 do
+        for j=0,_grid_size do
+            for k=1,_grid_size-1 do
+                local idx=i>>16|j>>8|k
+                _grid[idx]=nil
+            end
+        end
+    end
+    for i=0,_grid_size do
+        for j=1,_grid_size-1 do
+            for k=1,_grid_size-1 do
+                local idx=i>>16|j>>8|k
+                _grid[idx]=nil
+            end
+        end
+    end
+    ]]
 end

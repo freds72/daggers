@@ -507,23 +507,23 @@ function draw_grid(cam,light)
     for i,obj in pairs(array) do
       local origin=obj.origin      
       local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
+      local ax,az=m1*x+m9*z,m3*x+m11*z
       
       -- draw shadows (y=0)
       if not obj.shadeless then
-        local ax,az=m1*x+m9*z,m3*x+m11*z
         if az>8 and az<384 and ax<az and -ax<az then
-          local ay,w=m2*x+m10*z,64/az
+          local ay,w=m2*x-m6*cy+m10*z,64/az
           -- thing offset+cam offset              
-          local dx,dz=cx-x,cz-z
-          local a=atan2(dx,dz)        
-          local a,r=atan2(dx*cos(a)+dz*sin(a),cy),obj.radius*w>>2
+          local a=atan2(x,z)        
+          local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w>>2
           local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
           ovalfill(x0-r,y0+ry,x0+r,y0-ry)
         end
       end
   
       -- 
-      local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
+      ax+=m5*y
+      az+=m7*y
       if az>8 and az<384 and ax<az and -ax<az then
         local ay,w=m2*x+m6*y+m10*z,64/az
         things[#things+1]={key=w,type=type,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
@@ -560,26 +560,32 @@ function draw_grid(cam,light)
       local w0,thing=item.key,item.thing
       local entity,origin=thing.ent,thing.origin
       -- zangle (horizontal)
-      local dx,dz=cx-origin[1],cz-origin[3]
+      local dx,dz,yangles,side,flip=cx-origin[1],cz-origin[3],entity.yangles,0
       local zangle=atan2(dx,-dz)
-      local side,flip=((zangle-thing.zangle+0.5+0.0625)&0x0.ffff)\0.125
-      if(side>4) side=4-(side%4) flip=true
-      
+      if yangles!=0 then
+        local step=1/(yangles<<1)
+        side=((zangle-thing.zangle+0.5+step/2)&0x0.ffff)\step
+        if(side>yangles) side=yangles-(side%yangles) flip=true
+      end
+
       -- up/down angle
       -- todo: adjust with height*w/2 ?
-      local yangle=thing.yangle or 0
-      local yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+0.0625+yangle)&0x0.ffff)\0.125
-      if(yside>4) yside=4-(yside%4)
+      local zangles,yside=entity.zangles,0
+      if zangles!=0 then
+        local yangle,step=thing.yangle or 0,1/(zangles<<1)
+        yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
+        if(yside>zangles) yside=zangles-(yside%zangles)
+      end
       -- copy to spr
       -- skip top+top rotation
-      local frame,sprites=entity.frames[5*yside+side+1],entity.sprites
+      local frame,sprites=entity.frames[(yangles+1)*yside+side+1],entity.sprites
       local mem,base,w,h=0x0,frame.base,frame.width,frame.height
-      if prev_base!=base and prev_sprites!=sprites then
+      if prev_base!=base or prev_sprites!=sprites then
+        prev_base,prev_sprites=base,sprites
         for i=mem,mem+(h-1)<<6,64 do
           poke4(i,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
           base+=4
         end
-        prev_base,prev_sprites=base,sprites
       end
       w0*=2
       local sx,sy=item.x-w*w0/4,item.y-h*w0/4
@@ -1017,6 +1023,13 @@ function play_state()
     make_egg({512+32*cos(a),4,512-32*sin(a)},{0,0,0})
   end
 
+  add(_things,{
+    ent=_entities.skull,
+    origin={512,16,512},
+    zangle=0,
+    radius=24
+  })
+
   -- enemies
   local skull1=with_properties("radius,16,hp,2",{
     ent=_entities.skull,
@@ -1103,7 +1116,7 @@ function play_state()
       end
       spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)      
       ]]
-      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
 
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
@@ -1465,9 +1478,11 @@ function unpack_entities()
   unpack_array(function()
     local id=mpeek()
     if id!=0 then
-      local sprites={}
+      local sprites,angles={},mpeek()
       entities[names[id]]={  
-        sprites=sprites,      
+        sprites=sprites,   
+        yangles=angles&0xf,
+        zangles=angles\16,        
         frames=unpack_frames(sprites)
       }
       printh("restored:"..names[id].." #sprites:"..#sprites)

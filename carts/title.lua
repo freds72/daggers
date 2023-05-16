@@ -155,9 +155,9 @@ function _init()
   --
   -- load background assets
   decompress("pic",0,0,function()
-      -- drop array
+      -- drop array size
       mpeek2()
-      local id=mpeek()
+      local id,angles=mpeek(),mpeek()
       _entities.skull={        
         frames=unpack_frames(_sprites)
       }
