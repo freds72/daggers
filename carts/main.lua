@@ -511,7 +511,7 @@ function draw_grid(cam,light)
       
       -- draw shadows (y=0)
       if not obj.shadeless then
-        if az>8 and az<384 and ax<az and -ax<az then
+        if az>8 and az<384 and 0.5*ax<az and -0.5*ax<az then
           local ay,w=m2*x-m6*cy+m10*z,64/az
           -- thing offset+cam offset              
           local a=atan2(x,z)        
@@ -524,7 +524,7 @@ function draw_grid(cam,light)
       -- 
       ax+=m5*y
       az+=m7*y
-      if az>8 and az<384 and ax<az and -ax<az then
+      if az>8 and az<384 and 0.5*ax<az and -0.5*ax<az then
         local ay,w=m2*x+m6*y+m10*z,64/az
         things[#things+1]={key=w,type=type,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
       end
@@ -587,10 +587,9 @@ function draw_grid(cam,light)
           base+=4
         end
       end
-      w0*=2
-      local sx,sy=item.x-w*w0/4,item.y-h*w0/4
+      local sx,sy=item.x-w*w0/2,item.y-h*w0/2
       --
-      sspr(frame.xmin,0,w,h,sx,sy,w*w0/2+(sx&0x0.ffff),h*w0/2+(sy&0x0.ffff),flip)
+      sspr(frame.xmin,0,w,h,sx,sy,w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff),flip)
       
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
@@ -1024,8 +1023,14 @@ function play_state()
   end
 
   add(_things,{
-    ent=_entities.skull,
+    ent=_entities.hand1,
     origin={512,16,512},
+    zangle=0,
+    radius=24
+  })
+  add(_things,{
+    ent=_entities.hand2,
+    origin={512,32,512},
     zangle=0,
     radius=24
   })

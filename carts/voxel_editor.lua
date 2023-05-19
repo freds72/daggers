@@ -12,7 +12,8 @@ _editor_state={
     -- 2: selection
     -- 3: fill
     edit_mode=1,
-    level=1
+    level=1,
+    pen_radius=1
 }
 
 local _grid={}
@@ -36,8 +37,8 @@ local _entities={
     {text="dAGGER2",angles=default_angles},
     -- resting hand
     {text="hAND0",angles=0},
-    {text="hAND1",angles=0},
-    {text="hAND2",angles=0},
+    {text="hAND1",angles=0x08},
+    {text="hAND2",angles=0x08},
     -- green goo
     {text="gOOO0",angles=0},
     {text="gOOO1",angles=0},
@@ -248,7 +249,7 @@ function voxel_traversal(ray,size,grid)
     end
 end
 
-function collect_blocks(grid,cam,extents,visible_blocks)    
+function collect_blocks(grid,cam,extents,layer)    
     local fwd=cam.fwd
     local majord,majori=-32000,1
     for i=1,3 do
@@ -294,12 +295,20 @@ function collect_blocks(grid,cam,extents,visible_blocks)
                     local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
                     if az<-1 then
                         -- a tiny bit of perspective
-                        local w=-fov/(fov-az)
-                        local x0,y0,r=xcenter+scale*ax*w,ycenter-scale*ay*w,-fov*w
+                        local w=fov/az
+                        local x0,y0,r=xcenter+scale*ax*w,ycenter-scale*ay*w,-scale*w/4
                         --rectfill(x0,y0,ceil(x0),ceil(y0),_palette[id])
                         --circfill(x0,y0,r+0.5,_palette[id])
-                        rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
-                        --pset(x0,y0,_palette[id])
+                        if layer then
+                            local active_layer=idx&0xff
+                            if layer==active_layer then
+                                rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
+                            elseif layer>active_layer then
+                                rect(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
+                            end
+                        else
+                            rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
+                        end
                     end
                 end
             end
@@ -341,7 +350,7 @@ function draw_grid(grid,cam,layer,render)
     end
 
     -- viz blocks
-    collect_blocks(grid,cam,extents,visible_blocks)
+    collect_blocks(grid,cam,extents,layer)
     
     local masks={0x0.00ff,0x0.ff,0xff}
     local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
@@ -547,9 +556,11 @@ function make_voxel_editor()
             if current_voxel then
                 local pts={}
                 for i,p in pairs(quad) do
-                    p=v_add(p,current_voxel.origin)
+                    p=v_add(current_voxel.origin,p,_editor_state.pen_radius)
                     p[3]=layerz
-                    pts[i]=v_add(p,{offsetx,offsety,0},1)
+                    pts[i]=v_add(p,{offsetx,offsety,0})
+                    pts[i][1]=mid(pts[i][1],0,_grid_size+1)
+                    pts[i][2]=mid(pts[i][2],0,_grid_size+1)
                 end
                 --fillp(0xa5a5.8)
                 local p0=pts[4]
@@ -631,12 +642,18 @@ function make_voxel_editor()
                         -- click!
                         local col=_editor_state.selected_color
                         -- anything to do?
-                        if (_grid[idx] or 0)!=col then
-                            -- previous state for undo
-                            add(undo_stack,{idx=idx,col=_grid[idx] or 0})
-                            -- keep undo stack limited
-                            if(#undo_stack>250) deli(undo_stack,1)
-                            apply(idx,col)
+                        for x=max(0,o[1]),min(_grid_size+1,o[1]+_editor_state.pen_radius-1) do
+                            for y=max(0,o[2]),min(_grid_size+1,o[2]+_editor_state.pen_radius-1) do
+                                local idx=x>>16|y>>8|o[3]
+            
+                                if (_grid[idx] or 0)!=col then
+                                    -- previous state for undo
+                                    add(undo_stack,{idx=idx,col=_grid[idx] or 0})
+                                    -- keep undo stack limited
+                                    if(#undo_stack>250) deli(undo_stack,1)                            
+                                    apply(idx,col)
+                                end
+                            end
                         end
                     elseif msg.rmbp then
                         _editor_state.selected_color=_grid[idx] or 0
@@ -1036,7 +1053,7 @@ function _init()
         while btn()&0x30==0 do
             flip()
         end
-    end)),21,0,6)
+    end)),9,0,6)
 
     -- generate images to disk
     _main:add(make_button(4,binding(function()
@@ -1044,8 +1061,17 @@ function _init()
         if(_current_entity) _current_entity.data=grid_tostr(_grid)
         -- 
         pack_entities()
-    end)),29,0,6)
+    end)),18,0,6)
 
+    -- pen +- radius
+    _main:add(make_button(21,binding(function()
+        _editor_state.pen_radius=min(9,_editor_state.pen_radius+1)      
+    end)),24,0,3,4)
+    _main:add(make_button(22,binding(function() 
+        _editor_state.pen_radius=max(1,_editor_state.pen_radius-1)        
+    end)),24,4,3,4)
+    _main:add(make_static(1,binding(_editor_state,"pen_radius")),28,0,5,7)
+        
     -- edit/select/fill
     for i,s in ipairs({19,18,20}) do
         _main:add(make_radio_button(s,i,binding(_editor_state,"edit_mode")),27+i*8,0,6)
