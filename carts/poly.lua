@@ -50,15 +50,19 @@ function polyfill(p,np,c)
 	end
 end
 
+-- dithered line
+function dline(x0,y0,x1,y1,c)
+	local dx,dy=abs(x0-x1),abs(y0-y1)
+	-- @kometbomb idea
+	local pattern=dx<dy and 0x1100.f0f0 or 0x1100.aaaa
+	line(x0,y0,x1,y1,c|pattern)
+end
+
 function polyline(p,np,c)
-	local v0=p[np]
-	
+	local v0=p[np]	
 	for i=1,np do
 		local v1=p[i]
-		local dx,dy=abs(v0.x-v1.x),abs(v0.y-v1.y)
-		-- @kometbomb idea
-		local pattern=dx<dy and 0x1100.f0f0 or 0x1100.aaaa
-		line(v0.x,v0.y,v1.x,v1.y,c|pattern)
+		dline(v0.x,v0.y,v1.x,v1.y,c)
 		v0=v1
 	end
 end

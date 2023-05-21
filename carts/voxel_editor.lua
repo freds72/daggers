@@ -124,136 +124,11 @@ function str_unesc(s)
     return out
 end
 
--- voxel functions
-function init_traversal(ray,maxs,t0,t1)
-    local function get_bounds(d)
-        local o,dir=ray.origin[d],ray.dir[d]
-        local tmin = -o / dir
-        local tmax = (maxs - o) / dir 
-        if dir < 0 then
-            tmin,tmax=tmax,tmin
-        end    
-        return tmin,tmax
-    end
-    
-    local tmin,tmax=-32000,32000
-    for i=1,3 do
-        local tstart,tend = get_bounds(i)
-        -- out?
-        if(tstart>t1 or tend<t0) return
-        if (tstart > tmin) tmin = tstart
-        if (tend < tmax) tmax = tend
-    end
-    return true,max(tmin,t0),min(tmax,t1)
-end
-
--- voxel traversal on a sqaure grid
--- [0,size[
-function voxel_traversal(ray,size,grid)
-    local in_grid,tmin,tmax = init_traversal(ray, size, 0, ray.len)
-    if (not in_grid) return
-
-    local dir=ray.dir
-    local ray_start = v_add(ray.origin,dir,tmin)
-    local ray_end = v_add(ray.origin,dir,tmax)
-
-    local function get_step(d)
-        local start,dir=ray_start[d],dir[d]
-        local curr_i,end_i = max(start\1),max(ray_end[d]\1)
-        --[[
-        if curr_i<0 and end_i>=size then
-            printh("!!!!!!ERROR!!!!!!!!!")
-            printh("dim: "..d.." invalid index: "..curr_i.." "..end_i)
-            printh("tmin: "..tmin.." tmax:"..tmax)
-            printh("start: "..v_tostr(ray_start).." end: "..v_tostr(ray_end))
-            printh("o:"..v_tostr(ray.origin).." dir: "..v_tostr(ray.dir))
-            stop()
-        end
-        ]]
-        local step = 0
-        local tdelta = tmax
-        local tmax_d = tmax
-        if dir > 0.0 then
-            step = 1
-            tdelta = 1 / ray.dir[d]
-            tmax_d = tmin+(curr_i+1-start)/dir
-        elseif dir < 0.0 then
-            step = -1
-            tdelta = 1 / -ray.dir[d]
-            tmax_d = tmin+(curr_i-start)/dir
-        end
-        return curr_i,end_i,step,tdelta,tmax_d
-    end
-    
-    local i0,i1,stepx,tdeltax,tmaxx = get_step(1)
-    local j0,j1,stepy,tdeltay,tmaxy = get_step(2)
-    local k0,k1,stepz,tdeltaz,tmaxz = get_step(3)
-
-    -- printh("*******************")
-    -- printh(tmin.." --> "..tmax)
-    -- printh("i:"..i0..", "..j1.." ["..tdeltax.."]")
-    -- printh("j:"..j0..", "..j1.." ["..tdeltay.."]")
-    -- printh("k:"..k0..", "..k1.." ["..tdeltaz.."]")
-
-    local dist=0
-    local steps={stepx,stepy,stepz}
-    while i0!=i1 or j0!=j1 or k0!=k1 do
-        local hit        
-        if tmaxx < tmaxy and tmaxx < tmaxz then            
-            -- x-axis traversal.
-            i0 += stepx
-            if(i0<0 or i0>=size) return
-            tmaxx += tdeltax
-            hit=1
-        elseif tmaxy < tmaxz then
-            -- y-axis traversal.
-            j0 += stepy
-            if(j0<0 or j0>=size) return
-            tmaxy += tdeltay
-            hit=2
-        else
-            -- z-axis traversal.
-            k0 += stepz
-            if(k0<0 or k0>=size) return
-            tmaxz += tdeltaz
-            hit=3
-        end
-        
-        --[[
-        for i=0,1 do
-            for j=0,1 do
-                for k=0,1 do                        
-                    local x,y,w=cam:project({i0+i,j0+j,k0+k})
-                    if(w) pset(x,y,2)
-                end
-            end
-        end
-        ]]
-
-        -- something at location?
-        local data=grid[i0>>16|j0>>8|k0]  
-        --assert(dist<ray.len)  
-        if data then
-            --local n={0,0,0}
-            --n[hit]=-steps[hit]
-            --local pos=v_add(ray_start,dir,dist)
-            --pos[hit]+=dist*dir[hit]
-            -- printh(i0.." "..j0.." "..k0.." dist: "..dist.." side:"..hit)    
-            return {
-                origin={i0,j0,k0},
-                n=n,
-                side=hit,
-                hit=pos,
-                data=data}        
-        end
-    end
-end
-
-function collect_blocks(grid,cam,extents,visible_blocks)    
+function get_majors(cam)
     local fwd=cam.fwd
     local majord,majori=-32000,1
     for i=1,3 do
-        local d=abs(cam.fwd[i])
+        local d=abs(fwd[i])
         if d>majord then
             majori,majord=i,d
         end
@@ -262,7 +137,7 @@ function collect_blocks(grid,cam,extents,visible_blocks)
     local minord,minori=-32000,1
     for i=1,3 do
         if i!=majori then
-            local d=abs(cam.fwd[i])
+            local d=abs(fwd[i])
             if d>minord then
                 minori,minord=i,d
             end
@@ -273,8 +148,10 @@ function collect_blocks(grid,cam,extents,visible_blocks)
         {3,-1,1},
         {2,1,-1}
     }
-    local lasti=last[majori][minori]
+    return majori,minori,last[majori][minori]
+end
 
+function collect_blocks(grid,cam,majori,minori,lasti,extents,visible_blocks)    
     local last_shift=(3-lasti)<<3
     local last_mask,last0,last1=0xff>>last_shift,extents[lasti].lo,extents[lasti].hi    
     local last_fix=cam.pos[lasti]\1
@@ -394,23 +271,35 @@ function collect_blocks(grid,cam,extents,visible_blocks)
     end
 end
 
-function draw_grid(grid,cam,layer,render)
-    local visible_blocks={}
+-- modes:
+-- 1: fast
+-- 2: layered
+-- 3: render (normal)
+function draw_grid(grid,cam,mode,layer)
+    local visible_blocks,force_adj={}
     local m,fov,xcenter,ycenter,scale=cam.m,cam.fov,cam.xcenter,cam.ycenter,cam.scale
 
     local extents={}
+    local majori,minori,lasti=get_majors(cam)
+    local major_mask=0xff>>((3-majori)<<3)
+    -- 
     for i=1,3 do
         extents[i]={lo=0,hi=_grid_size}
     end
+    if mode==2 then
+        extents[majori].lo=layer
+        extents[majori].hi=layer
+        force_adj=true
+    end
 
     -- viz blocks
-    collect_blocks(grid,cam,extents,visible_blocks)
-    
+    collect_blocks(grid,cam,majori,minori,lasti,extents,visible_blocks)
+
     local masks={0x0.00ff,0x0.ff,0xff}
     local m1,m5,m9,m13,m2,m6,m10,m14,m3,m7,m11,m15=m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]
     local cache,verts,faces={},{},cube.faces
 
-    if not layer then
+    if mode==1 then
         for i=1,#visible_blocks,3 do
             local id,idx=visible_blocks[i],visible_blocks[i+2]
     
@@ -419,20 +308,12 @@ function draw_grid(grid,cam,layer,render)
             local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
             if az<-1 then
                 -- a tiny bit of perspective
-                local w=fov/az
-                local x0,y0,r=xcenter+scale*ax*w,ycenter-scale*ay*w,-scale*w/4
+                local w=-0.1--fov/az
+                local x0,y0,r=xcenter+scale*ax*w,ycenter-scale*ay*w,ceil(-scale*w/4)+0.5
                 --rectfill(x0,y0,ceil(x0),ceil(y0),_palette[id])
                 --circfill(x0,y0,r+0.5,_palette[id])
-                if layer then
-                    local active_layer=idx&0xff
-                    if layer==active_layer then
-                        rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
-                    elseif layer>active_layer then
-                        rect(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
-                    end
-                else
-                    rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
-                end
+                
+                rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
             end 
         end      
         return
@@ -447,8 +328,9 @@ function draw_grid(grid,cam,layer,render)
         local adj={ox,oy,oz}
         local polydraw=function(p,np,c,side)
             polyfill(p,np,c)
-            if(not render and layer and (side==0x02 or side==0x01)) polyline(p,np,sget(57,c&0xf))            
+            if(mode==2 and side&major_mask!=0) polyline(p,np,sget(57,c&0xf))            
         end
+        --[[
         local visible,force_adj=true
         if layer then
             if cam.pos[3]<layer then
@@ -468,56 +350,39 @@ function draw_grid(grid,cam,layer,render)
                 force_adj=true
             end
         end
-        if visible then
-            for maski,mask in pairs(masks) do
-                local active_side=current_mask&mask
-                local side=faces[active_side]
-                if side then            
-                    -- check adjacent blocks
-                    -- todo: create a complement index base on face mask
-                    local backup=adj[maski]
-                    local adj_i=backup+side.k
-                    adj[maski]=adj_i
-                    local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
-                    adj[maski]=backup
-                    -- outside: draw faces
-                    -- or not next to block
-                    if adj_i<0 or adj_i>=_grid_size or (side!=0x02 and side!=0x01 and force_adj) or (not grid[adj_idx]) then
-                        local outcode,clipcode=0xffff,0
-                        for i=1,4 do
-                            local vert=side[i]
-                            local idx=idx+vert.idx
-                            local v=cache[idx]
-                            if not v then
-                                local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
-                                local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
-                                
-                                if az>-0.1 then code=2 end
-                                if fov*ax>-az then code+=4
-                                elseif fov*ax<az then code+=8 end
-                                if fov*ay>-az then code+=16
-                                elseif fov*ay<az then code+=32 end
-                                local w=fov/az
-                                v={ax,ay,az,x=xcenter+scale*ax*w,y=ycenter-scale*ay*w,outcode=code}
-                                cache[idx]=v
-                            end
-                            verts[i]=v
-                            outcode&=v.outcode
-                            clipcode+=v.outcode&2
+        ]]
+        for maski,mask in pairs(masks) do
+            local active_side=current_mask&mask
+            local side=faces[active_side]
+            if side then            
+                -- check adjacent blocks
+                -- todo: create a complement index base on face mask
+                local backup=adj[maski]
+                local adj_i=backup+side.k
+                adj[maski]=adj_i
+                local adj_idx=adj[1]>>16|adj[2]>>8|adj[3]
+                adj[maski]=backup
+                -- outside: draw faces
+                -- or not next to block
+                if adj_i<0 or adj_i>=_grid_size or force_adj or (not grid[adj_idx]) then
+                    for i=1,4 do
+                        local vert=side[i]
+                        local idx=idx+vert.idx
+                        local v=cache[idx]
+                        if not v then
+                            local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
+                            local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
+                            
+                            local w=-0.1--fov/az
+                            v={ax,ay,az,x=xcenter+scale*ax*w,y=ycenter-scale*ay*w}
+                            cache[idx]=v
                         end
-                        --polyline(verts,4,maski+k+1)
-                        -- polyfill(verts,4,maski+k+1)
-                        if outcode==0 then 
-                            local np=4
-                            if(clipcode>0) verts,np=cam:z_poly_clip(verts,4)
-                            if np>2 then
-                                polydraw(verts,np,_palette[id],active_side)                            
-                            end
-                        end
+                        verts[i]=v
                     end
+                    polydraw(verts,4,_palette[id],active_side)                            
                 end
-            end  
-        end
+            end
+        end      
     end
 end
 
@@ -562,36 +427,25 @@ function make_cam(x0,y0,scale,fov)
             local v=m_x_v(self.m,v)
             local x,y,z=v[1],v[2],v[3]
             if(z>-1) return
-            local w=focal/z
+            local w=-0.1--focal/z
             return x0+scale*x*w,y0-scale*y*w,w
 		end,        
-        unproject=function(self,x,y,layer)
-            local w=-scale*fov
-            return (x-x0)/w,-(y-y0)/w
+        unproject=function(self,x,y,majori,minori,lasti,layer)
+            local w=-scale*0.1---scale*fov
+            local xe,ye=(x-x0)/w,-(y-y0)/w
+            return xe,ye
         end,
-        z_poly_clip=function(self,v,nv)
-            local res,v0={},v[nv]
-            local d0=v0[3]-0.1
-            for i=1,nv do
-                local side=d0>0
-                if side then
-                    res[#res+1]=v0
-                end
-                local v1=v[i]
-                local d1=v1[3]-0.1
-                -- not same sign?
-                if (d1>0)!=side then
-                    local nv=v_lerp(v0,v1,d0/(d0-d1))
-                    -- project against near plane
-                    nv.x=x0+scale*nv[1]*focal/0.1
-                    nv.y=y0-scale*nv[2]*focal/0.1
-                    res[#res+1]=nv
-                end
-                v0=v1
-                d0=d1
+        polyline=function(self,pts,c,l)    
+            l=l or line
+            local p0=pts[#pts]
+            local x0,y0,w0=self:project(p0)    
+            for i=1,#pts do
+                local p1=pts[i]
+                local x1,y1,w1=self:project(p1)
+                if(w1 and w0) l(x0,y0,x1,y1,c)
+                x0,y0,w0=x1,y1,w1
             end
-            return res,#res
-        end        
+        end
 	}
 end
 
@@ -600,14 +454,31 @@ function make_voxel_editor()
 	local yangle,zangle=-0.25,0---0.125,0
 	local dyangle,dzangle=0,0
     local offsetx,offsety=0,0
-    local layer=3
-    local cam=make_cam(64,64+6,64,2)
-    local cam2=make_cam(64,64+6,64,2)
-    local quad={
-        {0,0,0},
-        {1,0,0},
-        {1,1,0},
-        {0,1,0}
+    local rotation_mode
+    local layer={3,3,3}
+    local cam=make_cam(63.5,63.5+6,64,2)
+    local quads={
+        -- x major
+        {        
+            {0,0,0},
+            {0,1,0},
+            {0,1,1},
+            {0,0,1}
+        },
+        -- y major
+        {        
+            {0,0,0},
+            {1,0,0},
+            {1,0,1},
+            {0,0,1}
+        },
+        -- z major
+        {        
+            {0,0,0},
+            {1,0,0},
+            {1,1,0},
+            {0,1,0}
+        }
     }
     -- facing direction
     local arrow={
@@ -634,70 +505,75 @@ function make_voxel_editor()
         draw=function(self)
             local r=self.rect
             clip(r.x,r.y,r.w,r.h)            
-            draw_grid(_grid,cam,current_voxel and layer)
-            fillp()
-            -- draw layer selection            
-            local pts,layerz={},layer+(cam.pos[3]>layer and 1 or 0)
-            for i,p in pairs(quad) do
-                p=v_scale(p,_grid_size+1)
-                -- align layer pos and mouse editing plane
-                p[3] = layerz
-                pts[i]=p
+            local majori,minori,lasti=get_majors(cam)
+            local major_layer=layer[majori]
+            -- adjust such that layer plane is aligned with top
+            if(cam.pos[majori]>major_layer) major_layer+=1
+            local masks={}
+            for i in pairs{majori,minori,lasti} do
+                masks[(cam.fwd[i]>0 and 2 or 1)>>((3-i)<<3)]=i
             end
-            local xmax,ymax=-32000
-            local p0=pts[#pts]
-            local x0,y0,w0=cam:project(p0)    
-            for i=1,#pts do
-                local p1=pts[i]
+            local function layer_line(minori,lasti)
+                local p0={0,0,0}
+                p0[majori]=major_layer
+                local p1={0,0,0}
+                p1[majori]=major_layer
+                p1[minori]=_grid_size
+                local l=cam.fwd[lasti]>0 and 0 or _grid_size
+                p0[lasti]=l
+                p1[lasti]=l
+                local x0,y0,w0=cam:project(p0)    
                 local x1,y1,w1=cam:project(p1)
-                if(w1 and x1>xmax) xmax,ymax=x1,y1
-                if(w1 and w0) line(x0,y0,x1,y1,6)
-                x0,y0,w0=x1,y1,w1
+                if(w1 and w0) dline(x0,y0,x1,y1,11)
             end
-            -- arrow
-            local pts={}
-            for i,p in pairs(arrow) do
-                p=v_scale(p,_grid_size+1)
-                p[3] = layerz
-                pts[i]=v_add(p,{0,_grid_size,0})
-            end
-            local p0=pts[#pts]
-            local x0,y0,w0=cam:project(p0)    
-            for i=1,#pts do
-                local p1=pts[i]
-                local x1,y1,w1=cam:project(p1)
-                if(w1 and w0) line(x0,y0,x1,y1,6)
-                x0,y0,w0=x1,y1,w1
+            
+            for mask,face in pairs(cube.faces) do
+                local dir=masks[mask]
+                if dir then
+                    local pts={}
+                    for i=1,4 do
+                        pts[i]=v_scale(face[i],_grid_size)
+                    end
+                    cam:polyline(pts,6)
+                    if dir==minori then
+                        layer_line(minori,lasti)
+                    elseif dir==lasti then
+                        layer_line(lasti,minori)
+                    end
+                    fillp() 
+                    if dir==3 then                        
+                        -- arrow
+                        local pts={}
+                        for i,p in pairs(arrow) do
+                            p=v_scale(p,(_grid_size+1)/2)
+                            pts[i]=v_add(p,{_grid_size/4,2,mask==0x2 and 0 or _grid_size})
+                        end
+                        cam:polyline(pts,6)
+                    end
+                    
+                end
             end
 
-            if(ymax) print(layer,xmax+2,ymax-2,7)   
+            draw_grid(_grid,cam,rotation_mode and 1 or 2,layer[majori])
+            fillp()
             
             -- draw cursor if any
             if current_voxel then
                 local pts={}
-                for i,p in pairs(quad) do
+                for i,p in pairs(quads[majori]) do
                     p=v_add(current_voxel.origin,p,_editor_state.pen_radius)
-                    p[3]=layerz
-                    pts[i]=v_add(p,{offsetx,offsety,0})
-                    pts[i][1]=mid(pts[i][1],0,_grid_size+1)
-                    pts[i][2]=mid(pts[i][2],0,_grid_size+1)
+                    p[majori]=major_layer
+                    p[minori]=mid(p[minori],0,_grid_size+1)
+                    p[lasti]=mid(p[lasti],0,_grid_size+1)
+                    pts[i]=p
                 end
-                --fillp(0xa5a5.8)
-                local p0=pts[4]
-                local x0,y0,w0=cam:project(p0)    
-                for i=1,4 do
-                    local p1=pts[i]
-                    local x1,y1,w1=cam:project(p1)
-                    if(w1 and x1>xmax) xmax,ymax=x1,y1
-                    if(w1 and w0) line(x0,y0,x1,y1,7)
-                    x0,y0,w0=x1,y1,w1
-                end    
-            end            
+                cam:polyline(pts,7)  
+            end
+             
             clip() 
             if(current_voxel) print(v_tostr(current_voxel.origin),2,110,8)
         end,
         mousemove=function(self,msg)
-            local rotation_mode
             if msg.mmb then
                 -- capture mouse
                 poke(0x5f2d, 0x5)
@@ -711,6 +587,7 @@ function make_voxel_editor()
                 current_voxel=nil
             else
                 poke(0x5f2d, 0x1)
+                rotation_mode=nil
             end
 
             yangle+=dyangle/512
@@ -718,38 +595,38 @@ function make_voxel_editor()
             -- friction
             dyangle=dyangle*0.7
             dzangle=dzangle*0.7
-
-            layer=mid(layer+msg.wheel,0,_grid_size-1)
-
+            
             local xy=(_grid_size+1)/2
-            cam:control({xy,xy,layer},yangle,zangle,1.5*_grid_size)
-            cam2:control({xy,xy,layer},yangle,zangle,1.5*_grid_size)
+            local center={xy,xy,xy}
+            cam:control(center,yangle,zangle,1.5*_grid_size)
+            local majori,minori,lasti=get_majors(cam)
+            layer[majori]=mid(layer[majori]+msg.wheel,0,_grid_size-1)
 
             -- selection
             if not rotation_mode then
-                local ti,tj=cam2:unproject(msg.mx,msg.my)
-                local fwd,right,up=cam2.fwd,cam2.right,cam2.up
-                local target=v_add(cam2.pos,fwd,-1)
-                target=v_add(target,right,ti)
-                target=v_add(target,up,tj)
-                --local origin=v_clone(cam.pos)
-                local d=make_v(cam2.pos,target)
-                local n,l=v_normz(d)
-                local ray={
-                    origin=cam2.pos,
-                    target=target,
-                    dir=n,
-                    len=4*_grid_size}    
+                local major_layer,offset=layer[majori],0
+                if(cam.pos[majori]>major_layer) offset=1
+                local ti,tj=cam:unproject(msg.mx,msg.my,majori,minori,lasti,major_layer)
+                local fwd,right,up=cam.fwd,cam.right,cam.up
+                local pos=v_clone(cam.pos)
+                pos=v_add(pos,right,ti)
+                pos=v_add(pos,up,tj)
+                -- intersect with major=layer plane
+                local t=(major_layer+offset-pos[majori])/fwd[majori]
+                local target=v_add(pos,fwd,t)
+                ti,tj=target[minori],target[lasti]
 
-                local grid={}
-                for i=0,_grid_size do
-                    for j=0,_grid_size do
-                        grid[i>>16|j>>8|layer]=true
-                    end
+                current_voxel=nil
+                if ti==mid(ti,0,_grid_size) and tj==mid(tj,0,_grid_size) then
+                    local o={0,0,0}
+                    o[majori]=major_layer
+                    o[minori]=ti\1
+                    o[lasti]=tj\1
+                    current_voxel={
+                        origin=o
+                    }
                 end
-            
-                current_voxel=voxel_traversal(ray,_grid_size+1,grid)
-        
+
                 if current_voxel then
                     local o=current_voxel.origin
                     local idx=o[1]>>16|o[2]>>8|o[3]
