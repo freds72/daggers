@@ -7,6 +7,7 @@ __lua__
 #include plain.lua
 #include common.lua
 #include assets.lua
+#include audio.lua
 #include main.lua
 
 __gfx__
