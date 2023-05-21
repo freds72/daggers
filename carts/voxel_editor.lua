@@ -286,10 +286,19 @@ function draw_grid(grid,cam,mode,layer)
     for i=1,3 do
         extents[i]={lo=0,hi=_grid_size}
     end
+    -- draw only 1 slice
     if mode==2 then
         extents[majori].lo=layer
         extents[majori].hi=layer
         force_adj=true
+    elseif mode==3 then
+        if cam.pos[majori]>layer then
+            extents[majori].hi=layer-1
+        else
+            extents[majori].lo=layer+1
+        end
+        -- nothing to draw?
+        if(extents[majori].hi-extents[majori].lo<0) return
     end
 
     -- viz blocks
@@ -319,6 +328,10 @@ function draw_grid(grid,cam,mode,layer)
         return
     end
     -- render in order
+    local polydraw=function(p,np,c,side)
+        polyfill(p,np,c)
+        if(mode==2 and side&major_mask!=0) polyline(p,np,sget(57,c&0xf))            
+    end
     for i=1,#visible_blocks,3 do
         local id,current_mask,idx=visible_blocks[i],visible_blocks[i+1],visible_blocks[i+2]
         -- convert to coord offsets
@@ -326,31 +339,7 @@ function draw_grid(grid,cam,mode,layer)
         -- printh("mask: "..tostr(visible_blocks[i],1).." idx: "..tostr(idx,1))
         -- solid block
         local adj={ox,oy,oz}
-        local polydraw=function(p,np,c,side)
-            polyfill(p,np,c)
-            if(mode==2 and side&major_mask!=0) polyline(p,np,sget(57,c&0xf))            
-        end
-        --[[
-        local visible,force_adj=true
-        if layer then
-            if cam.pos[3]<layer then
-                if layer>oz then
-                    visible=false
-                end
-            else
-                if layer<oz then
-                    visible=false
-                end
-            end
-            if layer!=oz then                
-                polydraw=function(p,np,c)
-                    polyfill(p,np,(c&0xff)|0x1100.5f5f)
-                end
-            else
-                force_adj=true
-            end
-        end
-        ]]
+
         for maski,mask in pairs(masks) do
             local active_side=current_mask&mask
             local side=faces[active_side]
@@ -506,9 +495,9 @@ function make_voxel_editor()
             local r=self.rect
             clip(r.x,r.y,r.w,r.h)            
             local majori,minori,lasti=get_majors(cam)
-            local major_layer=layer[majori]
+            local major_layer,draw_order=layer[majori],1
             -- adjust such that layer plane is aligned with top
-            if(cam.pos[majori]>major_layer) major_layer+=1
+            if(cam.pos[majori]>major_layer) major_layer+=1 draw_order=2
             local masks={}
             for i in pairs{majori,minori,lasti} do
                 masks[(cam.fwd[i]>0 and 2 or 1)>>((3-i)<<3)]=i
@@ -554,9 +543,29 @@ function make_voxel_editor()
                 end
             end
 
-            draw_grid(_grid,cam,rotation_mode and 1 or 2,layer[majori])
+            if not rotation_mode then
+                local draw_cache=function()
+                    -- copy to spritesheet
+                    memcpy(0x0,0x8000,64*128)
+                    local r=self.rect
+                    fillp(0x5f5f.c)
+                    sspr(r.x,r.y,r.w,r.h,r.x,r.y)
+                    fillp()
+                    reload()
+                end
+                if draw_order==1 then
+                    draw_grid(_grid,cam,rotation_mode and 1 or 2,layer[majori])
+                    draw_cache()
+                else
+                    draw_cache()
+                    draw_grid(_grid,cam,rotation_mode and 1 or 2,layer[majori])
+                end
+            else
+                draw_grid(_grid,cam,rotation_mode and 1 or 2,layer[majori])
+            end
             fillp()
             
+
             -- draw cursor if any
             if current_voxel then
                 local pts={}
@@ -571,9 +580,10 @@ function make_voxel_editor()
             end
              
             clip() 
-            if(current_voxel) print(v_tostr(current_voxel.origin),2,110,8)
+            if(current_voxel) print(v_tostr(current_voxel.origin),2,120,8)
         end,
         mousemove=function(self,msg)
+            local prev_mode=rotation_mode
             if msg.mmb then
                 -- capture mouse
                 poke(0x5f2d, 0x5)
@@ -600,11 +610,22 @@ function make_voxel_editor()
             local center={xy,xy,xy}
             cam:control(center,yangle,zangle,1.5*_grid_size)
             local majori,minori,lasti=get_majors(cam)
-            layer[majori]=mid(layer[majori]+msg.wheel,0,_grid_size-1)
-
+            local prev_layer=layer[majori]
+            layer[majori]=mid(prev_layer-msg.wheel*sgn(cam.fwd[majori]),0,_grid_size-1)
+            local major_layer=layer[majori]
             -- selection
             if not rotation_mode then
-                local major_layer,offset=layer[majori],0
+                -- previous mode?
+                if prev_mode or prev_layer!=major_layer then
+                    -- capture 
+                    holdframe()
+                    cls()
+                    draw_grid(_grid,cam,3,layer[majori])
+                    -- copy to memory
+                    memcpy(0x8000,0x6000,64*128)
+                end
+
+                local offset=layer[majori]
                 if(cam.pos[majori]>major_layer) offset=1
                 local ti,tj=cam:unproject(msg.mx,msg.my,majori,minori,lasti,major_layer)
                 local fwd,right,up=cam.fwd,cam.right,cam.up
