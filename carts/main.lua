@@ -138,6 +138,8 @@ function make_player(_origin,_a)
     return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
       -- start above floor
       origin=v_add(_origin,{0,1,0}), 
+      eye_pos=v_add(_origin,{0,25,0}), 
+      m=make_m_from_euler(angle),
       control=function(_ENV)
         if(dead) return
         -- move
