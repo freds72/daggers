@@ -250,6 +250,10 @@ function make_player(_origin,_a)
               if thing!=self and not thing.dead then
                 local dist=v_len(eye_pos,thing.origin)
 
+                if thing.chatter and dist < 128 then
+                  do_chatter(thing.chatter)
+                end
+
                 --[[
                 if dist<16 then
                   if thing.pickup then
@@ -666,7 +670,7 @@ local _flying_target
 function make_skull(actor,_origin)
   local resolved,wobling={},3+rnd(2)
   local thing=add(_things,
-    inherit(with_properties("zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero",{
+    inherit(with_properties("zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,chatter,12",{
       origin=_origin,
       seed=rnd(16),
       -- grid cells
@@ -789,7 +793,7 @@ function make_worm(_origin)
   local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
 
   for i=1,20 do
-    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop",{
+    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop,chatter,20",{
       ent=_entities.worm1,
       hit=function(_ENV)
         -- avoid reentrancy
@@ -926,7 +930,7 @@ function make_egg(_origin,vel)
         grid_unregister(_ENV)
         make_goo(origin)
         -- spiderling
-        make_skull(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53",{
+        make_skull(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28",{
           ent=_entities.spider0,
           blast=make_goo,
           apply=function(_ENV,other,force,t)
