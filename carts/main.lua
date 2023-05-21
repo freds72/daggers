@@ -243,13 +243,14 @@ function make_player(_origin,_a)
         eye_pos=v_add(origin,{0,24,0})
 
         -- check collisions
-        --[[
         if not dead then   
-          local a=atan2(prev_pos[1]-self.origin[1],prev_pos[3]-self.origin[3])
-          collect_grid(prev_pos,self.origin,cos(a),sin(a),function(grid_cell)
+          local a=atan2(prev_pos[1]-origin[1],prev_pos[3]-origin[3])
+          collect_grid(prev_pos,origin,cos(a),sin(a),function(grid_cell)
             for thing in pairs(grid_cell) do
               if thing!=self and not thing.dead then
-                local dist=v_len(self.eye_pos,thing.origin)
+                local dist=v_len(eye_pos,thing.origin)
+
+                --[[
                 if dist<16 then
                   if thing.pickup then
                     _total_jewels+=1
@@ -261,11 +262,11 @@ function make_player(_origin,_a)
                     break
                   end
                 end
+                ]]
               end
-            end)
-          end
+            end
+          end)
         end
-        ]]
         m=make_m_from_euler(unpack(angle))    
 
         -- normal fire
