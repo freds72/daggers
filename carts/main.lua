@@ -670,7 +670,8 @@ local _flying_target
 function make_skull(actor,_origin)
   local resolved,wobling={},3+rnd(2)
   local thing=add(_things,
-    inherit(with_properties("zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,chatter,12",{
+    inherit(with_properties("zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero",{
+      chatter=actor.chatter or 12,
       origin=_origin,
       seed=rnd(16),
       -- grid cells
@@ -809,7 +810,7 @@ function make_worm(_origin)
     grid_register(seg)
   end
 
-  head=make_skull(with_properties("radius,18,hp,10,apply,nop",{
+  head=make_skull(with_properties("radius,18,hp,10,apply,nop,chatter,20",{
     ent=_entities.worm0,
     die=function(_ENV)
       music(54)
