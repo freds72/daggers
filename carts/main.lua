@@ -786,6 +786,10 @@ function make_skull(actor,_origin)
       end
     }),inherit(actor)))
   grid_register(thing)
+
+  --play spawn sfx
+  sfx(actor.spawnsfx or 40)
+
   return thing
 end
 
@@ -794,7 +798,7 @@ function make_worm(_origin)
   local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
 
   for i=1,20 do
-    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop,chatter,20",{
+    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop,chatter,20,spawnsfx,42",{
       ent=_entities.worm1,
       hit=function(_ENV)
         -- avoid reentrancy
@@ -931,7 +935,7 @@ function make_egg(_origin,vel)
         grid_unregister(_ENV)
         make_goo(origin)
         -- spiderling
-        make_skull(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28",{
+        make_skull(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41",{
           ent=_entities.spider0,
           blast=make_goo,
           apply=function(_ENV,other,force,t)
