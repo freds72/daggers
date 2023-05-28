@@ -12,5 +12,6 @@ sdl_controllers.txt
 *.bin
 /.vscode/
 __pycache__/
-
+*.swp
+*.swo
 
