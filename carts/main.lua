@@ -1,5 +1,5 @@
 local _plyr,_cam,_things,_grid,_futures
-local _entities,_particles,_bullets
+local _entities,_particles,_bullets,_blood_ents,_goo_ents
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
 
@@ -243,13 +243,14 @@ function make_player(_origin,_a)
         eye_pos=v_add(origin,{0,24,0})
 
         -- check collisions
-        --[[
         if not dead then   
-          local a=atan2(prev_pos[1]-self.origin[1],prev_pos[3]-self.origin[3])
-          collect_grid(prev_pos,self.origin,cos(a),sin(a),function(grid_cell)
+          local a=atan2(prev_pos[1]-origin[1],prev_pos[3]-origin[3])
+          -- 
+          collect_grid(prev_pos,origin,cos(a),-sin(a),function(grid_cell)
             for thing in pairs(grid_cell) do
-              if thing!=self and not thing.dead then
-                local dist=v_len(self.eye_pos,thing.origin)
+              if thing!=_ENV and not thing.dead then
+                -- special handling for crawling enemies
+                local dist=v_len(thing.on_ground and origin or eye_pos,thing.origin)
                 if dist<16 then
                   if thing.pickup then
                     _total_jewels+=1
@@ -257,15 +258,14 @@ function make_player(_origin,_a)
                   else
                     -- avoid reentrancy
                     dead=true
-                    next_state(gameover_state,thing.obituary)
+                    next_state(gameover_state,thing.ent.obituary)
                     break
                   end
                 end
               end
-            end)
-          end
+            end
+          end)
         end
-        ]]
         m=make_m_from_euler(unpack(angle))    
 
         -- normal fire
@@ -641,19 +641,11 @@ function make_blast(_ents,_origin)
 end
 
 function make_blood(_origin)
-  make_blast({
-    _entities.blood0,
-    _entities.blood1,
-    _entities.blood2
-  },_origin)
+  make_blast(_blood_ents,_origin)
 end
 
 function make_goo(_origin)
-  return make_blast({
-    _entities.goo0,
-    _entities.goo1,
-    _entities.goo2
-  },_origin)
+  return make_blast(_goo_ents,_origin)
 end
 
 -- flying things:
@@ -779,7 +771,6 @@ function make_skull(actor,_origin)
         grid_register(_ENV)
       end
     }),inherit(actor)))
-  grid_register(thing)
   return thing
 end
 
@@ -847,7 +838,7 @@ function make_worm(_origin)
 end
 
 function make_jewel(_origin,vel)
-  grid_register(add(_things,inherit(with_properties("radius,8,zangle,rnd,ttl,3000,pickup,1,apply,nop",{    
+  add(_things,inherit(with_properties("radius,8,zangle,rnd,ttl,3000,pickup,1,apply,nop",{    
     ent=_entities.jewel,
     origin=v_clone(_origin),
     update=function(_ENV)
@@ -894,13 +885,14 @@ function make_jewel(_origin,vel)
       end
       grid_register(_ENV)
     end
-  }))))
+  })))
 end
 
 function make_egg(_origin,vel)
   -- spider spawn time
   local ttl=300+rnd(10)
-  grid_register(add(_things,inherit(with_properties("radius,12,hp,2,zangle,0,apply,nop",{
+  -- todo: falling support
+  grid_register(add(_things,inherit(with_properties("radius,12,hp,2,zangle,0,apply,nop,on_ground,1",{
     ent=_entities.egg,
     origin=v_clone(_origin),
     hit=function(_ENV)
@@ -1295,6 +1287,17 @@ function _init()
   _bullets,_things,_futures={},{},{}
   -- load images
   _entities=decompress("pic",0,0,unpack_entities)
+  -- predefined entries (avoids constant gc)
+  _blood_ents,_goo_ents={
+    _entities.blood0,
+    _entities.blood1,
+    _entities.blood2
+  },{
+    _entities.goo0,
+    _entities.goo1,
+    _entities.goo2
+  }
+  
   reload()
   
   -- init ground vectors
@@ -1335,6 +1338,7 @@ function collect_grid(a,b,u,v,cb)
     disty=(mapy+1-a[3]/32)*ddy
   end
   while dest_mapx!=mapx and dest_mapy!=mapy do
+    printh(mapx.."/"..mapy.." -> "..dest_mapx.."/"..dest_mapy.." ["..mapdx.." "..mapdy.."]")
     if distx<disty then
       distx+=ddx
       mapx+=mapdx
@@ -1482,11 +1486,13 @@ end
 -- unpack assets
 function unpack_entities()
   local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel,worm2"
+  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED"
   unpack_array(function()
     local id=mpeek()
     if id!=0 then
       local sprites,angles={},mpeek()
       entities[names[id]]={  
+        obituary=obituaries[id],
         sprites=sprites,   
         yangles=angles&0xf,
         zangles=angles\16,        
