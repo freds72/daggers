@@ -3,6 +3,9 @@ local _entities,_particles,_bullets,_blood_ents,_goo_ents
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
 
+-- debug
+local _god_mode=true
+
 local _ground={
   -- middle chunk
   {
@@ -251,14 +254,19 @@ function make_player(_origin,_a)
               if thing!=_ENV and not thing.dead then
                 -- special handling for crawling enemies
                 local dist=v_len(thing.on_ground and origin or eye_pos,thing.origin)
+                if thing.chatter and dist < 128 then
+                  do_chatter(thing.chatter)
+                end                
                 if dist<16 then
                   if thing.pickup then
                     _total_jewels+=1
                     thing.dead=true
                   else
-                    -- avoid reentrancy
-                    dead=true
-                    next_state(gameover_state,thing.ent.obituary)
+                    if not _god_mode then
+                      -- avoid reentrancy
+                      dead=true
+                      next_state(gameover_state,thing.ent.obituary)
+                    end
                     break
                   end
                 end
@@ -658,6 +666,7 @@ function make_skull(actor,_origin)
   local resolved,wobling={},3+rnd(2)
   local thing=add(_things,
     inherit(with_properties("zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero",{
+      chatter=actor.chatter or 12,
       origin=_origin,
       seed=rnd(16),
       -- grid cells
@@ -771,6 +780,11 @@ function make_skull(actor,_origin)
         grid_register(_ENV)
       end
     }),inherit(actor)))
+  grid_register(thing)
+
+  --play spawn sfx
+  sfx(actor.spawnsfx or 40)
+
   return thing
 end
 
@@ -779,7 +793,7 @@ function make_worm(_origin)
   local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
 
   for i=1,20 do
-    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop",{
+    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop,chatter,20,spawnsfx,42",{
       ent=_entities.worm1,
       hit=function(_ENV)
         -- avoid reentrancy
@@ -795,7 +809,7 @@ function make_worm(_origin)
     grid_register(seg)
   end
 
-  head=make_skull(with_properties("radius,18,hp,10,apply,nop",{
+  head=make_skull(with_properties("radius,18,hp,10,apply,nop,chatter,20",{
     ent=_entities.worm0,
     die=function(_ENV)
       music(54)
@@ -917,7 +931,7 @@ function make_egg(_origin,vel)
         grid_unregister(_ENV)
         make_goo(origin)
         -- spiderling
-        make_skull(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53",{
+        make_skull(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41",{
           ent=_entities.spider0,
           blast=make_goo,
           apply=function(_ENV,other,force,t)
@@ -1265,6 +1279,11 @@ function _init()
     load("title.p8")
     -- bbs version
     load("#freds72_daggers_title")
+  end)
+
+  -- exit menu entry
+  menuitem(1,"god mode "..tostr(_god_mode),function()
+    _god_mode=not _god_mode
   end)
 
   -- always needed  
