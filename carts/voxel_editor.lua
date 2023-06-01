@@ -809,7 +809,7 @@ function unpack_archive()
 end
 
 function collect_frames(ent,cb)
-    local cam=make_cam(15.5,15.5,32,1)
+    local cam=make_cam(15.5,15.5,16,1)
     local grid,frames=grid_fromstr(ent.data),{}
     -- find middle of voxel entity
     local zmin,zmax=32000,-32000

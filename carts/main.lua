@@ -1281,10 +1281,15 @@ function _init()
     load("#freds72_daggers_title")
   end)
 
-  -- exit menu entry
-  menuitem(1,"god mode "..tostr(_god_mode),function()
+  -- god mode menu entry
+  local god_menu_handler
+  god_menu_handler=function()
     _god_mode=not _god_mode
-  end)
+    menuitem(2,"god mode "..tostr(_god_mode),god_menu_handler)
+    return true
+  end
+  _god_mode=true
+  god_menu_handler()
 
   -- always needed  
   _cam=inherit{
