@@ -597,6 +597,7 @@ function draw_grid(cam,light)
           base+=4
         end
       end
+      w0*=(thing.scale or 1)
       local sx,sy=item.x-w*w0/2,item.y-h*w0/2
       --
       sspr(frame.xmin,0,w,h,sx,sy,w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff),flip)
@@ -604,7 +605,7 @@ function draw_grid(cam,light)
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
     elseif item.type==2 then
-      --tline(item.x0,item.y0,item.x1,item.y1,item.thing.c,0,0,1/8)
+      circfill(item.x,item.y,4*item.key,3)
     elseif item.type==3 then
       local origin=item.thing.prev
       local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
@@ -1025,24 +1026,44 @@ function play_state()
   
   make_jewel({512,48,512},{0,0,0})
 
-  for i=0,3 do
-    local a=i/4
-    make_egg({512+32*cos(a),4,512-32*sin(a)},{0,0,0})
+  for i=0,10 do
+    for j=0,10 do
+      make_egg({512+32*i,4,512+32*j},{0,0,0})
+    end
   end
 
-  add(_things,{
-    ent=_entities.hand1,
-    origin={512,16,512},
-    zangle=0,
-    radius=24
-  })
-  add(_things,{
-    ent=_entities.hand2,
-    origin={512,32,512},
-    zangle=0,
-    radius=24
-  })
-
+  for i=0,2 do
+    local angle=i/3
+    local c,s=cos(angle),-sin(angle)
+    local r=8
+    add(_things,{
+      ent=_entities.hand1,
+      origin={512+r*c,16,512+r*s},
+      zangle=angle+0.5,
+      radius=24
+    })
+    add(_things,{
+      ent=_entities.hand2,
+      origin={512+r*c,32,512+r*s},
+      zangle=angle+0.5,
+      radius=24
+    })
+    for i=0,3 do
+      add(_things,{
+        ent=_entities.tentacle0,
+        origin={512+r*c,48+16*i,512+r*s},
+        zangle=angle,
+        radius=24,
+        shadeless=true,
+        scale=1/sqrt(i+1),
+        update=function(self)
+          self.yangle=-0.1*cos(time()/8+i/3)*(i+1)
+          local offset=10+sin(time()/4+i/3)*i*self.scale
+          self.origin={512+offset*c,48+8*i*(0.5+self.scale),512+offset*s}
+        end      
+      })
+    end
+  end
   -- enemies
   local skull1=with_properties("radius,16,hp,2",{
     ent=_entities.skull,
@@ -1288,7 +1309,7 @@ function _init()
     menuitem(2,"god mode "..tostr(_god_mode),god_menu_handler)
     return true
   end
-  _god_mode=true
+  _god_mode=false
   god_menu_handler()
 
   -- always needed  
@@ -1362,7 +1383,7 @@ function collect_grid(a,b,u,v,cb)
     disty=(mapy+1-a[3]/32)*ddy
   end
   while dest_mapx!=mapx and dest_mapy!=mapy do
-    printh(mapx.."/"..mapy.." -> "..dest_mapx.."/"..dest_mapy.." ["..mapdx.." "..mapdy.."]")
+    -- printh(mapx.."/"..mapy.." -> "..dest_mapx.."/"..dest_mapy.." ["..mapdx.." "..mapdy.."]")
     if distx<disty then
       distx+=ddx
       mapx+=mapdx
@@ -1509,8 +1530,8 @@ end
 
 -- unpack assets
 function unpack_entities()
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel,worm2"
-  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED"
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel,worm2,tentacle0,tentacle1"
+  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1"
   unpack_array(function()
     local id=mpeek()
     if id!=0 then
