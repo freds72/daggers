@@ -254,7 +254,7 @@ function make_player(_origin,_a)
               if thing!=_ENV and not thing.dead then
                 -- special handling for crawling enemies
                 local dist=v_len(thing.on_ground and origin or eye_pos,thing.origin)
-                if thing.chatter and dist < 128 then
+                if thing.chatter then
                   do_chatter(thing.chatter)
                 end                
                 if dist<16 then
