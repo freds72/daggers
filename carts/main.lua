@@ -261,6 +261,7 @@ function make_player(_origin,_a)
                   if thing.pickup then
                     _total_jewels+=1
                     thing.dead=true
+                    sfx"57"
                   else
                     if not _god_mode then
                       -- avoid reentrancy
