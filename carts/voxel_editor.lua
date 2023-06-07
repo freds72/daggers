@@ -55,6 +55,9 @@ local _entities={
     {text="jEWEL",angles=default_angles},
     -- worm segment without jewel
     {text="wORM2",angles=default_angles},
+    -- squid tentacles
+    {text="tENTACLE0",angles=default_angles},
+    {text="tENTACLE1",angles=default_angles},
 }
 local _current_entity
 
@@ -809,6 +812,7 @@ function unpack_archive()
 end
 
 function collect_frames(ent,cb)
+    local trans_color=15
     local cam=make_cam(15.5,15.5,16,1)
     local grid,frames=grid_fromstr(ent.data),{}
     -- find middle of voxel entity
@@ -873,6 +877,7 @@ function collect_frames(ent,cb)
     end    
     for _,y in ipairs(yangles) do
         for i,z in ipairs(zangles) do
+            -- assumes color 15 is not used :)
             cls()
             cam:control({xy,xy,zoffset},-y,z,2*_grid_size)
             clip(0,0,32,32)
@@ -974,6 +979,9 @@ function pack_entities()
 end
 
 function _init()  
+    -- clear screen cache
+    memset(0x8000,0,0x2000)
+
     -- integrated fill colors
     poke(0x5f34, 1)
 

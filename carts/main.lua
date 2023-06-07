@@ -126,15 +126,25 @@ local _ground_extents={
   split"192,256,256,768",
   split"768,832,256,768"
 }
+
 function nop() end
 function with_properties(props,dst)
   local props=split(props)
   for i=1,#props,2 do
     local v=props[i+1]
+    -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    -- note: assumes that function never returns a falsey value
     dst[props[i]]=v=="nop" and nop or type(_ENV[v])=="function" and _ENV[v]() or v
   end
   return dst
 end
+
+-- concentric offset around player in chatter grid
+local _chatter_ranges={
+  {0},
+  -- -1/-1 -1/0 -1/1 ...
+  split"0xfffe.ffff,0xffff.ffff,0x0.ffff,0x1,0x1.0001,0x0.0001,0xffff.0001,0xffff.0000"
+}
 
 function make_player(_origin,_a)
     local angle,on_ground,dead={0,_a,0}
@@ -246,35 +256,55 @@ function make_player(_origin,_a)
         eye_pos=v_add(origin,{0,24,0})
 
         -- check collisions
+        local x,z=origin[1],origin[3]
         if not dead then   
-          local a=atan2(prev_pos[1]-origin[1],prev_pos[3]-origin[3])
+          local a=atan2(prev_pos[1]-x,prev_pos[3]-z)
           -- 
           collect_grid(prev_pos,origin,cos(a),-sin(a),function(grid_cell)
-            for thing in pairs(grid_cell) do
-              if thing!=_ENV and not thing.dead then
-                -- special handling for crawling enemies
-                local dist=v_len(thing.on_ground and origin or eye_pos,thing.origin)
-                if thing.chatter and dist < 128 then
-                  do_chatter(thing.chatter)
-                end                
-                if dist<16 then
-                  if thing.pickup then
-                    _total_jewels+=1
-                    thing.dead=true
-                    sfx"57"
-                  else
-                    if not _god_mode then
-                      -- avoid reentrancy
-                      dead=true
-                      next_state(gameover_state,thing.ent.obituary)
+            -- avoid reentrancy
+            if not dead then
+              for thing in pairs(grid_cell) do
+                if thing!=_ENV and not thing.dead then
+                  -- special handling for crawling enemies
+                  local dist=v_len(thing.on_ground and origin or eye_pos,thing.origin)
+                  -- todo: use thing radius!!
+                  if dist<16 then
+                    if thing.pickup then
+                      thing:pickup()
+                    else
+                      if not _god_mode then
+                        -- avoid reentrancy
+                        dead=true
+                        next_state(gameover_state,thing.ent.obituary)
+                      end
+                      break
                     end
-                    break
                   end
                 end
               end
             end
           end)
         end
+
+        -- collect nearby chatter
+        _chatter={}
+        local idx=x>>23|(z\128)
+        for dist,offsets in inext,_chatter_ranges do
+          for _,idx_offset in inext,offsets do
+            -- yeah offset maths!
+            local cell=_grid[idx+idx_offset]
+            for chatter_id,cnt in pairs(cell.chatter) do
+              if(cnt>0) add(_chatter,{chatter_id,dist-1})
+              -- enough data?
+              if(#_chatter==3) goto end_noise
+            end
+          end
+        end
+::end_noise::
+        -- todo: 
+        -- check active noises (channels)
+
+        -- refresh angles
         m=make_m_from_euler(unpack(angle))    
 
         -- normal fire
@@ -484,25 +514,49 @@ function grid_register(thing)
   local r,o=thing.radius>>1,thing.origin
   local x,z=o[1],o[3]
   local z0,z1=(z-r)\32,(z+r)\32
-  -- \32 + >>16
+  -- \32(=5) + >>16
   for idx=(x-r)>>21,(x+r)>>21,0x0.0001 do
-    for z=z0,z1 do
-      local cell=_grid[idx|z]
+    for idx=idx|z0,idx|z1 do
+      local cell=_grid[idx]
       cell.things[thing]=true
       -- for fast unregister
       if(not thing.cells) thing.cells={}
-      thing.cells[idx|z]=cell
+      thing.cells[idx]=cell
     end
+  end
+  -- noise emitter
+  local chatter_id=thing.chatter
+  if chatter_id then
+    -- todo: add varying radius for various entities
+    local r=64
+    local z0,z1=(z-r)\128,(z+r)\128
+    -- \128(=7) + >>16
+    for idx=(x-r)>>23,(x+r)>>23,0x0.0001 do
+      for idx=z0|idx,z1|idx do
+        local cell=_grid[idx]
+        cell.chatter[chatter_id]+=1
+        -- for fast unregister
+        if(not thing.chatter_cells) thing.chatter_cells={}
+        -- for fast unregister
+        thing.chatter_cells[idx]=cell
+      end
+    end    
   end
 end
 
 -- removes thing from the collision grid
-function grid_unregister(thing)
-  for idx,cell in pairs(thing.cells) do
-    cell.things[thing]=nil
-    thing.cells[idx]=nil
-  end
+function grid_unregister(_ENV)
+  for idx,cell in pairs(cells) do
+    cell.things[_ENV]=nil
+    cells[idx]=nil
+  end  
+  for idx,cell in pairs(chatter_cells) do
+    -- note: assumes a previous register!!
+    cell.chatter[chatter]-=1       
+    chatter_cells[idx]=nil
+  end    
 end
+
 
 function draw_grid(cam,light)
   local m,cx,cy,cz=cam.m,unpack(cam.origin)
@@ -533,11 +587,13 @@ function draw_grid(cam,light)
       end
   
       -- 
-      ax+=m5*y
-      az+=m7*y
-      if az>8 and az<384 and 0.5*ax<az and -0.5*ax<az then
-        local ay,w=m2*x+m6*y+m10*z,64/az
-        things[#things+1]={key=w,type=type,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
+      if not obj.no_render then
+        ax+=m5*y
+        az+=m7*y
+        if az>8 and az<384 and 0.5*ax<az and -0.5*ax<az then
+          local ay,w=m2*x+m6*y+m10*z,64/az
+          things[#things+1]={key=w,type=type,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
+        end
       end
     end
   end
@@ -790,12 +846,69 @@ function make_skull(actor,_origin)
   return thing
 end
 
+-- squid
+-- type 1: 3 blocks
+-- type 2: 4 blocks
+function make_squid(_origin,_size)
+  _size=_size or 3
+  local _angle,_squid_sides=0,{}
+  local squid=add(_things,inherit(with_properties("no_render,1,radius,48",{
+    update=function(_ENV)
+      _angle+=0.005
+      _origin[1]+=0.1
+      origin=_origin
+    end
+  })))
+
+  for i=0,_size-1 do
+    local angle_offset=i/_size
+    local r,c,s=8,cos(angle),-sin(angle)
+    add(_things,inherit(with_properties("radius,32,origin,v_zero,zangle,0,shadeless,1",{
+      ent=_entities.hand1,
+      hit=function() end,
+      update=function(_ENV)
+        grid_unregister(_ENV)
+        zangle=_angle+angle_offset
+        local c,s=cos(zangle),-sin(zangle)
+        zangle+=0.5
+        origin=v_add(_origin,{r*c,16,r*s})        
+        grid_unregister(_ENV)
+      end    
+    })))
+    add(_things,inherit(with_properties("radius,32,origin,v_zero,zangle,0,shadeless,1",{
+      ent=_entities.hand2,
+      hit=function() end,
+      update=function(_ENV)
+        grid_unregister(_ENV)
+        zangle=_angle+angle_offset
+        local c,s=cos(zangle),-sin(zangle)
+        zangle+=0.5
+        origin=v_add(_origin,{r*c,32,r*s})
+        grid_unregister(_ENV)
+      end    
+    })))
+    for i=0,3 do
+      local scale=1/sqrt(i+1)
+      add(_things,inherit(with_properties("radius,16,origin,v_zero,zangle,0",{
+        ent=_entities.tentacle0,
+        update=function(_ENV)
+          zangle=_angle+angle_offset
+          yangle=-0.1*cos(time()/8+i/3)*(i+1)
+          local c,s=cos(zangle),-sin(zangle)
+          local offset=10+sin(time()/4+i/3)*i*scale
+          origin=v_add(_origin,{offset*c,48+16*i*(0.5+scale),offset*s})
+        end      
+      })))
+    end
+  end
+end
+
 -- centipede
 function make_worm(_origin)  
   local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
 
   for i=1,20 do
-    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop,chatter,20,spawnsfx,42",{
+    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42",{
       ent=_entities.worm1,
       hit=function(_ENV)
         -- avoid reentrancy
@@ -854,9 +967,16 @@ function make_worm(_origin)
 end
 
 function make_jewel(_origin,vel)
-  add(_things,inherit(with_properties("radius,8,zangle,rnd,ttl,3000,pickup,1,apply,nop",{    
+  add(_things,inherit(with_properties("radius,8,zangle,rnd,ttl,3000,apply,nop",{    
     ent=_entities.jewel,
     origin=v_clone(_origin),
+    pickup=function(_ENV)
+      if(dead) return
+      dead=true
+      _total_jewels+=1
+      sfx"57"
+      grid_unregister(_ENV)
+    end,
     update=function(_ENV)
       grid_unregister(_ENV)
       ttl-=1
@@ -1015,7 +1135,15 @@ function play_state()
       __index=function(self,k)
         -- automatic creation of buckets
         -- + array to store things at cell
-        local t={things={}}
+        local t={
+          things={},
+          chatter=setmetatable({},{       
+            __index=function(self,k)
+              self[k]=0
+              return 0
+            end
+          })
+        }
         self[k]=t
         return t
       end
@@ -1024,49 +1152,10 @@ function play_state()
   -- make_skull({512,24,512})
   make_worm({612,32,612})
   make_worm({256,48,386})
-  
-  make_jewel({512,48,512},{0,0,0})
+  make_squid({512,0,512})
 
-  for i=0,10 do
-    for j=0,10 do
-      make_egg({512+32*i,4,512+32*j},{0,0,0})
-    end
-  end
-
-  for i=0,2 do
-    local angle=i/3
-    local c,s=cos(angle),-sin(angle)
-    local r=8
-    add(_things,{
-      ent=_entities.hand1,
-      origin={512+r*c,16,512+r*s},
-      zangle=angle+0.5,
-      radius=24
-    })
-    add(_things,{
-      ent=_entities.hand2,
-      origin={512+r*c,32,512+r*s},
-      zangle=angle+0.5,
-      radius=24
-    })
-    for i=0,3 do
-      add(_things,{
-        ent=_entities.tentacle0,
-        origin={512+r*c,48+16*i,512+r*s},
-        zangle=angle,
-        radius=24,
-        shadeless=true,
-        scale=1/sqrt(i+1),
-        update=function(self)
-          self.yangle=-0.1*cos(time()/8+i/3)*(i+1)
-          local offset=10+sin(time()/4+i/3)*i*self.scale
-          self.origin={512+offset*c,48+8*i*(0.5+self.scale),512+offset*s}
-        end      
-      })
-    end
-  end
   -- enemies
-  local skull1=with_properties("radius,16,hp,2",{
+  local skull1=with_properties("radius,16,hp,2,chatter,5",{
     ent=_entities.skull,
     think=function(_ENV)
       -- converge toward player
@@ -1077,7 +1166,7 @@ function play_state()
     end
   })
 
-  local skull2=with_properties("radius,18,hp,5,target_ttl,0,jewel,1",{
+  local skull2=with_properties("radius,18,hp,5,target_ttl,0,jewel,1,chatter,6",{
     ent=_entities.reaper,
     think=function(_ENV)      
       target_ttl-=1
@@ -1153,6 +1242,11 @@ function play_state()
       ]]
       -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
 
+      local y=2
+      for _,v in ipairs(_plyr._chatter) do
+        print("CHATTER: "..v[1].." ("..v[2].." UNITS)",2,y,7)
+        y+=6
+      end
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
     -- init
