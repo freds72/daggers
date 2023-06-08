@@ -139,11 +139,34 @@ function with_properties(props,dst)
   return dst
 end
 
+-- range index generator
+--[[
+  done={}
+
+function visit(x0,y0,len)
+ local s=""
+	for x=x0,x0+len-1 do
+	 for y=y0,y0+len-1 do
+	 	local idx=(x-x0)>>16|(y-y0)
+	 	if not done[x|y<<6] then
+	 	 done[x|y<<6]=true
+	 	 s..=tostr(idx,1)..","
+	 	end
+	 end
+	end
+	return s
+end
+
+local s="{{"..visit(2,2,2).."},\n"
+s..="{"..visit(1,1,4).."},\n"
+s..="{"..visit(0,0,6).."}}"
+printh(s,"@clip")
+]]
 -- concentric offset around player in chatter grid
 local _chatter_ranges={
-  {0},
-  -- -1/-1 -1/0 -1/1 ...
-  split"0xfffe.ffff,0xffff.ffff,0x0.ffff,0x1,0x1.0001,0x0.0001,0xffff.0001,0xffff.0000"
+  split"0x0000.0000,0x0001.0000,0x0000.0001,0x0001.0001",
+  split"0x0000.0000,0x0001.0000,0x0002.0000,0x0003.0000,0x0000.0001,0x0003.0001,0x0000.0002,0x0003.0002,0x0000.0003,0x0001.0003,0x0002.0003,0x0003.0003",
+  split"0x0001.0000,0x0002.0000,0x0003.0000,0x0004.0000,0x0000.0001,0x0005.0001,0x0000.0002,0x0005.0002,0x0000.0003,0x0005.0003,0x0000.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
 }
 
 function make_player(_origin,_a)
@@ -288,17 +311,20 @@ function make_player(_origin,_a)
 
         -- collect nearby chatter
         _chatter={}
-        local idx=x>>23|(z\128)
+        local x0,z0=x>>22,z\64
         for dist,offsets in inext,_chatter_ranges do
+          local idx=x0|z0
           for _,idx_offset in inext,offsets do
-            -- yeah offset maths!
-            local cell=_grid[idx+idx_offset]
+            local cell=_grid[idx+idx_offset]            
             for chatter_id,cnt in pairs(cell.chatter) do
               if(cnt>0) add(_chatter,{chatter_id,dist-1})
               -- enough data?
               if(#_chatter==3) goto end_noise
             end
           end
+          -- next range
+          x0-=0x0.0001
+          z0-=1
         end
 ::end_noise::
         -- todo: 
@@ -536,20 +562,11 @@ function grid_register(thing)
 
     -- noise emitter?
     if chatter then
-      -- todo: add varying radius for various entities
-      local r=64
-      local z0,z1=(z-r)\128,(z+r)\128
-      -- \128(=7) + >>16
-      for idx=(x-r)>>23,(x+r)>>23,0x0.0001 do
-        for idx=z0|idx,z1|idx do
-          local cell=_grid[idx]
-          cell.chatter[chatter]+=1
-          -- for fast unregister
-          if(not chatter_cells) chatter_cells={}
-          -- for fast unregister
-          chatter_cells[idx]=cell
-        end
-      end    
+      -- \64(=6) + >>16
+      local cell=grid[x>>22|(z\64)]
+      cell.chatter[chatter]+=1
+      -- for fast unregister
+      chatter_cell=cell
     end
   end
 end
@@ -560,10 +577,9 @@ function grid_unregister(_ENV)
     cell.things[_ENV]=nil
     cells[idx]=nil
   end  
-  for idx,cell in pairs(chatter_cells) do
-    -- note: assumes a previous register!!
-    cell.chatter[chatter]-=1       
-    chatter_cells[idx]=nil
+  if chatter_cell then
+    chatter_cell.chatter[chatter]-=1
+    chatter_cell=nil
   end    
 end
 
@@ -1232,8 +1248,7 @@ function play_state()
     function()
       draw_world()
       -- todo: draw player hand
-    --[[
-
+      --[[]
       for x=0,31 do
         for y=0,31 do
           local idx,count=x>>16|y,0
@@ -1245,7 +1260,8 @@ function play_state()
       end
       spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)      
       ]]
-      -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+
+      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
 
       local y=2
       for _,v in ipairs(_plyr._chatter) do
