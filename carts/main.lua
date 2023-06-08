@@ -510,37 +510,47 @@ end
 
 -- adds thing in the collision grid
 function grid_register(thing)
+  local grid,_ENV=_grid,thing
   -- need half-radius
-  local r,o=thing.radius>>1,thing.origin
-  local x,z=o[1],o[3]
-  local z0,z1=(z-r)\32,(z+r)\32
+  local r,x,z=radius>>1,origin[1],origin[3]
   -- \32(=5) + >>16
-  for idx=(x-r)>>21,(x+r)>>21,0x0.0001 do
-    for idx=idx|z0,idx|z1 do
-      local cell=_grid[idx]
-      cell.things[thing]=true
-      -- for fast unregister
-      if(not thing.cells) thing.cells={}
-      thing.cells[idx]=cell
-    end
-  end
-  -- noise emitter
-  local chatter_id=thing.chatter
-  if chatter_id then
-    -- todo: add varying radius for various entities
-    local r=64
-    local z0,z1=(z-r)\128,(z+r)\128
-    -- \128(=7) + >>16
-    for idx=(x-r)>>23,(x+r)>>23,0x0.0001 do
-      for idx=z0|idx,z1|idx do
-        local cell=_grid[idx]
-        cell.chatter[chatter_id]+=1
+  local x0,x1,z0,z1=(x-r)>>21,(x+r)>>21,(z-r)\32,(z+r)\32
+  -- different from previous range?
+  if grid_x0!=x0 or grid_x1!=x1 or grid_z0!=z0 or grid_z1!=z1 then
+    -- remove previous grid cells
+    grid_unregister(thing)
+    for idx=x0,x1,0x0.0001 do
+      for idx=idx|z0,idx|z1 do
+        local cell=grid[idx]
+        cell.things[thing]=true
         -- for fast unregister
-        if(not thing.chatter_cells) thing.chatter_cells={}
-        -- for fast unregister
-        thing.chatter_cells[idx]=cell
+        if(not cells) cells={}
+        cells[idx]=cell
       end
-    end    
+    end
+    -- cache grid coords
+    grid_x0=x0
+    grid_x1=x1
+    grid_z0=z0
+    grid_z1=z1
+
+    -- noise emitter?
+    if chatter then
+      -- todo: add varying radius for various entities
+      local r=64
+      local z0,z1=(z-r)\128,(z+r)\128
+      -- \128(=7) + >>16
+      for idx=(x-r)>>23,(x+r)>>23,0x0.0001 do
+        for idx=z0|idx,z1|idx do
+          local cell=_grid[idx]
+          cell.chatter[chatter]+=1
+          -- for fast unregister
+          if(not chatter_cells) chatter_cells={}
+          -- for fast unregister
+          chatter_cells[idx]=cell
+        end
+      end    
+    end
   end
 end
 
@@ -759,7 +769,6 @@ function make_skull(actor,_origin)
         resolved[other]=true
       end,
       update=function(_ENV)
-        grid_unregister(_ENV)
         hit_ttl=max(hit_ttl-1)
         -- some gravity
         if not on_ground then
@@ -781,7 +790,7 @@ function make_skull(actor,_origin)
         local fx,fy,fz=forces[1],forces[2],forces[3]
         for other in pairs(_grid[idx].things) do
           -- todo: apply inverse force to other (and keep track)
-          if not resolved[other] then
+          if not resolved[other] and other!=_ENV then
             local avoid,avoid_dist=v_dir(origin,other.origin)
             if(avoid_dist<4) avoid_dist=1
             -- todo: tune...
@@ -867,7 +876,6 @@ function make_squid(_origin,_size)
       ent=_entities.hand1,
       hit=function() end,
       update=function(_ENV)
-        grid_unregister(_ENV)
         zangle=_angle+angle_offset
         local c,s=cos(zangle),-sin(zangle)
         zangle+=0.5
@@ -879,7 +887,6 @@ function make_squid(_origin,_size)
       ent=_entities.hand2,
       hit=function() end,
       update=function(_ENV)
-        grid_unregister(_ENV)
         zangle=_angle+angle_offset
         local c,s=cos(zangle),-sin(zangle)
         zangle+=0.5
@@ -957,7 +964,6 @@ function make_worm(_origin)
       if(#prev>20*seg_delta) deli(prev) deli(prev_angles)
       for i=1,#prev,seg_delta do
         local seg=segments[i\seg_delta+1]
-        grid_unregister(seg)
         seg.origin=prev[i]
         seg.zangle=prev_angles[i]
         grid_register(seg)
@@ -978,7 +984,6 @@ function make_jewel(_origin,vel)
       grid_unregister(_ENV)
     end,
     update=function(_ENV)
-      grid_unregister(_ENV)
       ttl-=1
       if ttl<0 then
         dead=true
