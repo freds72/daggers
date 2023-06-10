@@ -225,6 +225,12 @@ s..="{"..visit(0,0,6).."}}"
 printh(s,"@clip")
 ]]
 -- concentric offset around player in chatter grid
+--  2222
+-- 211112
+-- 210012
+-- 210012
+-- 211112
+--  2222
 local _chatter_ranges={
   split"0x0000.0000,0x0001.0000,0x0000.0001,0x0001.0001",
   split"0x0000.0000,0x0001.0000,0x0002.0000,0x0003.0000,0x0000.0001,0x0003.0001,0x0000.0002,0x0003.0002,0x0000.0003,0x0001.0003,0x0002.0003,0x0003.0003",
@@ -887,6 +893,7 @@ function make_squid(_origin,_size)
   local squid=add(_things,inherit({
     update=function(_ENV)
       _angle+=0.005
+      -- test move
       _origin[1]+=0.1
       origin=_origin
     end
