@@ -899,29 +899,32 @@ function make_squid(_origin,_size)
     end
   },_squid_core))
 
+  
+  local base_parts=split([[_squid_base;u,1.0,v,0.0,angle_offset,0.0,r_offset,8,y_offset,16
+_squid_hood;u,1.0,v,0.0,angle_offset,0.0,r_offset,8,y_offset,32
+_squid_base;u,-0.5,v,0.866,angle_offset,0.3333,r_offset,8,y_offset,16
+_squid_hood;u,-0.5,v,0.866,angle_offset,0.3333,r_offset,8,y_offset,32
+_squid_base;u,-0.5,v,-0.866,angle_offset,0.6667,r_offset,8,y_offset,16
+_squid_hood;u,-0.5,v,-0.866,angle_offset,0.6667,r_offset,8,y_offset,32]],"\n")
+
+  for config in all(base_parts) do
+    local base_template,properties=unpack(split(config,";"))
+    add(_things,inherit({
+      hit=function() end,
+      update=function(_ENV)
+        zangle=_angle+angle_offset
+        local c,s=cos(zangle),-sin(zangle)
+        zangle+=0.5
+        origin=v_add(_origin,{r_offset*c,y_offset,r_offset*s})        
+        grid_register(_ENV)
+      end    
+    },inherit(with_properties(properties),_ENV[base_template])))
+  end
+
   for i=0,_size-1 do
     local angle_offset=i/_size
     local r,c,s=8,cos(angle),-sin(angle)
-    add(_things,inherit({
-      hit=function() end,
-      update=function(_ENV)
-        zangle=_angle+angle_offset
-        local c,s=cos(zangle),-sin(zangle)
-        zangle+=0.5
-        origin=v_add(_origin,{r*c,16,r*s})        
-        grid_register(_ENV)
-      end    
-    },_squid_base))
-    add(_things,inherit({
-      hit=function() end,
-      update=function(_ENV)
-        zangle=_angle+angle_offset
-        local c,s=cos(zangle),-sin(zangle)
-        zangle+=0.5
-        origin=v_add(_origin,{r*c,32,r*s})
-        grid_register(_ENV)
-      end    
-    },_squid_hood))
+   
     for i=0,4 do
       local scale=1/sqrt(i+1)
       add(_things,inherit({
