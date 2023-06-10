@@ -132,10 +132,17 @@ function with_properties(props,dst)
   dst=dst or {}
   local props=split(props)
   for i=1,#props,2 do
-    local v=props[i+1]
+    local k,v=props[i],props[i+1]
     -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     -- note: assumes that function never returns a falsey value
-    dst[props[i]]=v=="nop" and nop or type(_ENV[v])=="function" and _ENV[v]() or v
+    if v=="nop" then v=nop
+    elseif k=="ent" then 
+      v=_entities[v] 
+    else
+      local fn=_ENV[v]
+      v=type(fn)=="function" and fn() or v 
+    end
+    dst[k]=v
   end
   return dst
 end
@@ -719,7 +726,6 @@ function inherit(t,env)
 end
 
 -- things
-local _blast_template=inherit(with_properties"zangle,rnd,yangle,0,ttl,0,shadeless,1")
 function make_blast(_ents,_origin)  
   add(_things,inherit({
     -- sprite id
@@ -747,7 +753,6 @@ local _flying_target
 -- skull I II III
 -- centipede
 -- spiderling
-local _skull_template=inherit(with_properties"zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero")
 function make_skull(actor,_origin)
   local resolved,wobling={},3+rnd(2)
   local thing=add(_things,inherit({
@@ -879,19 +884,18 @@ end
 function make_squid(_origin,_size)
   _size=_size or 3
   local _angle,_squid_sides=0,{}
-  local squid=add(_things,inherit(with_properties("no_render,1,radius,48",{
+  local squid=add(_things,inherit({
     update=function(_ENV)
       _angle+=0.005
       _origin[1]+=0.1
       origin=_origin
     end
-  })))
+  },_squid_core))
 
   for i=0,_size-1 do
     local angle_offset=i/_size
     local r,c,s=8,cos(angle),-sin(angle)
-    add(_things,inherit(with_properties("radius,32,origin,v_zero,zangle,0,shadeless,1",{
-      ent=_entities.hand1,
+    add(_things,inherit({
       hit=function() end,
       update=function(_ENV)
         zangle=_angle+angle_offset
@@ -900,9 +904,8 @@ function make_squid(_origin,_size)
         origin=v_add(_origin,{r*c,16,r*s})        
         grid_unregister(_ENV)
       end    
-    })))
-    add(_things,inherit(with_properties("radius,32,origin,v_zero,zangle,0,shadeless,1",{
-      ent=_entities.hand2,
+    },_squid_base))
+    add(_things,inherit({
       hit=function() end,
       update=function(_ENV)
         zangle=_angle+angle_offset
@@ -911,11 +914,10 @@ function make_squid(_origin,_size)
         origin=v_add(_origin,{r*c,32,r*s})
         grid_unregister(_ENV)
       end    
-    })))
+    },_squid_hood))
     for i=0,3 do
       local scale=1/sqrt(i+1)
-      add(_things,inherit(with_properties("radius,16,origin,v_zero,zangle,0",{
-        ent=_entities.tentacle0,
+      add(_things,inherit({
         update=function(_ENV)
           zangle=_angle+angle_offset
           yangle=-0.1*cos(time()/8+i/3)*(i+1)
@@ -923,20 +925,17 @@ function make_squid(_origin,_size)
           local offset=10+sin(time()/4+i/3)*i*scale
           origin=v_add(_origin,{offset*c,48+16*i*(0.5+scale),offset*s})
         end      
-      })))
+      },_squid_tentacle))
     end
   end
 end
 
 -- centipede
-local _worm_seg_template=inherit(with_properties"radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42")
-local _worm_head_template=inherit(with_properties("radius,18,hp,10,apply,nop,chatter,20"),_skull_template)
 function make_worm(_origin)  
   local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
 
   for i=1,20 do
     local seg=add(segments,add(_things,inherit({
-      ent=_entities.worm1,
       hit=function(_ENV)
         -- avoid reentrancy
         if(touched) return
@@ -952,7 +951,6 @@ function make_worm(_origin)
   end
 
   head=make_skull(inherit({
-    ent=_entities.worm0,
     die=function(_ENV)
       music(54)
       -- clean segment
@@ -992,10 +990,8 @@ function make_worm(_origin)
   },_worm_head_template),_origin)
 end
 
-local _jewel_template=inherit(with_properties"radius,8,zangle,rnd,ttl,3000,apply,nop")
 function make_jewel(_origin,vel)
   add(_things,inherit({    
-    ent=_entities.jewel,
     origin=v_clone(_origin),
     pickup=function(_ENV)
       if(dead) return
@@ -1050,13 +1046,11 @@ function make_jewel(_origin,vel)
   },_jewel_template))
 end
 
-local _egg_template=inherit(with_properties"radius,12,hp,2,zangle,0,apply,nop,on_ground,1")
 function make_egg(_origin,vel)
   -- spider spawn time
   local ttl=300+rnd(10)
   -- todo: falling support
   grid_register(add(_things,inherit({
-    ent=_entities.egg,
     origin=v_clone(_origin),
     hit=function(_ENV)
       -- avoid reentrancy
@@ -1080,7 +1074,22 @@ function make_egg(_origin,vel)
         grid_unregister(_ENV)
         make_goo(origin)
         -- spiderling
-        make_skull(_spiderling_template,origin)
+        make_skull(inherit({
+            blast=make_goo,
+            apply=function(_ENV,other,force,t)
+              if other.on_ground then
+                forces[1]+=t*force[1]
+                forces[3]+=t*force[3]
+              end
+              resolved[other]=true
+            end,
+            think=function(_ENV)
+              -- navigate to target (direct)
+              local dir=v_dir(origin,_plyr.origin)
+              forces=v_add(forces,dir,8)
+            end
+          },_spiderling_template),      
+          origin)
       end
     end
   },_egg_template)))
@@ -1166,56 +1175,32 @@ function play_state()
   make_worm({256,48,386})
   make_squid({512,0,512})
 
-  -- global
-  _spiderling_template=inherit({
-    ent=_entities.spider0,
-    blast=make_goo,
-    apply=function(_ENV,other,force,t)
-      if other.on_ground then
-        forces[1]+=t*force[1]
-        forces[3]+=t*force[3]
-      end
-      resolved[other]=true
-    end,
-    think=function(_ENV)
-      -- navigate to target (direct)
-      local dir=v_dir(origin,_plyr.origin)
-      forces=v_add(forces,dir,8)
-    end
-  },
-  inherit(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41"),_skull_template))
-
-
   -- enemies
   local skull1_template=inherit({
-      ent=_entities.skull,
-      think=function(_ENV)
-        -- converge toward player
-        if _flying_target then
-          local dir=v_dir(origin,_flying_target)
-          forces=v_add(forces,dir,8+seed*cos(time()/5))
-        end
-      end
-    },
-    inherit(with_properties("radius,16,hp,2,chatter,5"),_skull_template))
-
-  local skull2_template=inherit({
-      ent=_entities.reaper,
-      think=function(_ENV)      
-        target_ttl-=1
-        if target_ttl<0 then  
-          -- go opposite from where it stands!  
-          local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd(0.25)
-          local r=64+rnd(64)
-          target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
-          target_ttl=90+rnd(10)
-        end
-        -- navigate to target
-        local dir=v_dir(origin,target)
+    think=function(_ENV)
+      -- converge toward player
+      if _flying_target then
+        local dir=v_dir(origin,_flying_target)
         forces=v_add(forces,dir,8+seed*cos(time()/5))
       end
-    },
-    inherit(with_properties("radius,18,hp,5,target_ttl,0,jewel,1,chatter,6"),_skull_template))
+    end
+  },_skull1_base_template)
+
+  local skull2_template=inherit({
+    think=function(_ENV)      
+      target_ttl-=1
+      if target_ttl<0 then  
+        -- go opposite from where it stands!  
+        local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd(0.25)
+        local r=64+rnd(64)
+        target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
+        target_ttl=90+rnd(10)
+      end
+      -- navigate to target
+      local dir=v_dir(origin,target)
+      forces=v_add(forces,dir,8+seed*cos(time()/5))
+    end
+  },_skull2_base_template)
 
   -- scenario
   do_async(function()
@@ -1471,6 +1456,24 @@ function _init()
     _entities.goo1,
     _entities.goo2
   }
+  -- global templates
+  local templates=split([[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
+_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero
+_egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,on_ground,1
+_worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
+_worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
+_jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
+_spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41;_skull_template
+_squid_core;no_render,1,radius,48
+_squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1
+_squid_hood;ent,hand2,radius,32,origin,v_zero,zangle,0,shadeless,1
+_squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0
+_skull1_base_template;ent,skull,radius,16,hp,2,chatter,5;_skull_template
+_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_skull_template]],"\n")
+  for line in all(templates) do
+    local name,template,parent=unpack(split(line,";"))
+    _ENV[name]=inherit(with_properties(template),_ENV[parent])
+  end
   
   reload()
   
