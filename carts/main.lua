@@ -147,6 +147,15 @@ function with_properties(props,dst)
   return dst
 end
 
+-- split a 2d table:
+-- each line is \n separated
+-- section in ; separated
+function split2d(config,cb)
+  for line in all(split(config,"\n")) do
+    cb(unpack(split(line,";")))
+  end
+end
+
 -- grid helpers
 function world_to_grid(p)
   return (p[1]\32)>>16|(p[3]\32)
@@ -900,15 +909,26 @@ function make_squid(_origin,_size)
   },_squid_core))
 
   
-  local base_parts=split([[_squid_base;u,1.0,v,0.0,angle_offset,0.0,r_offset,8,y_offset,16
+  local base_parts=[[_squid_base;u,1.0,v,0.0,angle_offset,0.0,r_offset,8,y_offset,16
 _squid_hood;u,1.0,v,0.0,angle_offset,0.0,r_offset,8,y_offset,32
 _squid_base;u,-0.5,v,0.866,angle_offset,0.3333,r_offset,8,y_offset,16
 _squid_hood;u,-0.5,v,0.866,angle_offset,0.3333,r_offset,8,y_offset,32
 _squid_base;u,-0.5,v,-0.866,angle_offset,0.6667,r_offset,8,y_offset,16
-_squid_hood;u,-0.5,v,-0.866,angle_offset,0.6667,r_offset,8,y_offset,32]],"\n")
+_squid_hood;u,-0.5,v,-0.866,angle_offset,0.6667,r_offset,8,y_offset,32]]
+  local tentacle_parts=[[_squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,r_offset,12,y_offset,48.0
+_squid_tentacle;angle_offset,0.0,scale,0.8,swirl,0.6667,r_offset,12,y_offset,56.0
+_squid_tentacle;angle_offset,0.0,scale,0.6,swirl,1.333,r_offset,12,y_offset,62.4
+_squid_tentacle;angle_offset,0.0,scale,0.4,swirl,2.0,r_offset,12,y_offset,67.2
+_squid_tentacle;angle_offset,0.3333,scale,1.0,swirl,0.0,r_offset,12,y_offset,48.0
+_squid_tentacle;angle_offset,0.3333,scale,0.8,swirl,0.6667,r_offset,12,y_offset,56.0
+_squid_tentacle;angle_offset,0.3333,scale,0.6,swirl,1.333,r_offset,12,y_offset,62.4
+_squid_tentacle;angle_offset,0.3333,scale,0.4,swirl,2.0,r_offset,12,y_offset,67.2
+_squid_tentacle;angle_offset,0.6667,scale,1.0,swirl,0.0,r_offset,12,y_offset,48.0
+_squid_tentacle;angle_offset,0.6667,scale,0.8,swirl,0.6667,r_offset,12,y_offset,56.0
+_squid_tentacle;angle_offset,0.6667,scale,0.6,swirl,1.333,r_offset,12,y_offset,62.4
+_squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,r_offset,12,y_offset,67.2]]
 
-  for config in all(base_parts) do
-    local base_template,properties=unpack(split(config,";"))
+  split2d(base_parts,function(base_template,properties)
     add(_things,inherit({
       hit=function() end,
       update=function(_ENV)
@@ -919,25 +939,19 @@ _squid_hood;u,-0.5,v,-0.866,angle_offset,0.6667,r_offset,8,y_offset,32]],"\n")
         grid_register(_ENV)
       end    
     },inherit(with_properties(properties),_ENV[base_template])))
-  end
-
-  for i=0,_size-1 do
-    local angle_offset=i/_size
-    local r,c,s=8,cos(angle),-sin(angle)
-   
-    for i=0,4 do
-      local scale=1/sqrt(i+1)
-      add(_things,inherit({
-        update=function(_ENV)
-          zangle=_angle+angle_offset
-          yangle=-0.1*cos(time()/8+i/3)*(i+1)
-          local c,s=cos(zangle),-sin(zangle)
-          local offset=10+sin(time()/4+i/3)*i/4
-          origin=v_add(_origin,{offset*c,48+12*i*(0.5+scale),offset*s})
-        end      
-      },_squid_tentacle))
-    end
-  end
+  end)
+  split2d(tentacle_parts,function(base_template,properties)
+    add(_things,inherit({
+      update=function(_ENV)
+        local t=time()
+        zangle=_angle+angle_offset
+        yangle=-cos(t/8+scale)*swirl
+        local c,s=cos(zangle),-sin(zangle)
+        local offset=r_offset+sin(t/4+scale)*swirl
+        origin=v_add(_origin,{offset*c,y_offset,offset*s})
+      end      
+    },inherit(with_properties(properties),_ENV[base_template])))
+  end)
 end
 
 -- centipede
@@ -1467,7 +1481,7 @@ function _init()
     _entities.goo2
   }
   -- global templates
-  local templates=split([[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
+  local templates=[[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
 _skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero
 _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,on_ground,1
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
@@ -1479,12 +1493,11 @@ _squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit
 _squid_hood;ent,hand2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0
 _skull1_base_template;ent,skull,radius,16,hp,2,chatter,5;_skull_template
-_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_skull_template]],"\n")
-  for line in all(templates) do
-    local name,template,parent=unpack(split(line,";"))
+_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_skull_template]]
+  split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
-  end
-  
+  end)
+
   reload()
   
   -- init ground vectors
