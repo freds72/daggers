@@ -129,6 +129,7 @@ local _ground_extents={
 
 function nop() end
 function with_properties(props,dst)
+  dst=dst or {}
   local props=split(props)
   for i=1,#props,2 do
     local v=props[i+1]
@@ -137,6 +138,60 @@ function with_properties(props,dst)
     dst[props[i]]=v=="nop" and nop or type(_ENV[v])=="function" and _ENV[v]() or v
   end
   return dst
+end
+
+-- grid helpers
+function world_to_grid(p)
+  return (p[1]\32)>>16|(p[3]\32)
+end
+
+-- adds thing in the collision grid
+function grid_register(thing)
+  local grid,_ENV=_grid,thing
+  -- need half-radius
+  local r,x,z=radius>>1,origin[1],origin[3]
+  -- \32(=5) + >>16
+  local x0,x1,z0,z1=(x-r)>>21,(x+r)>>21,(z-r)\32,(z+r)\32
+  -- different from previous range?
+  if grid_x0!=x0 or grid_x1!=x1 or grid_z0!=z0 or grid_z1!=z1 then
+    -- remove previous grid cells
+    grid_unregister(thing)
+    for idx=x0,x1,0x0.0001 do
+      for idx=idx|z0,idx|z1 do
+        local cell=grid[idx]
+        cell.things[thing]=true
+        -- for fast unregister
+        if(not cells) cells={}
+        cells[idx]=cell
+      end
+    end
+    -- cache grid coords
+    grid_x0=x0
+    grid_x1=x1
+    grid_z0=z0
+    grid_z1=z1
+
+    -- noise emitter?
+    if chatter then
+      -- \64(=6) + >>16
+      local cell=grid[x>>22|(z\64)]
+      cell.chatter[chatter]+=1
+      -- for fast unregister
+      chatter_cell=cell
+    end
+  end
+end
+
+-- removes thing from the collision grid
+function grid_unregister(_ENV)
+  for idx,cell in pairs(cells) do
+    cell.things[_ENV]=nil
+    cells[idx]=nil
+  end  
+  if chatter_cell then
+    chatter_cell.chatter[chatter]-=1
+    chatter_cell=nil
+  end    
 end
 
 -- range index generator
@@ -529,61 +584,6 @@ function mode7(p,np,light)
   end      
 end
 
--- grid helpers
-function world_to_grid(p)
-  return (p[1]\32)>>16|(p[3]\32)
-end
-
--- adds thing in the collision grid
-function grid_register(thing)
-  local grid,_ENV=_grid,thing
-  -- need half-radius
-  local r,x,z=radius>>1,origin[1],origin[3]
-  -- \32(=5) + >>16
-  local x0,x1,z0,z1=(x-r)>>21,(x+r)>>21,(z-r)\32,(z+r)\32
-  -- different from previous range?
-  if grid_x0!=x0 or grid_x1!=x1 or grid_z0!=z0 or grid_z1!=z1 then
-    -- remove previous grid cells
-    grid_unregister(thing)
-    for idx=x0,x1,0x0.0001 do
-      for idx=idx|z0,idx|z1 do
-        local cell=grid[idx]
-        cell.things[thing]=true
-        -- for fast unregister
-        if(not cells) cells={}
-        cells[idx]=cell
-      end
-    end
-    -- cache grid coords
-    grid_x0=x0
-    grid_x1=x1
-    grid_z0=z0
-    grid_z1=z1
-
-    -- noise emitter?
-    if chatter then
-      -- \64(=6) + >>16
-      local cell=grid[x>>22|(z\64)]
-      cell.chatter[chatter]+=1
-      -- for fast unregister
-      chatter_cell=cell
-    end
-  end
-end
-
--- removes thing from the collision grid
-function grid_unregister(_ENV)
-  for idx,cell in pairs(cells) do
-    cell.things[_ENV]=nil
-    cells[idx]=nil
-  end  
-  if chatter_cell then
-    chatter_cell.chatter[chatter]-=1
-    chatter_cell=nil
-  end    
-end
-
-
 function draw_grid(cam,light)
   local m,cx,cy,cz=cam.m,unpack(cam.origin)
   local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
@@ -719,8 +719,9 @@ function inherit(t,env)
 end
 
 -- things
+local _blast_template=inherit(with_properties"zangle,rnd,yangle,0,ttl,0,shadeless,1")
 function make_blast(_ents,_origin)  
-  add(_things,inherit(with_properties("zangle,rnd,yangle,0,ttl,0,shadeless,1",{
+  add(_things,inherit({
     -- sprite id
     ent=_ents[1],
     origin=_origin,
@@ -729,7 +730,7 @@ function make_blast(_ents,_origin)
       if(ttl>15) dead=true return
       ent=_ents[min(ttl\5+1,#_ents)]
     end
-  })))
+  },_blast_template))
 end
 
 function make_blood(_origin)
@@ -746,10 +747,10 @@ local _flying_target
 -- skull I II III
 -- centipede
 -- spiderling
+local _skull_template=inherit(with_properties"zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero")
 function make_skull(actor,_origin)
   local resolved,wobling={},3+rnd(2)
-  local thing=add(_things,
-    inherit(with_properties("zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero",{
+  local thing=add(_things,inherit({
       chatter=actor.chatter or 12,
       origin=_origin,
       seed=rnd(16),
@@ -862,7 +863,8 @@ function make_skull(actor,_origin)
         forces,resolved={0,0,0},{}
         grid_register(_ENV)
       end
-    }),inherit(actor)))
+    },actor))
+  
   grid_register(thing)
 
   --play spawn sfx
@@ -927,11 +929,13 @@ function make_squid(_origin,_size)
 end
 
 -- centipede
+local _worm_seg_template=inherit(with_properties"radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42")
+local _worm_head_template=inherit(with_properties("radius,18,hp,10,apply,nop,chatter,20"),_skull_template)
 function make_worm(_origin)  
   local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
 
   for i=1,20 do
-    local seg=add(segments,add(_things,inherit(with_properties("radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42",{
+    local seg=add(segments,add(_things,inherit({
       ent=_entities.worm1,
       hit=function(_ENV)
         -- avoid reentrancy
@@ -943,11 +947,11 @@ function make_worm(_origin)
         ent=_entities.worm2
         sfx(56)
       end
-    }))))
+    },_worm_seg_template)))
     grid_register(seg)
   end
 
-  head=make_skull(with_properties("radius,18,hp,10,apply,nop,chatter,20",{
+  head=make_skull(inherit({
     ent=_entities.worm0,
     die=function(_ENV)
       music(54)
@@ -985,11 +989,12 @@ function make_worm(_origin)
         grid_register(seg)
       end
     end
-  }),_origin)
+  },_worm_head_template),_origin)
 end
 
+local _jewel_template=inherit(with_properties"radius,8,zangle,rnd,ttl,3000,apply,nop")
 function make_jewel(_origin,vel)
-  add(_things,inherit(with_properties("radius,8,zangle,rnd,ttl,3000,apply,nop",{    
+  add(_things,inherit({    
     ent=_entities.jewel,
     origin=v_clone(_origin),
     pickup=function(_ENV)
@@ -1042,14 +1047,15 @@ function make_jewel(_origin,vel)
       end
       grid_register(_ENV)
     end
-  })))
+  },_jewel_template))
 end
 
+local _egg_template=inherit(with_properties"radius,12,hp,2,zangle,0,apply,nop,on_ground,1")
 function make_egg(_origin,vel)
   -- spider spawn time
   local ttl=300+rnd(10)
   -- todo: falling support
-  grid_register(add(_things,inherit(with_properties("radius,12,hp,2,zangle,0,apply,nop,on_ground,1",{
+  grid_register(add(_things,inherit({
     ent=_entities.egg,
     origin=v_clone(_origin),
     hit=function(_ENV)
@@ -1074,25 +1080,10 @@ function make_egg(_origin,vel)
         grid_unregister(_ENV)
         make_goo(origin)
         -- spiderling
-        make_skull(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41",{
-          ent=_entities.spider0,
-          blast=make_goo,
-          apply=function(_ENV,other,force,t)
-            if other.on_ground then
-              forces[1]+=t*force[1]
-              forces[3]+=t*force[3]
-            end
-            resolved[other]=true
-          end,
-          think=function(_ENV)
-            -- navigate to target (direct)
-            local dir=v_dir(origin,_plyr.origin)
-            forces=v_add(forces,dir,8)
-          end
-        }),origin)
+        make_skull(_spiderling_template,origin)
       end
     end
-  }))))
+  },_egg_template)))
 end
 
 -- draw game world
@@ -1175,34 +1166,56 @@ function play_state()
   make_worm({256,48,386})
   make_squid({512,0,512})
 
-  -- enemies
-  local skull1=with_properties("radius,16,hp,2,chatter,5",{
-    ent=_entities.skull,
+  -- global
+  _spiderling_template=inherit({
+    ent=_entities.spider0,
+    blast=make_goo,
+    apply=function(_ENV,other,force,t)
+      if other.on_ground then
+        forces[1]+=t*force[1]
+        forces[3]+=t*force[3]
+      end
+      resolved[other]=true
+    end,
     think=function(_ENV)
-      -- converge toward player
-      if _flying_target then
-        local dir=v_dir(origin,_flying_target)
+      -- navigate to target (direct)
+      local dir=v_dir(origin,_plyr.origin)
+      forces=v_add(forces,dir,8)
+    end
+  },
+  inherit(with_properties("radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41"),_skull_template))
+
+
+  -- enemies
+  local skull1_template=inherit({
+      ent=_entities.skull,
+      think=function(_ENV)
+        -- converge toward player
+        if _flying_target then
+          local dir=v_dir(origin,_flying_target)
+          forces=v_add(forces,dir,8+seed*cos(time()/5))
+        end
+      end
+    },
+    inherit(with_properties("radius,16,hp,2,chatter,5"),_skull_template))
+
+  local skull2_template=inherit({
+      ent=_entities.reaper,
+      think=function(_ENV)      
+        target_ttl-=1
+        if target_ttl<0 then  
+          -- go opposite from where it stands!  
+          local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd(0.25)
+          local r=64+rnd(64)
+          target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
+          target_ttl=90+rnd(10)
+        end
+        -- navigate to target
+        local dir=v_dir(origin,target)
         forces=v_add(forces,dir,8+seed*cos(time()/5))
       end
-    end
-  })
-
-  local skull2=with_properties("radius,18,hp,5,target_ttl,0,jewel,1,chatter,6",{
-    ent=_entities.reaper,
-    think=function(_ENV)      
-      target_ttl-=1
-      if target_ttl<0 then  
-        -- go opposite from where it stands!  
-        local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd(0.25)
-        local r=64+rnd(64)
-        target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
-        target_ttl=90+rnd(10)
-      end
-      -- navigate to target
-      local dir=v_dir(origin,target)
-      forces=v_add(forces,dir,8+seed*cos(time()/5))
-    end
-  })
+    },
+    inherit(with_properties("radius,18,hp,5,target_ttl,0,jewel,1,chatter,6"),_skull_template))
 
   -- scenario
   do_async(function()
@@ -1230,9 +1243,9 @@ function play_state()
     for i=0,0.75,0.25 do
       local x,z=512+256*cos(i),512-256*sin(i)
       for i=1,10 do
-        make_skull(skull1,{x,64,z})
+        make_skull(skull1_template,{x,64,z})
       end
-      make_skull(skull2,{x,64,z})
+      make_skull(skull2_template,{x,64,z})
       wait_async(90)
     end
   end)
@@ -1261,9 +1274,9 @@ function play_state()
       spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)      
       ]]
 
-      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
 
-      local y=2
+      local y=16
       for _,v in ipairs(_plyr._chatter) do
         print("CHATTER: "..v[1].." ("..v[2].." UNITS)",2,y,7)
         y+=6
