@@ -397,6 +397,7 @@ function make_player(_origin,_a)
 ::end_noise::
         -- todo: 
         -- check active noises (channels)
+        foreach(_chatter, do_chatter)
 
         -- refresh angles
         m=make_m_from_euler(unpack(angle))    
@@ -1475,8 +1476,8 @@ _squid_core;no_render,1,radius,48
 _squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop
 _squid_hood;ent,hand2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0
-_skull1_base_template;ent,skull,radius,16,hp,2,chatter,5;_skull_template
-_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_skull_template]],"\n")
+_skull1_base_template;ent,skull,radius,16,hp,2;_skull_template
+_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_template]],"\n")
   for line in all(templates) do
     local name,template,parent=unpack(split(line,";"))
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
