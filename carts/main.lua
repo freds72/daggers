@@ -902,7 +902,7 @@ function make_squid(_origin,_size)
         local c,s=cos(zangle),-sin(zangle)
         zangle+=0.5
         origin=v_add(_origin,{r*c,16,r*s})        
-        grid_unregister(_ENV)
+        grid_register(_ENV)
       end    
     },_squid_base))
     add(_things,inherit({
@@ -912,18 +912,18 @@ function make_squid(_origin,_size)
         local c,s=cos(zangle),-sin(zangle)
         zangle+=0.5
         origin=v_add(_origin,{r*c,32,r*s})
-        grid_unregister(_ENV)
+        grid_register(_ENV)
       end    
     },_squid_hood))
-    for i=0,3 do
+    for i=0,4 do
       local scale=1/sqrt(i+1)
       add(_things,inherit({
         update=function(_ENV)
           zangle=_angle+angle_offset
           yangle=-0.1*cos(time()/8+i/3)*(i+1)
           local c,s=cos(zangle),-sin(zangle)
-          local offset=10+sin(time()/4+i/3)*i*scale
-          origin=v_add(_origin,{offset*c,48+16*i*(0.5+scale),offset*s})
+          local offset=10+sin(time()/4+i/3)*i/4
+          origin=v_add(_origin,{offset*c,48+12*i*(0.5+scale),offset*s})
         end      
       },_squid_tentacle))
     end
@@ -1465,8 +1465,8 @@ _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_templa
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
 _spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41;_skull_template
 _squid_core;no_render,1,radius,48
-_squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1
-_squid_hood;ent,hand2,radius,32,origin,v_zero,zangle,0,shadeless,1
+_squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop
+_squid_hood;ent,hand2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0
 _skull1_base_template;ent,skull,radius,16,hp,2,chatter,5;_skull_template
 _skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_skull_template]],"\n")
