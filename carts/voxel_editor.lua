@@ -58,6 +58,12 @@ local _entities={
     -- squid tentacles
     {text="tENTACLE0",angles=default_angles},
     {text="tENTACLE1",angles=default_angles},
+    -- squid base
+    {text="sQUID0",angles=0x08},
+    -- no jewel face
+    {text="SQUID1",angles=0x08},
+    -- face with jewel
+    {text="SQUID2",angles=0x08},
 }
 local _current_entity
 
@@ -510,8 +516,8 @@ function make_voxel_editor()
                 p0[majori]=major_layer
                 local p1={0,0,0}
                 p1[majori]=major_layer
-                p1[minori]=_grid_size
-                local l=cam.fwd[lasti]>0 and 0 or _grid_size
+                p1[minori]=_grid_size+1
+                local l=cam.fwd[lasti]>0 and 0 or _grid_size+1
                 p0[lasti]=l
                 p1[lasti]=l
                 local x0,y0,w0=cam:project(p0)    
@@ -519,12 +525,13 @@ function make_voxel_editor()
                 if(w1 and w0) dline(x0,y0,x1,y1,11)
             end
             
+            -- cube
             for mask,face in pairs(cube.faces) do
                 local dir=masks[mask]
                 if dir then
                     local pts={}
                     for i=1,4 do
-                        pts[i]=v_scale(face[i],_grid_size)
+                        pts[i]=v_scale(face[i],_grid_size+1)
                     end
                     cam:polyline(pts,6)
                     if dir==minori then
@@ -537,8 +544,8 @@ function make_voxel_editor()
                         -- arrow
                         local pts={}
                         for i,p in pairs(arrow) do
-                            p=v_scale(p,(_grid_size+1)/2)
-                            pts[i]=v_add(p,{_grid_size/4,2,mask==0x2 and 0 or _grid_size})
+                            p=v_scale(p,_grid_size/2+1)
+                            pts[i]=v_add(p,{_grid_size/4,2,mask==0x2 and 0 or _grid_size+1})
                         end
                         cam:polyline(pts,6)
                     end
@@ -546,7 +553,7 @@ function make_voxel_editor()
                 end
             end
 
-            if not rotation_mode then
+            if not rotation_mode and current_voxel then
                 local draw_cache=function()
                     -- copy to spritesheet
                     memcpy(0x0,0x8000,64*128)
@@ -564,7 +571,7 @@ function make_voxel_editor()
                     draw_grid(_grid,cam,rotation_mode and 1 or 2,layer[majori])
                 end
             else
-                draw_grid(_grid,cam,rotation_mode and 1 or 2,layer[majori])
+                draw_grid(_grid,cam,1,layer[majori])
             end
             fillp()
             
@@ -641,7 +648,7 @@ function make_voxel_editor()
                 ti,tj=target[minori],target[lasti]
 
                 current_voxel=nil
-                if ti==mid(ti,0,_grid_size) and tj==mid(tj,0,_grid_size) then
+                if ti==mid(ti,0,_grid_size+1) and tj==mid(tj,0,_grid_size+1) then
                     local o={0,0,0}
                     o[majori]=major_layer
                     o[minori]=ti\1
