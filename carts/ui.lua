@@ -351,7 +351,8 @@ function make_list(width,w,h,binding)
                 if(msg.my) msg.my+=yoffset
                 camera(0,yoffset)
                 -- todo: draw all that fits horizontally AND vertically
-                for i=(i0\n)*n+1,min(((i0\n)+1)*max(n,nh),#self) do
+                local start=(i0\n)*n
+                for i=start+1,min(start+max(nh,n),#self) do
                     local child=self[i]
                     child:onmessage(msg)
                     if(msg.handled) break

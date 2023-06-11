@@ -826,7 +826,7 @@ function make_skull(actor,_origin)
         
         local fx,fy,fz=forces[1],forces[2],forces[3]
         for other in pairs(_grid[idx].things) do
-          -- todo: apply inverse force to other (and keep track)
+          -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
             local avoid,avoid_dist=v_dir(origin,other.origin)
             if(avoid_dist<4) avoid_dist=1
@@ -896,46 +896,81 @@ end
 -- squid
 -- type 1: 3 blocks
 -- type 2: 4 blocks
-function make_squid(_origin,_size)
-  _size=_size or 3
-  local _angle,_squid_sides=0,{}
+function make_squid(_origin,_velocity)
+  local _angle,_dead=0
+  -- spill skulls every x seconds
+  local spill=do_async(function()
+    wait_async(60)
+    while true do
+      for t in all(split"_skull1_template,_skull1_template,_skull1_template,_skull2_template,_skull1_template") do
+        make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
+        wait_async(2+rnd(2))
+      end
+      wait_async(150)
+    end
+  end)
+
   local squid=add(_things,inherit({
     update=function(_ENV)
+      dead=_dead
       _angle+=0.005
-      -- test move
-      _origin[1]+=0.1
+      -- todo: avoid other squids!
+      _origin=v_add(_origin,_velocity)      
       origin=_origin
     end
   },_squid_core))
+    
+  local base_parts=[[_squid_base;angle_offset,0.0,r_offset,8,y_offset,16
+_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,38
+_squid_base;angle_offset,0.3333,r_offset,8,y_offset,16
+_squid_hood;angle_offset,0.3333,r_offset,8,y_offset,38
+_squid_base;angle_offset,0.6667,r_offset,8,y_offset,16
+_squid_hood;angle_offset,0.6667,r_offset,8,y_offset,38]]
+  local tentacle_parts=[[_squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;angle_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;angle_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]
 
-  
-  local base_parts=[[_squid_base;u,1.0,v,0.0,angle_offset,0.0,r_offset,8,y_offset,16
-_squid_hood;u,1.0,v,0.0,angle_offset,0.0,r_offset,8,y_offset,32
-_squid_base;u,-0.5,v,0.866,angle_offset,0.3333,r_offset,8,y_offset,16
-_squid_hood;u,-0.5,v,0.866,angle_offset,0.3333,r_offset,8,y_offset,32
-_squid_base;u,-0.5,v,-0.866,angle_offset,0.6667,r_offset,8,y_offset,16
-_squid_hood;u,-0.5,v,-0.866,angle_offset,0.6667,r_offset,8,y_offset,32]]
-  local tentacle_parts=[[_squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,r_offset,12,y_offset,48.0
-_squid_tentacle;angle_offset,0.0,scale,0.8,swirl,0.6667,r_offset,12,y_offset,56.0
-_squid_tentacle;angle_offset,0.0,scale,0.6,swirl,1.333,r_offset,12,y_offset,62.4
-_squid_tentacle;angle_offset,0.0,scale,0.4,swirl,2.0,r_offset,12,y_offset,67.2
-_squid_tentacle;angle_offset,0.3333,scale,1.0,swirl,0.0,r_offset,12,y_offset,48.0
-_squid_tentacle;angle_offset,0.3333,scale,0.8,swirl,0.6667,r_offset,12,y_offset,56.0
-_squid_tentacle;angle_offset,0.3333,scale,0.6,swirl,1.333,r_offset,12,y_offset,62.4
-_squid_tentacle;angle_offset,0.3333,scale,0.4,swirl,2.0,r_offset,12,y_offset,67.2
-_squid_tentacle;angle_offset,0.6667,scale,1.0,swirl,0.0,r_offset,12,y_offset,48.0
-_squid_tentacle;angle_offset,0.6667,scale,0.8,swirl,0.6667,r_offset,12,y_offset,56.0
-_squid_tentacle;angle_offset,0.6667,scale,0.6,swirl,1.333,r_offset,12,y_offset,62.4
-_squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,r_offset,12,y_offset,67.2]]
+  local die=function(_ENV)
+    if(dead) return
+    dead=true 
+    make_blood(origin) 
+    grid_unregister(_ENV)
+  end
 
   split2d(base_parts,function(base_template,properties)
     add(_things,inherit({
-      hit=function() end,
+      hit=function(_ENV,pos) 
+        if jewel then
+          hp-=1
+          -- feedback
+          make_blood(pos)
+          if hp<=0 then
+            make_jewel(origin,{u,3,v},16)
+            -- avoid reentrancy
+            jewel=nil
+            ent=_entities.squid2
+            -- stop spilling monsters
+            spill.co=nil
+            _dead=true
+          end
+        end
+      end,
       update=function(_ENV)
+        if(_dead) die(_ENV) return
         zangle=_angle+angle_offset
-        local c,s=cos(zangle),-sin(zangle)
+        -- store u/v angle
+        u,v=cos(zangle),-sin(zangle)
         zangle+=0.5
-        origin=v_add(_origin,{r_offset*c,y_offset,r_offset*s})        
+        origin=v_add(_origin,{r_offset*u,y_offset,r_offset*v})        
         grid_register(_ENV)
       end    
     },inherit(with_properties(properties),_ENV[base_template])))
@@ -943,6 +978,7 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,r_offset,12,y_offset,67.
   split2d(tentacle_parts,function(base_template,properties)
     add(_things,inherit({
       update=function(_ENV)
+        if(_dead) die(_ENV) return
         local t=time()
         zangle=_angle+angle_offset
         yangle=-cos(t/8+scale)*swirl
@@ -1192,39 +1228,7 @@ function play_state()
         self[k]=t
         return t
       end
-    })
-    
-  -- make_skull({512,24,512})
-  make_worm({612,32,612})
-  make_worm({256,48,386})
-  make_squid({512,0,512})
-
-  -- enemies
-  local skull1_template=inherit({
-    think=function(_ENV)
-      -- converge toward player
-      if _flying_target then
-        local dir=v_dir(origin,_flying_target)
-        forces=v_add(forces,dir,8+seed*cos(time()/5))
-      end
-    end
-  },_skull1_base_template)
-
-  local skull2_template=inherit({
-    think=function(_ENV)      
-      target_ttl-=1
-      if target_ttl<0 then  
-        -- go opposite from where it stands!  
-        local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd(0.25)
-        local r=64+rnd(64)
-        target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
-        target_ttl=90+rnd(10)
-      end
-      -- navigate to target
-      local dir=v_dir(origin,target)
-      forces=v_add(forces,dir,8+seed*cos(time()/5))
-    end
-  },_skull2_base_template)
+    })    
 
   -- scenario
   do_async(function()
@@ -1250,11 +1254,10 @@ function play_state()
     wait_async(90)
     -- 4 squids
     for i=0,0.75,0.25 do
-      local x,z=512+256*cos(i),512-256*sin(i)
-      for i=1,10 do
-        make_skull(skull1_template,{x,64,z})
-      end
-      make_skull(skull2_template,{x,64,z})
+      local u,v=cos(i),-sin(i)
+      local x,z=512+256*u,512-256*v
+      make_squid({x,0,z},{-u/16,0,-v/16})
+      -- 3s
       wait_async(90)
     end
   end)
@@ -1283,13 +1286,7 @@ function play_state()
       spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)      
       ]]
 
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
-
-      local y=16
-      for _,v in ipairs(_plyr._chatter) do
-        print("CHATTER: "..v[1].." ("..v[2].." UNITS)",2,y,7)
-        y+=6
-      end
+      -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
     -- init
@@ -1449,7 +1446,8 @@ function _init()
   end
   _god_mode=false
   god_menu_handler()
-
+  _god_mode=false
+  
   -- always needed  
   _cam=inherit{
     origin={0,0,0},    
@@ -1488,9 +1486,10 @@ _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx
 _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
 _spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41;_skull_template
-_squid_core;no_render,1,radius,48
-_squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop
-_squid_hood;ent,hand2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
+_squid_core;no_render,1,radius,48,origin,v_zero,on_ground,1
+_squid_base;ent,squid0,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop
+_squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
+_squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0
 _skull1_base_template;ent,skull,radius,16,hp,2,chatter,5;_skull_template
 _skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_skull_template]]
@@ -1498,6 +1497,32 @@ _skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
 
+  -- scripted skulls
+  _skull1_template=inherit({
+    think=function(_ENV)
+      -- converge toward player
+      if _flying_target then
+        local dir=v_dir(origin,_flying_target)
+        forces=v_add(forces,dir,8+seed*cos(time()/5))
+      end
+    end
+  },_skull1_base_template)
+
+  _skull2_template=inherit({
+    think=function(_ENV)      
+      target_ttl-=1
+      if target_ttl<0 then  
+        -- go opposite from where it stands!  
+        local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd(0.25)
+        local r=64+rnd(64)
+        target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
+        target_ttl=90+rnd(10)
+      end
+      -- navigate to target
+      local dir=v_dir(origin,target)
+      forces=v_add(forces,dir,8+seed*cos(time()/5))
+    end
+  },_skull2_base_template)  
   reload()
   
   -- init ground vectors
@@ -1572,7 +1597,7 @@ function ray_sphere_intersect(a,b,dir,len,origin,r)
     oy-=t*dy
     oz-=t*dz
     --assert(dx*dx+dy*dy+dz*dz>=0)
-    return ox*ox+oy*oy+oz*oz<r*r,t
+    return ox*ox+oy*oy+oz*oz<r*r,t,{ox,oy,oz}
   end
 end
 
@@ -1612,7 +1637,7 @@ function _update()
           end
         end
         -- collect touched grid indices
-        local hit_t,hit_thing=32000
+        local hit_t,hit_thing,hit_pos=32000
         collect_grid(prev,origin,b.u,b.v,function(things)
           -- todo: advanced bullets can traverse enemies
           for thing in pairs(things) do
@@ -1620,16 +1645,16 @@ function _update()
             -- avoid checking the same enemy twice
             if not thing.dead and thing.hit and thing.checked!=_checked then
               thing.checked=_checked
-              local hit,t=ray_sphere_intersect(prev,origin,b.velocity,len,thing.origin,thing.radius)
+              local hit,t,pos=ray_sphere_intersect(prev,origin,b.velocity,len,thing.origin,thing.radius)
               if hit and t<hit_t then
-                hit_thing,hit_t=thing,t
+                hit_thing,hit_t,hit_pos=thing,t,pos
               end
             end
           end
         end)
         -- apply hit on closest thing
         if hit_thing then
-          hit_thing:hit()
+          hit_thing:hit(hit_pos)
           dead=true
           _total_hits+=0x0.0001
           -- todo: allow for multiple hits
@@ -1685,8 +1710,8 @@ end
 
 -- unpack assets
 function unpack_entities()
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel,worm2,tentacle0,tentacle1"
-  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1"
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2"
+  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1,nAILED,nAILED,nAILED"
   unpack_array(function()
     local id=mpeek()
     if id!=0 then

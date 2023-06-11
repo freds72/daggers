@@ -65,10 +65,16 @@ end
 
 -- normalized direction 
 -- same as v_len without building a vector
+-- function v_dir(a,b)
+-- 	local x,y,z,d=b[1]-a[1],b[2]-a[2],b[3]-a[3],v_len(a,b)
+-- 	return {x/d,y/d,z/d},d
+-- end
+
 function v_dir(a,b)
-	local x,y,z,d=b[1]-a[1],b[2]-a[2],b[3]-a[3],v_len(a,b)
+	local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
+	local d=abs(x)+abs(y)+abs(z)
 	return {x/d,y/d,z/d},d
-end 
+end
 
 function v_normz(v)
 	local d=v_len({0,0,0},v)

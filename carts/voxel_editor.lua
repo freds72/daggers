@@ -61,9 +61,9 @@ local _entities={
     -- squid base
     {text="sQUID0",angles=0x08},
     -- no jewel face
-    {text="SQUID1",angles=0x08},
+    {text="sQUID1",angles=0x08},
     -- face with jewel
-    {text="SQUID2",angles=0x08},
+    {text="sQUID2",angles=0x08},
 }
 local _current_entity
 
@@ -621,7 +621,7 @@ function make_voxel_editor()
             cam:control(center,yangle,zangle,1.5*_grid_size)
             local majori,minori,lasti=get_majors(cam)
             local prev_layer=layer[majori]
-            layer[majori]=mid(prev_layer-msg.wheel*sgn(cam.fwd[majori]),0,_grid_size-1)
+            layer[majori]=mid(prev_layer+msg.wheel*sgn(cam.fwd[majori]),0,_grid_size)
             local major_layer=layer[majori]
             -- selection
             if not rotation_mode then
