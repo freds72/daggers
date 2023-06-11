@@ -901,7 +901,7 @@ function make_squid(_origin,_velocity)
   -- spill skulls every x seconds
   local spill=do_async(function()
     wait_async(60)
-    while true do
+    while not _plyr.dead do
       for t in all(split"_skull1_template,_skull1_template,_skull1_template,_skull2_template,_skull1_template") do
         make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
         wait_async(2+rnd(2))
@@ -1231,25 +1231,7 @@ function play_state()
     })    
 
   -- scenario
-  do_async(function()
-    -- circle around player
-    while not _plyr.dead do
-      local angle=time()/8
-      local x,y,z=unpack(_plyr.origin)
-      local r=48*cos(angle)
-      _flying_target={x+r*cos(angle),y+24+rnd(8),z+r*sin(angle)}
-      wait_async(10)
-    end
-
-    -- if player dead, find a random spot on map
-    while true do
-      _flying_target={256+rnd(512),12+rnd(64),256+rnd(512)}
-      wait_async(45+rnd(15))
-    end
-  end)
-  -- todo: move to string/table
-
-  do_async(function()
+  local scenario=do_async(function()
     -- player just spawned
     wait_async(90)
     -- 4 squids
@@ -1261,6 +1243,26 @@ function play_state()
       wait_async(90)
     end
   end)
+
+  do_async(function()
+    -- circle around player
+    while not _plyr.dead do
+      local angle=time()/8
+      local x,y,z=unpack(_plyr.origin)
+      local r=48*cos(angle)
+      _flying_target={x+r*cos(angle),y+24+rnd(8),z+r*sin(angle)}
+      wait_async(10)
+    end
+
+    -- if player dead, find a random spot on map
+    -- stop creating monsters
+    scenario.co=nil
+    while true do
+      _flying_target={256+rnd(512),12+rnd(64),256+rnd(512)}
+      wait_async(45+rnd(15))
+    end
+  end)
+  
 
   return
     -- update
@@ -1447,7 +1449,7 @@ function _init()
   _god_mode=false
   god_menu_handler()
   _god_mode=false
-  
+
   -- always needed  
   _cam=inherit{
     origin={0,0,0},    
