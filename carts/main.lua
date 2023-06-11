@@ -247,7 +247,7 @@ local _chatter_ranges={
 }
 
 function make_player(_origin,_a)
-    local angle,on_ground,dead={0,_a,0}
+    local angle,on_ground={0,_a,0}
     return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
       -- start above floor
       origin=v_add(_origin,{0,1,0}), 
@@ -265,7 +265,7 @@ function make_player(_origin,_a)
 
         -- straffing = faster!
 
-        -- restore attrack power
+        -- restore atract power
         attract_power=min(attract_power+0.2,1)
 
         -- double-click detector
