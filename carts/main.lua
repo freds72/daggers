@@ -979,7 +979,8 @@ function make_worm(_origin)
 
   head=make_skull(inherit({
     die=function(_ENV)
-      music(54)
+      sfx"-1"
+      music"54"
       -- clean segment
       do_async(function()
         while #segments>0 do
@@ -1365,7 +1366,7 @@ function gameover_state(obituary)
   local _,x,y=unpack(buttons[1])
   local mx,my=x+buttons[1].width/2,y+3
   -- death music
-  music(8)
+  music"8"
   return
     -- update
     function()
