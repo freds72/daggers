@@ -395,9 +395,28 @@ function make_player(_origin,_a)
           z0-=1
         end
 ::end_noise::
-        -- todo: 
-        -- check active noises (channels)
+
+        --playback chatter
         foreach(_chatter, do_chatter)
+
+        --check for chatter playback
+        for i = 0, 2 do
+          if stat(46 + i) ~= -1 then
+            goto end_chatter
+          end
+        end
+
+        --playback random chatter if none playing
+        while true do
+          local chatter = _things[ceil(rnd(#_things))].chatter
+
+          if chatter then
+            do_chatter({ chatter, 2 })
+            goto end_chatter
+          end
+        end
+
+        ::end_chatter::
 
         -- refresh angles
         m=make_m_from_euler(unpack(angle))    
