@@ -11,13 +11,13 @@ function do_chatter(chatter)
     idx,
     dist
     =
-    flr(rnd"3"),
+    flr(rnd"4"),
     unpack(chatter)
 
   --loop audio channels
   for i = 0, 2 do
     --loop chatter sfx variants
-    for j = 0, 2 do
+    for j = 0, 3 do
       if
         --music playing
         stat"57"
