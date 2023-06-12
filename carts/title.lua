@@ -16,7 +16,7 @@ function menu_state()
       -- todo: fade to black
       do_async(function()
         wait_async(10)
-        load("audiomw.p8")
+        load("daggers.p8")
       end)
     end},
     {"lEADERBOARD",1,64,

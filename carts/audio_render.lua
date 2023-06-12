@@ -43,17 +43,18 @@ end
 
 --loop dampen levels
 for damp = 0, 2 do
-  --loop sfx
-  for i = 8, 23 do
-    --set dampen level
-    sfx_damp(0x3200 + i * 68, damp)
-    --atennuate volume
-    sfx_volume(0x3200 + i * 68, -damp)
-  end
+  --dampened chatter bank destination address
+  local addr = 0xf340 + 0x440 * damp
 
-  --copy sfx bank
-  memcpy(0xf340 + 0x440 * damp, 0x3420, 0x440)
+  --copy chatter sfx bank
+  memcpy(addr, 0x2000, 0x440)
+
+  --loop chatter sfx stored in map ram
+  for i = 0, 15 do
+    --set dampen level
+    sfx_damp(addr + i * 68, damp)
+    --atennuate volume
+    sfx_volume(addr + i * 68, -damp)
+  end
 end
 
---load next cart
-load("daggers.p8")
