@@ -6,6 +6,8 @@
 --@param addr {integer} sfx address
 --@param damp {0-2} dampen level
 function sfx_damp(addr, damp)
+  local addr = addr + 64
+
   --sfx effect byte
   local byte = @(addr)
 
