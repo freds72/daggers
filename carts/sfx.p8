@@ -4,9 +4,12 @@ __lua__
 --devil daggers sfx
 --by ridgek
 
---copy to game carts
+--copy all sfx/music to game carts
 cstore(0x3100,0x3100,0x1200,"audiomw.p8")
 cstore(0x3100,0x3100,0x1200,"daggers.p8")
+
+--copy chatter sfx to title cart
+cstore(0x2000,0x3100 + 8 * 68, 16 * 68, "title.p8")
 
 --sfx
 --08: chattersquid
