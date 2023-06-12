@@ -3,11 +3,9 @@
 --
 --warning: permanently mutates sfx runtime ram
 --
---@param idx {0-63} sfx idx
+--@param addr {integer} sfx address
 --@param damp {0-2} dampen level
-function sfx_damp(idx, damp)
-  --sfx address
-  local addr = 0x3200 + idx * 68 + 64
+function sfx_damp(addr, damp)
   --sfx effect byte
   local byte = @(addr)
 
@@ -25,14 +23,12 @@ end
 
 ---modify volume of sfx
 --
--- @param idx {0-63} start of sfx range to remove
--- @param v {-7-7} volume to increment/decrement by
-function sfx_volume(idx, v)
-  local sfx_addr = 0x3200 + idx * 68
-
+--@param addr {integer} sfx address
+--@param v {-7-7} volume to increment/decrement by
+function sfx_volume(addr, v)
   --loop through all notes
   for note_num = 0, 31 do
-    local note_addr = sfx_addr + note_num * 2
+    local note_addr = addr + note_num * 2
     --get note from ram
     local note = %note_addr
     --get volume bits
@@ -50,9 +46,9 @@ for damp = 0, 2 do
   --loop sfx
   for i = 0, 63 do
     --set dampen level
-    sfx_damp(i, damp)
+    sfx_damp(0x3200 + i * 68, damp)
     --atennuate volume
-    sfx_volume(i, -damp)
+    sfx_volume(0x3200 + i * 68, -damp)
   end
 
   --copy sfx bank
