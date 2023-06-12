@@ -5,7 +5,7 @@ __lua__
 --by ridgek
 --https://ridgek.itch.io
 
-#include ./audiomw.lua
+#include ./audio_render.lua
 
 __label__
 777777777777777777777aaaaaaaaaaaaaaaaaaaccccccccccccccccccbbbbbbbbbbbbbbbbbbeeeeeeeeeeeeeeeeee888888888888888888dddddddddddddddd
