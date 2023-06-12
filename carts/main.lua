@@ -1366,7 +1366,7 @@ function gameover_state(obituary)
   local _,x,y=unpack(buttons[1])
   local mx,my=x+buttons[1].width/2,y+3
   -- death music
-  music"8"
+  music"36"
   return
     -- update
     function()
