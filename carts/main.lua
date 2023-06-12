@@ -1493,7 +1493,7 @@ _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_templa
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
 _spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41;_skull_template
 _squid_core;no_render,1,radius,48
-_squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop,chatter,36
+_squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop,chatter,8
 _squid_hood;ent,hand2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0
 _skull1_base_template;ent,skull,radius,16,hp,2;_skull_template
