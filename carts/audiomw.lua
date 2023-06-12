@@ -44,7 +44,7 @@ end
 --loop dampen levels
 for damp = 0, 2 do
   --loop sfx
-  for i = 0, 63 do
+  for i = 8, 23 do
     --set dampen level
     sfx_damp(0x3200 + i * 68, damp)
     --atennuate volume
@@ -52,7 +52,7 @@ for damp = 0, 2 do
   end
 
   --copy sfx bank
-  memcpy(0xcd00 + 0x1100 * damp, 0x3200, 0x1100)
+  memcpy(0xf340 + 0x440 * damp, 0x3420, 0x440)
 end
 
 --load next cart
