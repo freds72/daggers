@@ -56,7 +56,7 @@ for damp = 0, 2 do
     --set dampen level
     sfx_damp(addr + i * 68, damp)
     --atennuate volume
-    sfx_volume(addr + i * 68, -damp)
+    sfx_volume(addr + i * 68, damp < 2 and -damp or -3)
   end
 end
 
