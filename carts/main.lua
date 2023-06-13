@@ -705,8 +705,11 @@ function draw_grid(cam,light)
       w0*=(thing.scale or 1)
       local sx,sy=item.x-w*w0/2,item.y-h*w0/2
       --
+      palt(15,true)
+      palt(0,false)
       sspr(frame.xmin,0,w,h,sx,sy,w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff),flip)
-      
+      palt(15,false)
+
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
     elseif item.type==2 then
@@ -832,6 +835,7 @@ function make_skull(actor,_origin)
             if(avoid_dist<4) avoid_dist=1
             -- todo: tune...
             local t=-32/avoid_dist
+
             fx+=t*avoid[1]
             fy+=t*avoid[2]
             fz+=t*avoid[3]
@@ -844,7 +848,7 @@ function make_skull(actor,_origin)
         forces={fx,on_ground and 0 or fy,fz}
 
         local old_vel=velocity
-        velocity=v_add(velocity,forces,1/30)
+        --velocity=v_add(velocity,forces,1/30)
         -- fixed velocity (on x/z)
         local vx,vz=velocity[1],velocity[3]
         local a=atan2(vx,vz)
@@ -903,29 +907,35 @@ function make_squid(_origin,_velocity)
     wait_async(60)
     while not _plyr.dead do
       for t in all(split"_skull1_template,_skull1_template,_skull1_template,_skull2_template,_skull1_template") do
-        make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
+        --make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
         wait_async(2+rnd(2))
       end
       wait_async(150)
     end
   end)
 
-  local squid=add(_things,inherit({
-    update=function(_ENV)
+  local squid=make_skull(inherit({
+    hit=function() end,
+    apply=function(_ENV,other,force,t)
       dead=_dead
+      if other.is_squid_core then
+        forces[1]+=t*force[1]
+        forces[3]+=t*force[3]
+      end
+      resolved[other]=true
+    end,
+    think=function(_ENV)
       _angle+=0.005
-      -- todo: avoid other squids!
-      _origin=v_add(_origin,_velocity)      
-      origin=_origin
+      forces=v_add(forces,_velocity,1/16)
+    end,
+    post_think=function(_ENV)
+      _origin=origin
     end
-  },_squid_core))
+  },_squid_core),_origin)
     
-  local base_parts=[[_squid_base;angle_offset,0.0,r_offset,8,y_offset,16
-_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,38
-_squid_base;angle_offset,0.3333,r_offset,8,y_offset,16
-_squid_hood;angle_offset,0.3333,r_offset,8,y_offset,38
-_squid_base;angle_offset,0.6667,r_offset,8,y_offset,16
-_squid_hood;angle_offset,0.6667,r_offset,8,y_offset,38]]
+  local base_parts=[[_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,24
+_squid_hood;angle_offset,0.3333,r_offset,8,y_offset,24
+_squid_hood;angle_offset,0.6667,r_offset,8,y_offset,24]]
   local tentacle_parts=[[_squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
 _squid_tentacle;angle_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
 _squid_tentacle;angle_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
@@ -1288,7 +1298,7 @@ function play_state()
       spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)      
       ]]
 
-      -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
     -- init
@@ -1448,7 +1458,6 @@ function _init()
   end
   _god_mode=false
   god_menu_handler()
-  _god_mode=false
 
   -- always needed  
   _cam=inherit{
@@ -1488,7 +1497,7 @@ _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx
 _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
 _spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41;_skull_template
-_squid_core;no_render,1,radius,48,origin,v_zero,on_ground,1
+_squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1;_skull_template
 _squid_base;ent,squid0,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
