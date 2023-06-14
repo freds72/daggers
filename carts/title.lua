@@ -106,7 +106,7 @@ function menu_state()
           mem+=64
           base+=4
         end
-        memcpy(0x5f00,0x8000|flr(16*s.origin[3])<<4,16) palt(0,true)
+        memcpy(0x5f00,0x8000|flr(16*s.origin[3])<<4,16) palt(15,true)
         sspr(frame.xmin,0,frame.width,frame.height,s.origin[1]-frame.width/2,s.origin[2]-frame.height/2,frame.width,frame.height,false,yflip)
       end
       pal()

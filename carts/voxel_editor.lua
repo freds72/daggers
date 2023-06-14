@@ -29,16 +29,16 @@ local _entities={
     {text="sKULL",angles=default_angles},
     {text="rEAPER",angles=default_angles},
     -- animation
-    {text="bLOOD0",angles=0},
-    {text="bLOOD1",angles=0},
-    {text="bLOOD2",angles=0},
+    {text="bLOOD0",angles=0x44},
+    {text="bLOOD1",angles=0x44},
+    {text="bLOOD2",angles=0x44},
     {text="dAGGER0",angles=default_angles},
     {text="dAGGER1",angles=default_angles},
     {text="dAGGER2",angles=default_angles},
     -- resting hand
-    {text="hAND0",angles=0},
-    {text="hAND1",angles=0x08},
-    {text="hAND2",angles=0x08},
+    {text="hAND0",angles=0,no_export=true},
+    {text="hAND1",angles=0x08,no_export=true},
+    {text="hAND2",angles=0x08,no_export=true},
     -- green goo
     {text="gOOO0",angles=0},
     {text="gOOO1",angles=0},
@@ -55,6 +55,15 @@ local _entities={
     {text="jEWEL",angles=default_angles},
     -- worm segment without jewel
     {text="wORM2",angles=default_angles},
+    -- squid tentacles
+    {text="tENTACLE0",angles=default_angles},
+    {text="tENTACLE1",angles=default_angles},
+    -- squid base
+    {text="sQUID0",angles=0x08,no_export=true},
+    -- no jewel face
+    {text="sQUID1",angles=0x08,bottom="sQUID0"},
+    -- face with jewel
+    {text="sQUID2",angles=0x08,bottom="sQUID0"},
 }
 local _current_entity
 
@@ -279,12 +288,17 @@ function draw_grid(grid,cam,mode,layer)
     local visible_blocks,force_adj={}
     local m,fov,xcenter,ycenter,scale=cam.m,cam.fov,cam.xcenter,cam.ycenter,cam.scale
 
-    local extents={}
+    local extents
     local majori,minori,lasti=get_majors(cam)
     local major_mask=0xff>>((3-majori)<<3)
     -- 
-    for i=1,3 do
-        extents[i]={lo=0,hi=_grid_size}
+    if not cam.extents then
+        extents={}
+        for i=1,3 do
+            extents[i]={lo=0,hi=_grid_size}
+        end
+    else
+        extents=cam.extents
     end
     -- draw only 1 slice
     if mode==2 then
@@ -507,8 +521,8 @@ function make_voxel_editor()
                 p0[majori]=major_layer
                 local p1={0,0,0}
                 p1[majori]=major_layer
-                p1[minori]=_grid_size
-                local l=cam.fwd[lasti]>0 and 0 or _grid_size
+                p1[minori]=_grid_size+1
+                local l=cam.fwd[lasti]>0 and 0 or _grid_size+1
                 p0[lasti]=l
                 p1[lasti]=l
                 local x0,y0,w0=cam:project(p0)    
@@ -516,12 +530,13 @@ function make_voxel_editor()
                 if(w1 and w0) dline(x0,y0,x1,y1,11)
             end
             
+            -- cube
             for mask,face in pairs(cube.faces) do
                 local dir=masks[mask]
                 if dir then
                     local pts={}
                     for i=1,4 do
-                        pts[i]=v_scale(face[i],_grid_size)
+                        pts[i]=v_scale(face[i],_grid_size+1)
                     end
                     cam:polyline(pts,6)
                     if dir==minori then
@@ -534,8 +549,8 @@ function make_voxel_editor()
                         -- arrow
                         local pts={}
                         for i,p in pairs(arrow) do
-                            p=v_scale(p,(_grid_size+1)/2)
-                            pts[i]=v_add(p,{_grid_size/4,2,mask==0x2 and 0 or _grid_size})
+                            p=v_scale(p,_grid_size/2+1)
+                            pts[i]=v_add(p,{_grid_size/4,2,mask==0x2 and 0 or _grid_size+1})
                         end
                         cam:polyline(pts,6)
                     end
@@ -543,7 +558,7 @@ function make_voxel_editor()
                 end
             end
 
-            if not rotation_mode then
+            if not rotation_mode and current_voxel then
                 local draw_cache=function()
                     -- copy to spritesheet
                     memcpy(0x0,0x8000,64*128)
@@ -561,7 +576,7 @@ function make_voxel_editor()
                     draw_grid(_grid,cam,rotation_mode and 1 or 2,layer[majori])
                 end
             else
-                draw_grid(_grid,cam,rotation_mode and 1 or 2,layer[majori])
+                draw_grid(_grid,cam,1,layer[majori])
             end
             fillp()
             
@@ -611,7 +626,7 @@ function make_voxel_editor()
             cam:control(center,yangle,zangle,1.5*_grid_size)
             local majori,minori,lasti=get_majors(cam)
             local prev_layer=layer[majori]
-            layer[majori]=mid(prev_layer-msg.wheel*sgn(cam.fwd[majori]),0,_grid_size-1)
+            layer[majori]=mid(prev_layer+msg.wheel*sgn(cam.fwd[majori]),0,_grid_size)
             local major_layer=layer[majori]
             -- selection
             if not rotation_mode then
@@ -638,7 +653,7 @@ function make_voxel_editor()
                 ti,tj=target[minori],target[lasti]
 
                 current_voxel=nil
-                if ti==mid(ti,0,_grid_size) and tj==mid(tj,0,_grid_size) then
+                if ti==mid(ti,0,_grid_size+1) and tj==mid(tj,0,_grid_size+1) then
                     local o={0,0,0}
                     o[majori]=major_layer
                     o[minori]=ti\1
@@ -809,15 +824,36 @@ function unpack_archive()
 end
 
 function collect_frames(ent,cb)
-    local cam=make_cam(15.5,15.5,16,1)
+    local trans_color=15
     local grid,frames=grid_fromstr(ent.data),{}
+    local ymax,extents=31,{
+        {lo=0,hi=_grid_size},
+        {lo=0,hi=_grid_size},
+        {lo=0,hi=_grid_size}}
+    if ent.bottom then
+        -- find liked
+        for _,linked in pairs(_entities) do
+            if ent.bottom==linked.text and linked.data then
+                local other_grid=grid_fromstr(linked.data)
+                for idx,v in pairs(grid) do
+                    other_grid[idx+_grid_size+1]=v
+                end
+                extents[3].hi=2*_grid_size
+                ymax=63
+                grid=other_grid
+                break
+            end
+        end
+    end
+    local cam=make_cam(15.5,ymax/2,16,1)
+
     -- find middle of voxel entity
     local zmin,zmax=32000,-32000
-    for k=0,_grid_size do
+    for k=extents[3].lo,extents[3].hi do
         -- find at least one non empty voxel            
-        for i=0,_grid_size do                
+        for i=extents[1].lo,extents[1].hi do                
             local done
-            for j=0,_grid_size do
+            for j=extents[2].lo,extents[2].hi do
                 if grid[i>>16|j>>8|k] then
                     zmin=min(zmin,k)
                     zmax=max(zmax,k)
@@ -830,10 +866,13 @@ function collect_frames(ent,cb)
     end
     -- find first row with non-null pixels
     local function find_first_row(start,finish,dir)
-        for i=start,finish,dir do            
-            local mem=0x6000+i*64
-            if $(mem)|$(mem+4)|$(mem+8)|$(mem+12)!=0 then
-                return mid(i-dir,start,finish)
+        for y=start,finish,dir do            
+            --local mem=0x6000+i*64
+            --if $(mem)|$(mem+4)|$(mem+8)|$(mem+12)!=0xffff then
+            --    return mid(i-dir,start,finish)
+            --end
+            for x=0,31 do
+                if(pget(x,y)!=trans_color) return mid(y-1,start,finish)
             end
         end
         return finish        
@@ -841,8 +880,8 @@ function collect_frames(ent,cb)
     -- find first column with non-null pixels
     local function find_first_column(start,finish,dir)
         for x=start,finish,dir do
-            for y=0,31 do
-                if(pget(x,y)!=0) return mid(x-1,start,finish)
+            for y=0,ymax do
+                if(pget(x,y)!=trans_color) return mid(x-1,start,finish)
             end
         end
         return finish
@@ -873,13 +912,16 @@ function collect_frames(ent,cb)
     end    
     for _,y in ipairs(yangles) do
         for i,z in ipairs(zangles) do
-            cls()
+            -- assumes color 15 is not used :)
+            cls(15)
             cam:control({xy,xy,zoffset},-y,z,2*_grid_size)
-            clip(0,0,32,32)
+            clip(0,0,32,ymax)
+            cam.extents=extents
             draw_grid(grid,cam,nil,true)            
+            cam.extents=nil
             clip()
             -- find ymin,ymax
-            local ymin,ymax=find_first_row(0,31,1),find_first_row(31,0,-1)
+            local ymin,ymax=find_first_row(0,ymax,1),find_first_row(ymax,0,-1)
             local frame=add(frames,{
                 ymin=ymin,ymax=ymax,
                 -- x extent
@@ -923,7 +965,7 @@ function pack_entities()
     pack_bytes(#_entities,2)
     for i=1,#_entities do
         local ent=_entities[i]
-        if ent.data then
+        if ent.data and not ent.no_export then
             holdframe()
             local frames,count=collect_frames(ent,function(count)
                 if(count%2!=0) return
@@ -974,6 +1016,9 @@ function pack_entities()
 end
 
 function _init()  
+    -- clear screen cache
+    memset(0x8000,0,0x2000)
+
     -- integrated fill colors
     poke(0x5f34, 1)
 
