@@ -395,8 +395,28 @@ function make_player(_origin,_a)
           z0-=1
         end
 ::end_noise::
-        -- todo: 
-        -- check active noises (channels)
+
+        --playback chatter
+        foreach(_chatter, do_chatter)
+
+        --check for chatter playback
+        for i = 0, 2 do
+          if stat(46 + i) ~= -1 then
+            goto end_chatter
+          end
+        end
+
+        --playback random chatter if none playing
+        while true do
+          local chatter = _things[ceil(rnd(#_things))].chatter
+
+          if chatter then
+            do_chatter({ chatter, 2 })
+            goto end_chatter
+          end
+        end
+
+        ::end_chatter::
 
         -- refresh angles
         m=make_m_from_euler(unpack(angle))    
@@ -959,7 +979,8 @@ function make_worm(_origin)
 
   head=make_skull(inherit({
     die=function(_ENV)
-      music(54)
+      sfx"-1"
+      music"54"
       -- clean segment
       do_async(function()
         while #segments>0 do
@@ -1345,7 +1366,7 @@ function gameover_state(obituary)
   local _,x,y=unpack(buttons[1])
   local mx,my=x+buttons[1].width/2,y+3
   -- death music
-  music(8)
+  music"36"
   return
     -- update
     function()
@@ -1470,13 +1491,13 @@ _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,on_ground,1
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
 _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
-_spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41;_skull_template
+_spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
 _squid_core;no_render,1,radius,48
-_squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop
+_squid_base;ent,hand1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop,chatter,8
 _squid_hood;ent,hand2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0
-_skull1_base_template;ent,skull,radius,16,hp,2,chatter,5;_skull_template
-_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_skull_template]],"\n")
+_skull1_base_template;ent,skull,radius,16,hp,2;_skull_template
+_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_template]],"\n")
   for line in all(templates) do
     local name,template,parent=unpack(split(line,";"))
     _ENV[name]=inherit(with_properties(template),_ENV[parent])

@@ -1,26 +1,39 @@
----enemy chatter
---play sfx only if sfx is not already playing, or playback is almost complete
-function do_chatter(idx)
-  --loop audio channels
-  for i = 0, 3 do
-    local cur_sfx = stat(46 + i)
+---chatter
+--play enemy chatter sfx on channels 0-2
+--
+--@param chatter { idx: 0-63, dist: 0-2 }
+-- lowest enemy chatter sfx idx
+--
+--@returns void
+function do_chatter(chatter)
+  local
+    variant,
+    idx,
+    dist
+    =
+    flr(rnd"4"),
+    unpack(chatter)
 
+  --loop audio channels
+  for i = 0, 2 do
     --loop chatter sfx variants
-    for j = 0, 2 do
+    for j = 0, 3 do
       if
-        --chatter in progress
-        cur_sfx == idx + j
-        --chatter not significantly complete
-        and stat(50 + i) < 16
-        --spawn sfx in progress
-        or mid(40, cur_sfx, 42) == cur_sfx
+        --music playing
+        stat"57"
+        --chatter variant in progress
+        or stat(46 + i) == idx + j
       then
         return
       end
     end
   end
 
-  --playback random chatter variant
-  sfx(idx + flr(rnd"3"))
-end
+  local offset = (idx + variant) * 68
 
+  --copy dampened sfx
+  memcpy(0x3200 + offset, 0xf120 + 0x440 * dist + offset, 68)
+
+  --playback random chatter variant
+  sfx(idx + variant)
+end
