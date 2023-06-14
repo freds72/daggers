@@ -932,20 +932,21 @@ function make_squid(_origin,_velocity)
     think=function(_ENV)
       dead=_dead
       _angle+=0.005
+      -- keep "move" as the main driving force
       forces=v_add(forces,_velocity,30)
     end,
     post_think=function(_ENV)
       _origin=origin
       _dx,_dz=abs(origin[1]-512),abs(origin[3]-512)
       -- remove squid if out of sight
-      if(_dx>400 or _dz>400) printh("too far: ".._dx.." ".._dz) _dead=true
+      if(_dx>400 or _dz>400) _dead=true
     end
   },_squid_core),_origin)
     
-  local base_parts=[[_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,24
+  local squid_parts=[[_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,24
 _squid_hood;angle_offset,0.3333,r_offset,8,y_offset,24
-_squid_hood;angle_offset,0.6667,r_offset,8,y_offset,24]]
-  local tentacle_parts=[[_squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_hood;angle_offset,0.6667,r_offset,8,y_offset,24
+_squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
 _squid_tentacle;angle_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
 _squid_tentacle;angle_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
 _squid_tentacle;angle_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
@@ -958,16 +959,7 @@ _squid_tentacle;angle_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,1
 _squid_tentacle;angle_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
 _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]
 
-  local die=function(_ENV)
-    if(dead) return
-    dead=true     
-    make_blood(origin) 
-    grid_unregister(_ENV)
-    -- stop spilling monsters
-    spill.co=nil
-  end
-
-  split2d(base_parts,function(base_template,properties)
+  split2d(squid_parts,function(base_template,properties)
     add(_things,inherit({
       hit=function(_ENV,pos) 
         if jewel then
@@ -985,27 +977,29 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
         end
       end,
       update=function(_ENV)
-        if(_dead) die(_ENV) return
+        if _dead then
+          if(dead) return
+          dead=true     
+          make_blood(origin) 
+          grid_unregister(_ENV)
+          -- stop spilling monsters
+          spill.co=nil          
+        end
         zangle=_angle+angle_offset
         -- store u/v angle
-        u,v=cos(zangle),-sin(zangle)
-        zangle+=0.5
-        origin=v_add(_origin,{r_offset*u,y_offset,r_offset*v})        
-        grid_register(_ENV)
+        local cc,ss=cos(zangle),-sin(zangle)
+        local offset=r_offset
+        if is_tentacle then
+          local t=time()
+          yangle=-cos(t/8+scale)*swirl
+          offset+=sin(t/4+scale)*swirl
+        else
+          u,v=cc,ss
+          zangle+=0.5
+        end
+        origin=v_add(_origin,{offset*cc,y_offset,offset*ss})
+        if(not is_tentacle) grid_register(_ENV)
       end    
-    },inherit(with_properties(properties),_ENV[base_template])))
-  end)
-  split2d(tentacle_parts,function(base_template,properties)
-    add(_things,inherit({
-      update=function(_ENV)
-        if(_dead) die(_ENV) return
-        local t=time()
-        zangle=_angle+angle_offset
-        yangle=-cos(t/8+scale)*swirl
-        local c,s=cos(zangle),-sin(zangle)
-        local offset=r_offset+sin(t/4+scale)*swirl
-        origin=v_add(_origin,{offset*c,y_offset,offset*s})
-      end      
     },inherit(with_properties(properties),_ENV[base_template])))
   end)
 end
@@ -1511,7 +1505,7 @@ _spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_s
 _squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2;_skull_template
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
-_squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0
+_squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
 _skull1_base_template;ent,skull,radius,16,hp,2,chatter,5;_skull_template
 _skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_skull_template]]
   split2d(templates,function(name,template,parent)
