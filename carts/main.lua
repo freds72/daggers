@@ -403,8 +403,27 @@ function make_player(_origin,_a)
           z0-=1
         end
 ::end_noise::
-        -- todo: 
-        -- check active noises (channels)
+
+        --playback chatter
+        foreach(_chatter, do_chatter)
+
+        --check for chatter playback
+        for i = 0, 2 do
+          if stat(46 + i) ~= -1 then
+            goto end_chatter
+          end
+        end
+
+        --playback random chatter if none playing
+        while true do
+          local thing = rnd(_things)
+          if(not thing) return
+          if(not thing.chatter) return
+          do_chatter({ thing.chatter, 2 })
+          break
+        end
+
+::end_chatter::
 
         -- refresh angles
         m=make_m_from_euler(unpack(angle))    
@@ -1025,7 +1044,8 @@ function make_worm(_origin)
 
   head=make_skull(inherit({
     die=function(_ENV)
-      music(54)
+      sfx"-1"
+      music"54"
       -- clean segment
       do_async(function()
         while #segments>0 do
@@ -1375,7 +1395,7 @@ function gameover_state(obituary)
   local _,x,y=unpack(buttons[1])
   local mx,my=x+buttons[1].width/2,y+3
   -- death music
-  music(8)
+  music"36"
   return
     -- update
     function()
