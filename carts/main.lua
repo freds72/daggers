@@ -660,6 +660,9 @@ function draw_grid(cam,light)
   -- radix sort
   rsort(things)
 
+  -- default transparency
+  palt(15,true)
+  palt(0,false)
   -- render in order
   local prev_base,prev_sprites,pal0
   for _,item in inext,things do
@@ -669,7 +672,7 @@ function draw_grid(cam,light)
     else
       pal1=(light*min(15,item.key<<4))\1
     end    
-    if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) palt(0,true) pal0=pal1   
+    if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) palt(15,true) pal0=pal1   
     if item.type==1 then
       -- draw things
       local w0,thing=item.key,item.thing
@@ -705,10 +708,7 @@ function draw_grid(cam,light)
       w0*=(thing.scale or 1)
       local sx,sy=item.x-w*w0/2,item.y-h*w0/2
       --
-      palt(15,true)
-      palt(0,false)
       sspr(frame.xmin,0,w,h,sx,sy,w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff),flip)
-      palt(15,false)
 
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
@@ -721,7 +721,9 @@ function draw_grid(cam,light)
       local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
       if az>8 then
         local ay,w=m2*x+m6*y+m10*z,64/az
+        palt(15,false)      
         tline(item.x,item.y,63.5+ax*w,63.5-ay*w,0,0,1/8,0)
+        palt(15,true)
       end
     end
   end 
@@ -848,13 +850,13 @@ function make_skull(actor,_origin)
         forces={fx,on_ground and 0 or fy,fz}
 
         local old_vel=velocity
-        --velocity=v_add(velocity,forces,1/30)
+        velocity=v_add(velocity,forces,1/30)
         -- fixed velocity (on x/z)
         local vx,vz=velocity[1],velocity[3]
         local a=atan2(vx,vz)
         local vlen=vx*cos(a)+vz*sin(a)
-        velocity[1]*=3/vlen
-        velocity[3]*=3/vlen
+        velocity[1]*=min_velocity/vlen
+        velocity[3]*=min_velocity/vlen
         
         -- align direction and sprite direction
         local target_angle=atan2(old_vel[1]-velocity[1],velocity[3]-old_vel[3])
@@ -901,23 +903,26 @@ end
 -- type 1: 3 blocks
 -- type 2: 4 blocks
 function make_squid(_origin,_velocity)
-  local _angle,_dead=0
+  local _dx,_dz,_angle,_dead=32000,32000,0
   -- spill skulls every x seconds
   local spill=do_async(function()
-    wait_async(60)
+    wait_async(60)  
     while not _plyr.dead do
-      for t in all(split"_skull1_template,_skull1_template,_skull1_template,_skull2_template,_skull1_template") do
-        --make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
-        wait_async(2+rnd(2))
+      -- don't spawn while outside
+      if _dx<256 and _dz<256 then
+        for t in all(split"_skull1_template,_skull1_template,_skull1_template,_skull2_template,_skull1_template") do
+          make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
+          wait_async(2+rnd(2))
+        end
+        wait_async(150)
       end
-      wait_async(150)
+      yield()
     end
   end)
 
   local squid=make_skull(inherit({
     hit=function() end,
     apply=function(_ENV,other,force,t)
-      dead=_dead
       if other.is_squid_core then
         forces[1]+=t*force[1]
         forces[3]+=t*force[3]
@@ -925,11 +930,15 @@ function make_squid(_origin,_velocity)
       resolved[other]=true
     end,
     think=function(_ENV)
+      dead=_dead
       _angle+=0.005
-      forces=v_add(forces,_velocity,1/16)
+      forces=v_add(forces,_velocity,30)
     end,
     post_think=function(_ENV)
       _origin=origin
+      _dx,_dz=abs(origin[1]-512),abs(origin[3]-512)
+      -- remove squid if out of sight
+      if(_dx>400 or _dz>400) printh("too far: ".._dx.." ".._dz) _dead=true
     end
   },_squid_core),_origin)
     
@@ -951,9 +960,17 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
 
   local die=function(_ENV)
     if(dead) return
-    dead=true 
+    dead=true     
     make_blood(origin) 
     grid_unregister(_ENV)
+    -- stop spilling monsters
+    spill.co=nil
+  end
+
+  local function make_part(config,actor)
+    split2d(config,function(base_template,properties)
+      add(_things,inherit(actor,inherit(with_properties(properties),_env[base_template])))
+    end)
   end
 
   split2d(base_parts,function(base_template,properties)
@@ -967,9 +984,8 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
             make_jewel(origin,{u,3,v},16)
             -- avoid reentrancy
             jewel=nil
+            -- todo: handle multiple jewels
             ent=_entities.squid2
-            -- stop spilling monsters
-            spill.co=nil
             _dead=true
           end
         end
@@ -1245,10 +1261,11 @@ function play_state()
     -- player just spawned
     wait_async(90)
     -- 4 squids
-    for i=0,0.75,0.25 do
+    local angle=rnd()
+    for i=angle,angle+0.75,0.25 do
       local u,v=cos(i),-sin(i)
-      local x,z=512+256*u,512-256*v
-      make_squid({x,0,z},{-u/16,0,-v/16})
+      local x,z=512+396*u,512-396*v
+      make_squid({x,0,z},{-u/16,0,v/16})
       -- 3s
       wait_async(90)
     end
@@ -1491,14 +1508,13 @@ function _init()
   }
   -- global templates
   local templates=[[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
-_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero
+_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3
 _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,on_ground,1
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
 _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
 _spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41;_skull_template
-_squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1;_skull_template
-_squid_base;ent,squid0,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop,hit,nop
+_squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2;_skull_template
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0
