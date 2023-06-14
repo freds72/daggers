@@ -967,12 +967,6 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
     spill.co=nil
   end
 
-  local function make_part(config,actor)
-    split2d(config,function(base_template,properties)
-      add(_things,inherit(actor,inherit(with_properties(properties),_env[base_template])))
-    end)
-  end
-
   split2d(base_parts,function(base_template,properties)
     add(_things,inherit({
       hit=function(_ENV,pos) 
