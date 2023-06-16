@@ -1,4 +1,4 @@
-local _plyr,_cam,_things,_grid,_futures
+local _bsp,_plyr,_cam,_things,_grid,_futures={}
 local _entities,_particles,_bullets,_blood_ents,_goo_ents
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
@@ -6,120 +6,30 @@ local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
 -- debug
 local _god_mode=true
 
-local _ground={
-  -- middle chunk
-  {
-    n={0,1,0},
-    split"256,0,192",
-    split"256,0,832",
-    split"768,0,832",
-    split"768,0,192"
-  },
-  -- left
-  {
-    n={0,1,0},
-    split"192,0,256",
-    split"192,0,768",
-    split"256,0,768",
-    split"256,0,256"
-  },
-  -- right
-  {
-    n={0,1,0},
-    split"768,0,256",
-    split"768,0,768",
-    split"832,0,768",
-    split"832,0,256"
-  }
-}
-local _sides={
-  {
-    n={-1,0,0},
-    split"256,0,256",
-    split"256,0,192",
-    split"256,-32,192",
-    split"256,-32,256",
-  },
-  {
-    n={1,0,0},
-    split"768,0,192",
-    split"768,0,256",
-    split"768,-32,256",
-    split"768,-32,192",
-  },
-  {
-    n={-1,0,0},
-    split"256,0,832",
-    split"256,0,768",
-    split"256,-32,768",
-    split"256,-32,832",
-  },
-  {
-    n={1,0,0},
-    split"768,0,768",
-    split"768,0,832",
-    split"768,-32,832",
-    split"768,-32,768",
-  },
-  {
-    n={0,0,1},
-    split"768,0,832",
-    split"256,0,832",
-    split"256,-32,832",
-    split"768,-32,832",
-  },
-  {
-    n={0,0,-1},
-    split"256,0,192",
-    split"768,0,192",
-    split"768,-32,192",
-    split"256,-32,192",
-  },
-  -- ears (left)
-  {
-    n={-1,0,0},
-    split"192,0,768",
-    split"192,0,256",
-    split"192,-32,256",
-    split"192,-32,768",
-  },
-  {
-    n={0,0,1},
-    split"256,0,768",
-    split"192,0,768",
-    split"192,-32,768",
-    split"256,-32,768",
-  },
-  {
-    n={0,0,-1},
-    split"192,0,256",
-    split"256,0,256",
-    split"256,-32,256",
-    split"192,-32,256",
-  },
-  -- ears (right)
-  {
-    n={1,0,0},
-    split"832,0,256",
-    split"832,0,768",
-    split"832,-32,768",
-    split"832,-32,256",
-  },
-  {
-    n={0,0,1},
-    split"832,0,768",
-    split"768,0,768",
-    split"768,-32,768",
-    split"832,-32,768",
-  },
-  {
-    n={0,0,-1},
-    split"768,0,256",
-    split"832,0,256",
-    split"832,-32,256",
-    split"768,-32,256",
-  }  
-}
+local _vertices=split[[256,0,192,
+256,0,832,
+768,0,832,
+768,0,192,
+192,0,256,
+192,0,768,
+256,0,768,
+256,0,256,
+768,0,256,
+768,0,768,
+832,0,768,
+832,0,256,
+256,-32,192,
+256,-32,832,
+768,-32,832,
+768,-32,192,
+192,-32,256,
+192,-32,768,
+256,-32,768,
+256,-32,256,
+768,-32,256,
+768,-32,768,
+832,-32,768,
+832,-32,256]]
   
 local _ground_extents={
   split"256,768,192,832",
@@ -247,202 +157,194 @@ local _chatter_ranges={
 }
 
 function make_player(_origin,_a)
-    local angle,on_ground={0,_a,0}
-    return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
-      -- start above floor
-      origin=v_add(_origin,{0,1,0}), 
-      eye_pos=v_add(_origin,{0,25,0}), 
-      m=make_m_from_euler(angle),
-      control=function(_ENV)
-        if(dead) return
-        -- move
-        local dx,dz,a,jmp=0,0,angle[2],0
-        if(btn(0,1)) dx=3
-        if(btn(1,1)) dx=-3
-        if(btn(2,1)) dz=3
-        if(btn(3,1)) dz=-3
-        if(on_ground and btnp(4)) jmp=12 on_ground=false
 
-        -- straffing = faster!
+  local angle,on_ground={0,_a,0}
+  return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
+    -- start above floor
+    origin=v_add(_origin,{0,1,0}), 
+    eye_pos=v_add(_origin,{0,25,0}), 
+    m=make_m_from_euler(angle),
+    control=function(_ENV)
+      if(dead) return
+      -- move
+      local dx,dz,a,jmp=0,0,angle[2],0
+      if(btn(0,1)) dx=3
+      if(btn(1,1)) dx=-3
+      if(btn(2,1)) dz=3
+      if(btn(3,1)) dz=-3
+      if(on_ground and btnp(4)) jmp=12 on_ground=false
 
-        -- restore atract power
-        attract_power=min(attract_power+0.2,1)
+      -- straffing = faster!
 
-        -- double-click detector
-        dblclick_ttl=max(dblclick_ttl-1)
-        if btn(5) then
-          if fire_released then
-            fire_released=false
-          end
-          fire_frames+=1
-          -- regular fire      
-          if dblclick_ttl==0 and fire_ttl<=0 then
-            sfx(48)
-            fire_ttl,fire=3,1
-          end
-          -- 
-          attract_power=0
-        elseif not fire_released then
-          if dblclick_ttl>0  then
-            -- double click timer still active?
-            fire_ttl,fire=0,2
-            dblclick_ttl=0				
-            sfx(49)
-            -- shotgun (repulsive!)
-            attract_power=-1
-          elseif fire_frames<4 then
-           -- candidate for double click?
-           dblclick_ttl=8
-          end           
-          fire_released,fire_frames=true,0
+      -- restore atract power
+      attract_power=min(attract_power+0.2,1)
+
+      -- double-click detector
+      dblclick_ttl=max(dblclick_ttl-1)
+      if btn(5) then
+        if fire_released then
+          fire_released=false
         end
+        fire_frames+=1
+        -- regular fire      
+        if dblclick_ttl==0 and fire_ttl<=0 then
+          sfx(48)
+          fire_ttl,fire=3,1
+        end
+        -- 
+        attract_power=0
+      elseif not fire_released then
+        if dblclick_ttl>0  then
+          -- double click timer still active?
+          fire_ttl,fire=0,2
+          dblclick_ttl=0				
+          sfx(49)
+          -- shotgun (repulsive!)
+          attract_power=-1
+        elseif fire_frames<4 then
+          -- candidate for double click?
+          dblclick_ttl=8
+        end           
+        fire_released,fire_frames=true,0
+      end
 
-        dangle=v_add(dangle,{stat(39),stat(38),0})
-        tilt+=dx/40
-        local c,s=cos(a),-sin(a)
-        velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
-      end,
-      update=function(_ENV)
-        -- damping      
-        dangle=v_scale(dangle,0.6)
-        tilt*=0.6
-        if(abs(tilt)<=0.0001) tilt=0
-        velocity[1]*=0.7
-        --velocity[2]*=0.9
-        velocity[3]*=0.7
-        -- gravity
-        velocity[2]-=0.8
-        
-        -- avoid overflow!
-        fire_ttl=max(fire_ttl-1)
+      dangle=v_add(dangle,{stat(39),stat(38),0})
+      tilt+=dx/40
+      local c,s=cos(a),-sin(a)
+      velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
+    end,
+    update=function(_ENV)
+      -- damping      
+      dangle=v_scale(dangle,0.6)
+      tilt*=0.6
+      if(abs(tilt)<=0.0001) tilt=0
+      velocity[1]*=0.7
+      --velocity[2]*=0.9
+      velocity[3]*=0.7
+      -- gravity
+      velocity[2]-=0.8
+      
+      -- avoid overflow!
+      fire_ttl=max(fire_ttl-1)
 
-        angle=v_add(angle,dangle,1/1024)
-  
-        -- check next position
-        local vn,vl=v_dir({0,0,0},velocity)      
-        local prev_pos,new_pos,new_vel=v_clone(origin),v_add(origin,velocity),velocity
-        if vl>0.1 then
-            local x,y,z=unpack(new_pos)
-            if y<-64 then
-              y=-64
+      angle=v_add(angle,dangle,1/1024)
+
+      -- check next position
+      local vn,vl=v_dir({0,0,0},velocity)      
+      local prev_pos,new_pos,new_vel=v_clone(origin),v_add(origin,velocity),velocity
+      if vl>0.1 then
+          local x,y,z=unpack(new_pos)
+          if y<-64 then
+            y=-64
+            new_vel[2]=0
+            if not dead then
+              dead=true
+              next_state(gameover_state,"FLOORED")
+            end
+          elseif y<0 then
+            -- main grid?              
+            local out=0
+            for _,extent in pairs(_ground_extents) do
+              if x<extent[1] or x>extent[2] or z<extent[3] or z>extent[4] then
+                out+=1
+              end
+            end
+            -- missed all ground chunks?
+            if out!=#_ground_extents then
+              -- stop velocity
+              y=0
               new_vel[2]=0
-              if not dead then
-                dead=true
-                next_state(gameover_state,"FLOORED")
-              end
-            elseif y<0 then
-              -- main grid?              
-              local out=0
-              for _,extent in pairs(_ground_extents) do
-                if x<extent[1] or x>extent[2] or z<extent[3] or z>extent[4] then
-                  out+=1
-                end
-              end
-              -- missed all ground chunks?
-              if out!=#_ground_extents then
-                -- stop velocity
-                y=0
-                new_vel[2]=0
-                on_ground=true
-              else
-                dying=true
-              end
-            end
-            -- use corrected velocity + stays within grid
-            origin={mid(x,0,1024),y,mid(z,0,1024)}
-            velocity=new_vel
-        end
-
-        eye_pos=v_add(origin,{0,24,0})
-
-        -- check collisions
-        local x,z=origin[1],origin[3]
-        if not dead then   
-          local a=atan2(prev_pos[1]-x,prev_pos[3]-z)
-          -- 
-          collect_grid(prev_pos,origin,cos(a),-sin(a),function(grid_cell)
-            -- avoid reentrancy
-            if(dead) return
-            for thing in pairs(grid_cell) do
-              if thing!=_ENV and not thing.dead then
-                -- special handling for crawling enemies
-                local dist=v_len(thing.on_ground and origin or eye_pos,thing.origin)
-                -- todo: use thing radius!!
-                if dist<16 then
-                  if thing.pickup then
-                    thing:pickup()
-                  else
-                    if not _god_mode then
-                      -- avoid reentrancy
-                      dead=true
-                      next_state(gameover_state,thing.ent.obituary)
-                    end
-                    return
-                  end
-                end
-              end
-            end
-          end)
-        end
-
-        -- collect nearby chatter
-        _chatter={}
-        local x0,z0=x>>22,z\64
-        for dist,offsets in inext,_chatter_ranges do
-          local idx=x0|z0
-          for _,idx_offset in inext,offsets do
-            local cell=_grid[idx+idx_offset]            
-            for chatter_id,cnt in pairs(cell.chatter) do
-              if(cnt>0) add(_chatter,{chatter_id,dist-1})
-              -- enough data?
-              if(#_chatter==3) goto end_noise
+              on_ground=true
+            else
+              dying=true
             end
           end
-          -- next range
-          x0-=0x0.0001
-          z0-=1
+          -- use corrected velocity + stays within grid
+          origin={mid(x,0,1024),y,mid(z,0,1024)}
+          velocity=new_vel
+      end
+
+      eye_pos=v_add(origin,{0,24,0})
+
+      -- check collisions
+      local x,z=origin[1],origin[3]
+      if not dead then   
+        local a=atan2(prev_pos[1]-x,prev_pos[3]-z)
+        -- 
+        collect_grid(prev_pos,origin,cos(a),-sin(a),function(grid_cell)
+          -- avoid reentrancy
+          if(dead) return
+          for thing in pairs(grid_cell) do
+            if thing!=_ENV and not thing.dead then
+              -- special handling for crawling enemies
+              local dist=v_len(thing.on_ground and origin or eye_pos,thing.origin)
+              -- todo: use thing radius!!
+              if dist<16 then
+                if thing.pickup then
+                  thing:pickup()
+                else
+                  if not _god_mode then
+                    -- avoid reentrancy
+                    dead=true
+                    next_state(gameover_state,thing.ent.obituary)
+                  end
+                  return
+                end
+              end
+            end
+          end
+        end)
+      end
+
+      -- collect nearby chatter
+      _chatter={}
+      local x0,z0=x>>22,z\64
+      for dist,offsets in inext,_chatter_ranges do
+        local idx=x0|z0
+        for _,idx_offset in inext,offsets do
+          local cell=_grid[idx+idx_offset]            
+          for chatter_id,cnt in pairs(cell.chatter) do
+            if(cnt>0) add(_chatter,{chatter_id,dist-1})
+            -- enough data?
+            if(#_chatter==3) goto end_noise
+          end
         end
+        -- next range
+        x0-=0x0.0001
+        z0-=1
+      end
 ::end_noise::
 
-        --playback chatter
-        foreach(_chatter, do_chatter)
+      --playback chatter
+      foreach(_chatter, do_chatter)
 
-        --check for chatter playback
-        for i = 0, 2 do
-          if stat(46 + i) ~= -1 then
-            goto end_chatter
-          end
+      --check for chatter playback
+      for i = 0, 2 do
+        if stat(46 + i) ~= -1 then
+          goto end_chatter
         end
-
-        --playback random chatter if none playing
-        while true do
-          local thing = rnd(_things)
-          if(not thing) return
-          if(not thing.chatter) return
-          do_chatter({ thing.chatter, 2 })
-          break
-        end
+      end
 
 ::end_chatter::
 
-        -- refresh angles
-        m=make_m_from_euler(unpack(angle))    
+      -- refresh angles
+      m=make_m_from_euler(unpack(angle))    
 
-        -- normal fire
-        if fire==1 then          
-          _total_bullets+=0x0.0001
-          make_bullet(v_add(origin,{0,18,0}),angle[2],angle[1],0.02)
-        elseif fire==2 then
-          -- shotgun
-          _total_bullets+=0x0.000a
-          local o=v_add(origin,{0,18,0})
-          for i=1,10 do
-            make_bullet(o,angle[2],angle[1],0.025)
-          end
+      -- normal fire
+      if fire==1 then          
+        _total_bullets+=0x0.0001
+        make_bullet(v_add(origin,{0,18,0}),angle[2],angle[1],0.02)
+      elseif fire==2 then
+        -- shotgun
+        _total_bullets+=0x0.000a
+        local o=v_add(origin,{0,18,0})
+        for i=1,10 do
+          make_bullet(o,angle[2],angle[1],0.025)
         end
-        fire=nil          
       end
-    }))
+      fire=nil          
+    end
+  }))
 end
 
 function make_bullet(origin,zangle,yangle,spread)
@@ -472,59 +374,6 @@ function make_particle(origin,fwd)
     shadeless=true,
     ttl=time()+0.25+rnd()/5
   }
-end
-
--- transform & clip polygon
-function draw_poly(poly,uindex,vindex,light)
-    if(v_dot(_cam.origin,poly.n)<=poly.cp) return
-
-    local m,cx,cy,cz=_cam.m,unpack(_cam.origin)
-    local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
-    local verts,outcode,nearclip={},0xffff,0  
-    -- to cam space + clipping flags
-    for i,v0 in ipairs(poly) do
-        local code,x,y,z=2,v0[1]-cx,v0[2]-cy,v0[3]-cz
-        local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
-        if(az>8) code=0
-        if(az>384) code|=1
-        if(-ax>az) code|=4
-        if(ax>az) code|=8
-        
-        local w=64/az 
-        verts[i]={ax,ay,az,u=v0[uindex]>>4,v=v0[vindex]>>4,x=63.5+ax*w,y=63.5-ay*w,w=w}
-
-        outcode&=code
-        nearclip+=code&2
-    end
-    -- out of screen?
-    if outcode==0 then
-      if nearclip!=0 then
-        -- near clipping required?
-        local res,v0={},verts[#verts]
-        local d0=v0[3]-8
-        for i,v1 in inext,verts do
-          local side=d0>0
-          if(side) res[#res+1]=v0
-          local d1=v1[3]-8
-          if (d1>0)!=side then
-            -- clip!
-            local t=d0/(d0-d1)
-            local v=v_lerp(v0,v1,t)
-            -- project
-            -- z is clipped to near plane
-            v.x=63.5+(v[1]<<3)
-            v.y=63.5-(v[2]<<3)
-            v.w=8 -- 64/8
-            v.u=lerp(v0.u,v1.u,t)
-            v.v=lerp(v0.v,v1.v,t)
-            res[#res+1]=v
-          end
-          v0,d0=v1,d1
-        end
-        verts=res
-      end
-      mode7(verts,#verts,light)
-    end    
 end
 
 function mode7(p,np,light)
@@ -625,6 +474,7 @@ function mode7(p,np,light)
 end
 
 function draw_grid(cam,light)
+  light=1
   local m,cx,cy,cz=cam.m,unpack(cam.origin)
   local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
@@ -932,7 +782,8 @@ function make_squid(_origin,_velocity)
           make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
           wait_async(2+rnd(2))
         end
-        wait_async(150)
+        -- wait 10s
+        wait_async(300)
       end
       yield()
     end
@@ -1191,19 +1042,9 @@ end
 -- draw game world
 function draw_world()
   cls(0)
-              
-  poke4(0x5f38,0x0004.0404)
-  for _,chunk in pairs(_sides) do
-    draw_poly(chunk,1,2,1)
-  end
 
-  poke4(0x5f38,0x0000.0404)
-  for _,chunk in pairs(_ground) do
-    draw_poly(chunk,1,3,1)
-  end        
-
-  -- draw things
-  draw_grid(_cam,1)      
+  -- draw mini bsp
+  _bsp[0](_cam)
 
   -- tilt!
   -- screen = gfx
@@ -1323,6 +1164,7 @@ function play_state()
       ]]
 
       --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
     -- init
@@ -1485,7 +1327,7 @@ function _init()
 
   -- always needed  
   _cam=inherit{
-    origin={0,0,0},    
+    origin=split"0,0,0",    
     track=function(_ENV,_origin,_m,angles,_tilt)
       --
       tilt=_tilt or 0
@@ -1497,9 +1339,118 @@ function _init()
       m[7],m[10]=m[10],m[7]
       
       origin=_origin
-    end
-  }
+    end}
 
+    -- mini bsp:
+    --              0
+    --             / \
+    --           -1   world
+    --           / \
+    --       brush  -2
+    --             /   \ 
+    --          brush  brush
+    split2d([[0;2;0;-1;grid
+-1;1;256;1;-2
+-2;1;768;2;3]],function(id,plane_id,plane,left,right)
+      _bsp[id]=function(cam)
+        local l,r=_bsp[left],_bsp[right]                
+        if(cam.origin[plane_id]<=plane) l,r=r,l
+        l(cam)
+        r(cam)
+      end
+    end)
+    -- layout:
+    -- #1: brush id (bsp node id)
+    -- repeat:
+    -- ##0: cp coord (!!signed!!)
+    -- ##1: cp value (!!signed!!)
+    -- ##2: u index
+    -- ##3: v index
+    -- ##4: vertex index
+    -- ##5: vertex index
+    -- ##6: vertex index
+    -- ##7: vertex index
+    -- ##8: tex coords
+    split2d([[1; 2;0;0;2;5;6;7;8;0x0000.0404; -2;32;0;2;20;19;18;17;0x0008.0404; -3;-256;0;1;5;8;20;17;0x0004.0404; 3;768;0;1;7;6;18;19;0x0004.0404; -1;-192;2;1;17;18;6;5;0x0004.0404
+2; 2;0;0;2;1;2;3;4;0x0000.0404; -2;32;0;2;16;15;14;13;0x0008.0404; -3;-192;0;1;1;4;16;13;0x0004.0404; 3;832;0;1;3;2;14;15;0x0004.0404; -1;-256;2;1;8;1;13;20;0x0004.0404; -1;-256;2;1;2;7;19;14;0x0004.0404; 1;768;2;1;10;3;15;22;0x0004.0404; 1;768;2;1;4;9;21;16;0x0004.0404
+3; 2;0;0;2;9;10;11;12;0x0000.0404; -2;32;0;2;24;23;22;21;0x0008.0404; -3;-256;0;1;9;12;24;21;0x0004.0404; 1;832;2;1;24;12;11;23;0x0004.0404; 3;768;0;1;11;10;22;23;0x0004.0404]],function(id,...)
+      -- localize
+      local planes={...}
+      _bsp[id]=function(cam)
+        local m,origin,cx,cy,cz=cam.m,cam.origin,unpack(cam.origin)
+        local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
+        -- all brush planes
+        for i=1,#planes,9 do
+          -- visible?
+          local dir=planes[i]
+          if sgn(dir)*origin[abs(dir)]>planes[i+1] then              
+            local verts,uindex,vindex,outcode,nearclip={},planes[i+2],planes[i+3],0xffff,0  
+            for j=1,4 do
+              local vi=(planes[i+j+3]-1)*3+1
+              local code,x,y,z=2,_vertices[vi]-cx,_vertices[vi+1]-cy,_vertices[vi+2]-cz
+              local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
+              if(az>8) code=0
+              if(az>384) code|=1
+              if(-ax>az) code|=4
+              if(ax>az) code|=8
+              
+              local w=64/az 
+              verts[j]={ax,ay,az,u=_vertices[vi+uindex]>>4,v=_vertices[vi+vindex]>>4,x=63.5+ax*w,y=63.5-ay*w,w=w}
+              
+              outcode&=code
+              nearclip+=code&2
+            end
+            -- out of screen?
+            if outcode==0 then
+              if nearclip!=0 then                
+                -- near clipping required?
+                local res,v0={},verts[#verts]
+                local d0=v0[3]-8
+                for i,v1 in inext,verts do
+                  local side=d0>0
+                  if(side) res[#res+1]=v0
+                  local d1=v1[3]-8
+                  if (d1>0)!=side then
+                    -- clip!
+                    local t=d0/(d0-d1)
+                    local v=v_lerp(v0,v1,t)
+                    -- project
+                    -- z is clipped to near plane
+                    v.x=63.5+(v[1]<<3)
+                    v.y=63.5-(v[2]<<3)
+                    v.w=8 -- 64/8
+                    v.u=lerp(v0.u,v1.u,t)
+                    v.v=lerp(v0.v,v1.v,t)
+                    res[#res+1]=v
+                  end
+                  v0,d0=v1,d1
+                end
+                verts=res
+              end
+    
+              poke4(0x5f38,planes[i+8])
+              -- color(_dist)
+              -- local v0=verts[#verts]
+              -- for i=1,#verts do
+              --   local v1=verts[i]
+              --   line(v0.x,v0.y,v1.x,v1.y)
+              --   v0=v1
+              -- end        
+              mode7(verts,#verts,1)  
+              -- local mx,my=0,0
+              -- for _,v in inext,verts do
+              --   mx+=v.x
+              --   my+=v.y
+              -- end
+              -- print(id.." / "..((i\9)+1),mx/#verts,my/#verts,8)
+            end
+          end
+        end
+      end
+    end)
+  -- attach world draw
+  _bsp.grid=draw_grid
+  
   _bullets,_things,_futures={},{},{}
   -- load images
   _entities=decompress("pic",0,0,unpack_entities)
@@ -1558,14 +1509,6 @@ _skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_
     end
   },_skull2_base_template)  
   reload()
-  
-  -- init ground vectors
-  for _,chunk in pairs(_sides) do
-    chunk.cp=v_dot(chunk[1],chunk.n)
-  end
-  for _,chunk in pairs(_ground) do
-    chunk.cp=v_dot(chunk[1],chunk.n)
-  end
 
   -- run game
   next_state(play_state)
@@ -1637,6 +1580,9 @@ end
 
 local _checked=0
 function _update()
+  -- any futures?
+  update_asyncs()
+
   -- keep world running    
   local t=time()
   -- bullets collisions
@@ -1735,9 +1681,6 @@ function _update()
       thing:update()
     end
   end
-
-  -- any futures?
-  update_asyncs()
 
   _update_state()
 end
