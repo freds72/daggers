@@ -1,4 +1,4 @@
-local _plyr,_cam,_things,_grid,_futures
+local _bsp,_plyr,_cam,_things,_grid,_futures={}
 local _entities,_particles,_bullets,_blood_ents,_goo_ents
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
@@ -1344,7 +1344,6 @@ function _init()
     end}
 
     -- "ground"
-    _bsp={}
     split2d([[-1;256;1;-2
 -2;768;2;3]],function(id,plane,left,right)
       _bsp[id]=function(pos)
@@ -1381,7 +1380,6 @@ function _init()
           if sgn(dir)*pos[abs(dir)]>planes[i+1] then              
             local verts,uindex,vindex,outcode,nearclip={},planes[i+2],planes[i+3],0xffff,0  
             for j=1,4 do
-              assert(type(planes[i+j+3])=="number","invalid: "..id.." at: "..i)
               local vi=(planes[i+j+3]-1)*3+1
               local code,x,y,z=2,_vertices[vi]-cx,_vertices[vi+1]-cy,_vertices[vi+2]-cz
               local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
