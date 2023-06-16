@@ -1471,13 +1471,13 @@ _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,on_ground,1
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
 _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
-_spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,28,spawnsfx,41;_skull_template
+_spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
 _squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2;_skull_template
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
-_skull1_base_template;ent,skull,radius,16,hp,2,chatter,5;_skull_template
-_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,chatter,6;_skull_template]]
+_skull1_base_template;ent,skull,radius,16,hp,2;_skull_template
+_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_template]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
