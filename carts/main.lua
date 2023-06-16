@@ -1359,37 +1359,40 @@ function _init()
     -- repeat:
     -- ##0: cp coord (!!signed!!)
     -- ##1: cp value (!!signed!!)
-    -- ##2: vertex index
-    -- ##3: vertex index
+    -- ##2: u index
+    -- ##3: v index
     -- ##4: vertex index
     -- ##5: vertex index
-    split2d([[1; 2;0;5;6;7;8; -2;32;20;19;18;17; -3;-256;5;8;20;17; 3;768;7;6;18;19; -1;-192;17;18;6;5
-2; 2;0;1;2;3;4; -2;32;16;15;14;13; -3;-192;13;16;4;1; 3;832;2;3;15;14; -1;-256;8;1;13;20; -1;-256;2;7;19;14; 1;768;10;3;15;22; 1;768;9;4;16;21
-3; 2;0;9;10;11;12; -2;32;24;23;22;21; -3;-256;9;12;24;21; 1;832;24;12;11;23; 3;768;11;10;22;23]],function(id,...)
+    -- ##6: vertex index
+    -- ##7: vertex index
+    -- ##8: tex coords
+    split2d([[1; 2;0;0;2;5;6;7;8;0x0000.0404; -2;32;0;2;20;19;18;17;0x0008.0404; -3;-256;0;1;5;8;20;17;0x0004.0404; 3;768;0;1;7;6;18;19;0x0004.0404; -1;-192;2;1;17;18;6;5;0x0004.0404
+2; 2;0;0;2;1;2;3;4;0x0000.0404; -2;32;0;2;16;15;14;13;0x0008.0404; -3;-192;0;1;1;4;16;13;0x0004.0404; 3;832;0;1;3;2;14;15;0x0004.0404; -1;-256;2;1;8;1;13;20;0x0004.0404; -1;-256;2;1;2;7;19;14;0x0004.0404; 1;768;2;1;10;3;15;22;0x0004.0404; 1;768;2;1;4;9;21;16;0x0004.0404
+3; 2;0;0;2;9;10;11;12;0x0000.0404; -2;32;0;2;24;23;22;21;0x0008.0404; -3;-256;0;1;9;12;24;21;0x0004.0404; 1;832;2;1;24;12;11;23;0x0004.0404; 3;768;0;1;11;10;22;23;0x0004.0404]],function(id,...)
       -- localize
       local planes={...}
       _bsp[id]=function(pos)
         local m,cx,cy,cz=_cam.m,unpack(_cam.origin)
         local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
         -- all brush planes
-        for i=1,#planes,6 do
+        for i=1,#planes,9 do
           -- visible?
           local dir=planes[i]
           if sgn(dir)*pos[abs(dir)]>planes[i+1] then              
-            local verts,outcode,nearclip={},0xffff,0  
-            local uindex,vindex=0,2
+            local verts,uindex,vindex,outcode,nearclip={},planes[i+2],planes[i+3],0xffff,0  
             for j=1,4 do
-              local vi=(planes[i+j+1]-1)*3+1
+              assert(type(planes[i+j+3])=="number","invalid: "..id.." at: "..i)
+              local vi=(planes[i+j+3]-1)*3+1
               local code,x,y,z=2,_vertices[vi]-cx,_vertices[vi+1]-cy,_vertices[vi+2]-cz
               local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
               if(az>8) code=0
-              --if(az>384) code|=1
+              if(az>384) code|=1
               if(-ax>az) code|=4
               if(ax>az) code|=8
               
               local w=64/az 
               verts[j]={ax,ay,az,u=_vertices[vi+uindex]>>4,v=_vertices[vi+vindex]>>4,x=63.5+ax*w,y=63.5-ay*w,w=w}
-      
+              
               outcode&=code
               nearclip+=code&2
             end
@@ -1421,13 +1424,21 @@ function _init()
                 verts=res
               end
     
-              color(_dist)
-              local v0=verts[#verts]
-              for i=1,#verts do
-                local v1=verts[i]
-                line(v0.x,v0.y,v1.x,v1.y)
-                v0=v1
-              end          
+              poke4(0x5f38,planes[i+8])
+              -- color(_dist)
+              -- local v0=verts[#verts]
+              -- for i=1,#verts do
+              --   local v1=verts[i]
+              --   line(v0.x,v0.y,v1.x,v1.y)
+              --   v0=v1
+              -- end        
+              mode7(verts,#verts,1)  
+              -- local mx,my=0,0
+              -- for _,v in inext,verts do
+              --   mx+=v.x
+              --   my+=v.y
+              -- end
+              -- print(id.." / "..((i\9)+1),mx/#verts,my/#verts,8)
             end
           end
         end
