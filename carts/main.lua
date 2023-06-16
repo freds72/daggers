@@ -1349,7 +1349,7 @@ function _init()
     -- mini bsp:
     --              0
     --             / \
-    --           -1   world
+    --           -1   grid
     --           / \
     --       brush  -2
     --             /   \ 
