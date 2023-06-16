@@ -781,7 +781,8 @@ function make_squid(_origin,_velocity)
           make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
           wait_async(2+rnd(2))
         end
-        wait_async(150)
+        -- wait 10s
+        wait_async(300)
       end
       yield()
     end
@@ -1115,7 +1116,7 @@ function play_state()
     for i=angle,angle+0.75,0.25 do
       local u,v=cos(i),-sin(i)
       local x,z=512+396*u,512-396*v
-      --make_squid({x,0,z},{-u/16,0,v/16})
+      make_squid({x,0,z},{-u/16,0,v/16})
       -- 3s
       wait_async(90)
     end
