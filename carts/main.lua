@@ -474,6 +474,7 @@ function mode7(p,np,light)
 end
 
 function draw_grid(cam,light)
+  light=1
   local m,cx,cy,cz=cam.m,unpack(cam.origin)
   local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
@@ -1043,11 +1044,7 @@ function draw_world()
   cls(0)
 
   -- draw mini bsp
-  _dist=1
-  _bsp[-1](_cam.origin)
-
-  -- draw things
-  draw_grid(_cam,1)      
+  _bsp[0](_cam)
 
   -- tilt!
   -- screen = gfx
@@ -1344,14 +1341,22 @@ function _init()
       origin=_origin
     end}
 
-    -- "ground"
-    split2d([[-1;256;1;-2
--2;768;2;3]],function(id,plane,left,right)
-      _bsp[id]=function(pos)
-        local l,r=_bsp[left],_bsp[right]        
-        if(pos[1]<=plane) l,r=r,l
-        l(pos)
-        r(pos)
+    -- mini bsp:
+    --              0
+    --             / \
+    --           -1   world
+    --           / \
+    --       brush  -2
+    --             /   \ 
+    --          brush  brush
+    split2d([[0;2;0;-1;grid
+-1;1;256;1;-2
+-2;1;768;2;3]],function(id,plane_id,plane,left,right)
+      _bsp[id]=function(cam)
+        local l,r=_bsp[left],_bsp[right]                
+        if(cam.origin[plane_id]<=plane) l,r=r,l
+        l(cam)
+        r(cam)
       end
     end)
     -- layout:
@@ -1371,14 +1376,14 @@ function _init()
 3; 2;0;0;2;9;10;11;12;0x0000.0404; -2;32;0;2;24;23;22;21;0x0008.0404; -3;-256;0;1;9;12;24;21;0x0004.0404; 1;832;2;1;24;12;11;23;0x0004.0404; 3;768;0;1;11;10;22;23;0x0004.0404]],function(id,...)
       -- localize
       local planes={...}
-      _bsp[id]=function(pos)
-        local m,cx,cy,cz=_cam.m,unpack(_cam.origin)
+      _bsp[id]=function(cam)
+        local m,origin,cx,cy,cz=cam.m,cam.origin,unpack(cam.origin)
         local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
         -- all brush planes
         for i=1,#planes,9 do
           -- visible?
           local dir=planes[i]
-          if sgn(dir)*pos[abs(dir)]>planes[i+1] then              
+          if sgn(dir)*origin[abs(dir)]>planes[i+1] then              
             local verts,uindex,vindex,outcode,nearclip={},planes[i+2],planes[i+3],0xffff,0  
             for j=1,4 do
               local vi=(planes[i+j+3]-1)*3+1
@@ -1441,10 +1446,11 @@ function _init()
             end
           end
         end
-        _dist+=1
       end
     end)
-
+  -- attach world draw
+  _bsp.grid=draw_grid
+  
   _bullets,_things,_futures={},{},{}
   -- load images
   _entities=decompress("pic",0,0,unpack_entities)
