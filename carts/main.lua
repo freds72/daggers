@@ -407,21 +407,17 @@ function make_player(_origin,_a)
         --playback chatter
         foreach(_chatter, do_chatter)
 
-        --check for chatter playback
+        --check for chatter/ambient playback
         for i = 0, 2 do
-          if stat(46 + i) ~= -1 then
+          local cur_sfx = stat(46 + i)
+
+          if mid(8, cur_sfx, 24) == cur_sfx then
             goto end_chatter
           end
         end
 
-        --playback random chatter if none playing
-        while true do
-          local thing = rnd(_things)
-          if(not thing) return
-          if(not thing.chatter) return
-          do_chatter({ thing.chatter, 2 })
-          break
-        end
+        --playback ambient sfx if no chatter
+        sfx"24"
 
 ::end_chatter::
 
