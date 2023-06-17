@@ -17,20 +17,10 @@ function shortest_angle(target,angle)
 end
 
 -- 2d vector
-function make_v(a,b)
-	return {
-		b[1]-a[1],
-		b[2]-a[2],
-		b[3]-a[3]}
-end
-
 function v_zero() return {0,0,0} end
 
 function v_clone(v)
 	return {v[1],v[2],v[3]}
-end
-function v_dot(a,b)
-	return a[1]*b[1]+a[2]*b[2]+a[3]*b[3]
 end
 
 function v_scale(v,scale)

@@ -57,6 +57,11 @@ function with_properties(props,dst)
   return dst
 end
 
+-- helper to execute a call (usually from a split string)
+function exec(fn,...)
+  _ENV[fn](...) 
+end
+
 -- split a 2d table:
 -- each line is \n separated
 -- section in ; separated
@@ -1196,18 +1201,29 @@ function gameover_state(obituary)
     {"sTATS",1,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
-        local x=arizona_print("\147 ",1,30,3)
-        x=arizona_print(play_time.."S\t ",x,30)
-        x=arizona_print("\130 ",x,30,3)
-        x=arizona_print(tostr(obituary),x,30)
-        --
-        local pct=_total_hits==0 and 0 or 1000*(_total_hits/_total_bullets)
-        x=arizona_print("\143 ",1,38,3)
-        x=arizona_print(_total_jewels.."\t ",x,38)
-        x=arizona_print("\134 ",x,38,3)
-        x=arizona_print(tostr(_total_bullets,2).."\t ",x,38)
-        x=arizona_print("\136 ",x,38,3)
-        x=arizona_print((flr(pct)/10).."%",x,38)
+        -- before: 7618
+        local x=1
+        local function scanf(st,...)
+          local s=""
+          for i,p in inext,split(st,"$") do
+              s..=({"",...})[i]..p
+          end
+          return s
+         end
+        split2d(scanf([[⧗ ;_;30;3
+$S    ;x;30;0
+🐱 ;x;30;3
+$;x;30;0
+◆ ;_;38;3
+$;x;38;0
+    ● ;x;38;3
+$;x;38;0
+    ☉ ;x;38;3
+$%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_hits==0 and 0 or 1000*(_total_hits/_total_bullets))/10),function(s,_,y,sel)
+          -- new line?
+          if(_=="_") x=1
+          x=arizona_print(s,x,y,sel)
+        end)
       end
     },
     {"lOCAL",46,16,
@@ -1272,18 +1288,20 @@ function gameover_state(obituary)
     function()
       draw_world()
       if ttl==0 then
+        split2d([[palt;0;false
+poke;0x5f54;0x60
+memcpy;0x5f00;0x8090;16
+spr;0;0;0;16;16
+pal
+poke;0x5f54;0x00
+arizona_print;hIGHSCORES;1;8]],exec)
         -- darken game screen
-        palt(0,false)
-        poke(0x5f54,0x60)
         -- shift palette
-        memcpy(0x5f00,0x8000|9<<4,16)
-        spr(0,0,0,16,16)
-        pal()
+        -- copy in place
         -- reset
-        poke(0x5f54,0x00)
-      
+
         -- draw menu & all
-        arizona_print("hIGHSCORES",1,8)
+        
         for i,btn in pairs(buttons) do
           local s,x,y=unpack(btn)
           arizona_print(s,x,y,selected_tab==btn and 2 or i==over_btn and 1)
@@ -1306,13 +1324,12 @@ end
 -- pico8 entry points
 function _init()
   -- enable custom font
-  poke(0x5f58,0x81)
-
   -- enable tile 0 + extended memory
-  poke(0x5f36, 0x18)
   -- capture mouse
   -- enable lock
-  poke(0x5f2d,0x7)
+  split2d([[poke;0x5f58;0x81
+poke;0x5f36;0x18
+poke;0x5f2d;0x7]],exec)
 
   -- exit menu entry
   menuitem(1,"main menu",function()
@@ -1455,7 +1472,7 @@ function _init()
         end
       end
     end)
-  -- attach world draw
+  -- attach world draw as a named BSP node
   _bsp.grid=draw_grid
   
   _bullets,_things,_futures={},{},{}
