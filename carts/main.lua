@@ -709,13 +709,13 @@ function make_skull(actor,_origin)
             local avoid,avoid_dist=v_dir(origin,other.origin)
             if(avoid_dist<4) avoid_dist=1
             -- todo: tune...
-            local t=-32/avoid_dist
+            local t=-2/avoid_dist
+            local t_self=other.radius*t 
+            fx+=t_self*avoid[1]
+            fy+=t_self*avoid[2]
+            fz+=t_self*avoid[3]
 
-            fx+=t*avoid[1]
-            fy+=t*avoid[2]
-            fz+=t*avoid[3]
-
-            other:apply(_ENV,avoid,-t)
+            other:apply(_ENV,avoid,-t*radius)
             resolved[other]=true
           end
         end
@@ -1259,6 +1259,8 @@ function gameover_state(obituary)
             over_btn=i
             -- click?
             if not clicked and btnp(5) then
+              -- avoid reentrancy
+              clicked=true
               btn:cb()
             end
             break
@@ -1286,10 +1288,10 @@ function gameover_state(obituary)
           local s,x,y=unpack(btn)
           arizona_print(s,x,y,selected_tab==btn and 2 or i==over_btn and 1)
         end
-        line(unpack(split"1,24,126,24,4"))
-        line(unpack(split"1,25,126,25,2"))
-        line(unpack(split"1,109,126,109,2"))
-        line(unpack(split"1,108,126,108,4"))
+        split2d([[1;24;126;24;4
+1;25;126;25;2
+1;109;126;109;2
+1;108;126;108;4]],line)
 
         selected_tab:draw()
 
