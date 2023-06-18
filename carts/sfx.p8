@@ -51,7 +51,7 @@ cstore(0x2000,0x3420, 16 * 68, "title.p8")
 --53: killspiderling
 --54: killcentipede
 --55: killcentipede
---56: damagecentipede
+--56: damagejewel
 --57: collectgibbase1
 --60: highscore1
 --61: highscore1
