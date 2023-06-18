@@ -500,7 +500,7 @@ function draw_grid(cam,light)
     for i,obj in pairs(array) do
       local origin=obj.origin      
       local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
-      local ax,az=m1*x+m9*z,m3*x+m11*z
+      local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
       
       -- draw shadows (y=0)
       if not obj.shadeless then
@@ -508,7 +508,7 @@ function draw_grid(cam,light)
           local ay,w=m2*x-m6*cy+m10*z,64/az
           -- thing offset+cam offset              
           local a=atan2(x,z)        
-          local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w>>2
+          local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w>>1
           local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
           ovalfill(x0-r,y0+ry,x0+r,y0-ry)
         end
@@ -516,8 +516,8 @@ function draw_grid(cam,light)
   
       -- 
       if not obj.no_render then
-        ax+=m5*y
-        az+=m7*y
+        ax+=m5*origin[2]
+        az+=m7*origin[2]
         if az>8 and az<384 and 0.5*ax<az and -0.5*ax<az then
           local ay,w=m2*x+m6*y+m10*z,64/az
           things[#things+1]={key=w,type=type,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
@@ -1019,7 +1019,7 @@ function make_jewel(_origin,vel)
         if(min_dist==32000) min_dir,min_dist=v_dir(origin,min_other.origin)
         -- boost repulsive force
         if(force<0) force*=8
-        vel=v_add(vel,min_dir,force)
+        vel=v_add(vel,min_dir,3*force/mid(min_dist,1,5))
         -- limit x/z velocity
         local vn,vl=v_normz(vel)
         if vl>3 then
@@ -1096,8 +1096,8 @@ function make_egg(_origin,vel)
       origin=v_add(origin,vel)
       on_ground=nil
       -- on ground?
-      if origin[2]<8 then
-        origin[2]=8
+      if origin[2]<4 then
+        origin[2]=4
         vel[2]=0
         on_ground=true
       end
@@ -1566,7 +1566,7 @@ _skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_
 _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
 _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
-_jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop,is_jewel,1
+_jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,300,apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
 _squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2;_skull_template
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
