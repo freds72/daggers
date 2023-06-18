@@ -845,6 +845,7 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
           hp-=1
           -- feedback
           make_blood(pos)
+          sfx"56"
           if hp<=0 then
             make_jewel(origin,{u,3,v},16)
             -- avoid reentrancy
