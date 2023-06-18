@@ -46,8 +46,8 @@ local _entities={
     -- egg
     {text="eGG",angles=default_angles},
     -- spider0
-    {text="sPIDER0",angles=default_angles},
-    {text="sPIDER1",angles=default_angles},
+    {text="sPIDERLING0",angles=default_angles},
+    {text="sPIDERLING1",angles=default_angles},
     -- worm head+segment
     {text="wORM0",angles=default_angles},
     {text="wORM1",angles=default_angles},
@@ -64,6 +64,10 @@ local _entities={
     {text="sQUID1",angles=0x08,bottom="sQUID0"},
     -- face with jewel
     {text="sQUID2",angles=0x08,bottom="sQUID0"},
+    -- spider "face"
+    {text="sPIDER0",angles=0x08,no_export=true},
+    -- spider "top"
+    {text="sPIDER1",angles=0x08,bottom="sPIDER0"}
 }
 local _current_entity
 

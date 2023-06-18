@@ -1,7 +1,9 @@
-local _bsp,_plyr,_cam,_things,_grid,_futures={}
+local _bsp,_plyr,_cam,_things,_grid,_futures,_spiders={}
 local _entities,_particles,_bullets,_blood_ents,_goo_ents
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
+-- must be globals
+_spawn_angle,_spawn_origin=0,split"512,0,512"
 
 -- debug
 local _god_mode=true
@@ -235,7 +237,7 @@ function make_player(_origin,_a)
       angle=v_add(angle,dangle,1/1024)
 
       -- check next position
-      local vn,vl=v_dir({0,0,0},velocity)      
+      local vn,vl=v_normz(velocity)      
       local prev_pos,new_pos,new_vel=v_clone(origin),v_add(origin,velocity),velocity
       if vl>0.1 then
           local x,y,z=unpack(new_pos)
@@ -777,10 +779,43 @@ function make_skull(actor,_origin)
   return thing
 end
 
+-- spider
+function make_spider()
+  add(_things,inherit({
+    origin={512+324,78,512},
+    hit=function(_ENV,pos)
+
+    end,
+    update=function(_ENV)
+      collect_grid(origin,origin,nil,nil,function(things)
+        for thing in pairs(things) do
+          if thing.is_jewel and not thing.dead then
+            local dir,len=v_dir(origin,thing.origin)
+            if len<radius then
+              thing:pickup(true)
+              do_async(function()
+                -- spit an egg
+                make_egg(origin,{-8-rnd(2),0,rnd(2)-1})
+              end)
+            end
+          end
+        end
+      end)
+
+      -- todo: move to deck borders
+      -- todo: rotate if HP < 50% ??
+      grid_register(_ENV)
+      -- register for jewel attractor
+      _spiders[_ENV]=origin
+    end
+  },_spider_template))
+end
+
 -- squid
 -- type 1: 3 blocks
 -- type 2: 4 blocks
-function make_squid(_origin,_velocity)
+function make_squid()
+  local _origin,_velocity=v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,-sin(_spawn_angle)/16}
   local _dx,_dz,_angle,_dead=32000,32000,0
   -- spill skulls every x seconds
   local spill=do_async(function()
@@ -947,15 +982,19 @@ end
 function make_jewel(_origin,vel)
   add(_things,inherit({    
     origin=v_clone(_origin),
-    pickup=function(_ENV)
+    pickup=function(_ENV,spider)
       if(dead) return
       dead=true
-      _total_jewels+=1
-      sfx"57"
+      -- no feedback when gobbed by spider
+      if(not spider) _total_jewels+=1 sfx"57"      
       grid_unregister(_ENV)
     end,
     update=function(_ENV)
       ttl-=1
+      -- blink when going to disapear
+      if ttl<30 then
+        no_render=(ttl%2)==0
+      end
       if ttl<0 then
         dead=true
         return
@@ -968,27 +1007,28 @@ function make_jewel(_origin,vel)
       -- gravity
       vel[2]-=0.8
 
-      -- pulled by player?
-      if not _plyr.dead then
-        local force=_plyr.attract_power
-        if force!=0 then
-          local a=atan2(origin[1]-_plyr.origin[1],origin[3]-_plyr.origin[3])
-          -- boost repulsive force
-          if(force<0) force*=8
-          local vx,vz=vel[1]-force*cos(a),vel[3]-force*sin(a)
-          if force>0 then
-            -- limit attraction velocity
-            local a=atan2(vx,vz)
-            local len=vx*cos(a)+vz*sin(a)
-            if len>3 then
-              vx*=3/len
-              vz*=3/len
-            end
-          end
-          vel[1],vel[3]=vx,vz
+      -- pulled by player or spiders?
+      local force,min_dist,min_dir,min_other=_plyr.attract_power,32000,{0,0,0},_plyr
+      for other,other_origin in pairs(_spiders) do
+        local dist_dir,dist=v_dir(origin,other_origin)
+        if(dist<min_dist) force,min_dir,min_dist,min_other=2,dist_dir,dist,other
+      end
+      -- anyone stil alive?
+      if not min_other.dead and force!=0 then
+        -- update dist if invalid
+        if(min_dist==32000) min_dir,min_dist=v_dir(origin,min_other.origin)
+        -- boost repulsive force
+        if(force<0) force*=8
+        vel=v_add(vel,min_dir,force)
+        -- limit x/z velocity
+        local vn,vl=v_normz(vel)
+        if vl>3 then
+          vel[1]=3/vl
+          vel[3]=3/vl
         end
       end
       origin=v_add(origin,vel)
+      on_ground=nil
       -- on ground?
       if origin[2]<8 then
         origin[2]=8
@@ -1044,7 +1084,24 @@ function make_egg(_origin,vel)
             end
           },_spiderling_template),      
           origin)
+        return
       end
+      -- friction
+      if on_ground then
+        vel[1]*=0.9
+        vel[3]*=0.9
+      end
+      -- gravity
+      vel[2]-=0.8 
+      origin=v_add(origin,vel)
+      on_ground=nil
+      -- on ground?
+      if origin[2]<8 then
+        origin[2]=8
+        vel[2]=0
+        on_ground=true
+      end
+      grid_register(_ENV)     
     end
   },_egg_template)))
 end
@@ -1090,6 +1147,13 @@ function draw_world()
   ]]
 end
 
+-- script commands
+function random_spawn_angle() angle=rnd() end
+function inc_spawn_angle(inc) angle+=inc end
+function set_spawn(dist,height)       
+  _spawn_origin={512+dist*cos(angle),height or 0,512+dist*sin(angle)}
+end
+
 -- gameplay state
 function play_state()
   -- camera & player & misc tables
@@ -1114,26 +1178,35 @@ function play_state()
       end
     })    
 
+  make_spider()
+
+  for i=0,3 do
+    local angle=i/4
+    make_jewel({512+128*cos(angle),0,512+128*sin(angle)},{rnd(),0,rnd()}) 
+  end
+
   -- scenario
   local scenario=do_async(function()
-    -- player just spawned
-    wait_async(90)
-    -- 4 squids
-    local angle=rnd()
-    for i=angle,angle+0.75,0.25 do
-      local u,v=cos(i),-sin(i)
-      local x,z=512+396*u,512-396*v
-      make_squid({x,0,z},{-u/16,0,v/16})
-      -- 3s
-      wait_async(90)
-    end
-  end)
+    local script=split2d([[wait_async;90
+random_spawn_angle
+set_spawn;396
+make_squid;
+wait_async;90
+inc_spawn_angle;0.25
+set_spawn;396
+make_squid;
+wait_async;90
+inc_spawn_angle;0.25
+wait_async;150
+random_spawn_angle
+set_spawn;396
+wait_async;90]],exec) 
+    end)
 
   do_async(function()
     -- circle around player
     while not _plyr.dead do
-      local angle=time()/8
-      local x,y,z=unpack(_plyr.origin)
+      local angle,x,y,z=time()/8,unpack(_plyr.origin)
       local r=48*cos(angle)
       _flying_target={x+r*cos(angle),y+24+rnd(8),z+r*sin(angle)}
       wait_async(10)
@@ -1148,7 +1221,6 @@ function play_state()
     end
   end)
   
-
   return
     -- update
     function()
@@ -1173,7 +1245,7 @@ function play_state()
       spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)      
       ]]
 
-      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
@@ -1475,7 +1547,7 @@ poke;0x5f2d;0x7]],exec)
   -- attach world draw as a named BSP node
   _bsp.grid=draw_grid
   
-  _bullets,_things,_futures={},{},{}
+  _bullets,_things,_futures,_spiders={},{},{},{}
   -- load images
   _entities=decompress("pic",0,0,unpack_entities)
   -- predefined entries (avoids constant gc)
@@ -1491,17 +1563,18 @@ poke;0x5f2d;0x7]],exec)
   -- global templates
   local templates=[[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
 _skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3
-_egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,on_ground,1
+_egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
 _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
-_jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
-_spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
+_jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop,is_jewel,1
+_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
 _squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2;_skull_template
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
 _skull1_base_template;ent,skull,radius,16,hp,2;_skull_template
-_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_template]]
+_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_template
+_spider_template;ent,spider1,radius,36,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
@@ -1711,8 +1784,8 @@ end
 
 -- unpack assets
 function unpack_entities()
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2"
-  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1,nAILED,nAILED,nAILED"
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spiderling0,spiderling1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2,spider0,spider1"
+  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1,nAILED,nAILED,nAILED,spider0,spider1"
   unpack_array(function()
     local id=mpeek()
     if id!=0 then
