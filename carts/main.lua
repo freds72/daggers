@@ -590,6 +590,21 @@ function draw_grid(cam,light)
       --
       sspr(frame.xmin,0,w,h,sx,sy,w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff),flip)
 
+      --[[
+      circ(item.x,item.y,(thing.radius or 1)*w0,9)
+      if thing.debug_forces then
+        -- draw
+        local forces=thing.debug_forces
+        local x,y,z=origin[1]+forces[1]-cx,origin[2]+forces[2]-cy,origin[3]+forces[3]-cz
+        -- 
+        local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
+        if az>8 then
+          local ay,w=m2*x+m6*y+m10*z,64/az
+          line(item.x,item.y,63.5+ax*w,63.5-ay*w,7)
+        end
+      end
+      ]]
+
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
     elseif item.type==2 then
@@ -691,7 +706,6 @@ function make_skull(actor,_origin)
         resolved[other]=true
       end,
       update=function(_ENV)
-        hit_ttl=max(hit_ttl-1)
         -- some gravity
         if not on_ground then
           if origin[2]<12 then 
@@ -727,17 +741,19 @@ function make_skull(actor,_origin)
           end
         end
         -- make sure grounded entities keept on ground
+        -- todo: useless??
         forces={fx,on_ground and 0 or fy,fz}
 
         local old_vel=velocity
-        velocity=v_add(velocity,forces,1/30)
+        -- 
+        velocity=v_add(velocity,forces,1/16)
         -- fixed velocity (on x/z)
         local vx,vz=velocity[1],velocity[3]
         local a=atan2(vx,vz)
         local vlen=vx*cos(a)+vz*sin(a)
         velocity[1]*=min_velocity/vlen
-        velocity[3]*=min_velocity/vlen
-        
+        velocity[3]*=min_velocity/vlen      
+
         -- align direction and sprite direction
         local target_angle=atan2(old_vel[1]-velocity[1],velocity[3]-old_vel[3])
         local shortest=shortest_angle(target_angle,zangle)
@@ -766,6 +782,9 @@ function make_skull(actor,_origin)
         -- for centipede
         if(post_think) post_think(_ENV)
 
+        -- debug
+        debug_forces=forces
+        -- reset
         forces,resolved={0,0,0},{}
         grid_register(_ENV)
       end
@@ -782,9 +801,16 @@ end
 -- spider
 function make_spider()
   add(_things,inherit({
-    origin={512+324,78,512},
+    origin=v_clone(_spawn_origin),
+    zangle=_spawn_angle,
     hit=function(_ENV,pos)
-
+      if(dead) return
+      hp-=1
+      hit_ttl=5
+      if hp<0 then
+        dead=true
+        make_blood(origin)
+      end
     end,
     update=function(_ENV)
       collect_grid(origin,origin,nil,nil,function(things)
@@ -835,7 +861,6 @@ function make_squid()
   end)
 
   local squid=make_skull(inherit({
-    hit=function() end,
     apply=function(_ENV,other,force,t)
       if other.is_squid_core then
         forces[1]+=t*force[1]
@@ -876,8 +901,10 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
   split2d(squid_parts,function(base_template,properties)
     add(_things,inherit({
       hit=function(_ENV,pos) 
+        if(dead) return
         if jewel then
           hp-=1
+          hit_ttl=5
           -- feedback
           make_blood(pos)
           if hp<=0 then
@@ -1148,10 +1175,10 @@ function draw_world()
 end
 
 -- script commands
-function random_spawn_angle() angle=rnd() end
-function inc_spawn_angle(inc) angle+=inc end
+function random_spawn_angle() _spawn_angle=rnd() end
+function inc_spawn_angle(inc) _spawn_angle+=inc end
 function set_spawn(dist,height)       
-  _spawn_origin={512+dist*cos(angle),height or 0,512+dist*sin(angle)}
+  _spawn_origin={512+dist*cos(_spawn_angle),height or 0,512+dist*sin(_spawn_angle)}
 end
 
 -- gameplay state
@@ -1178,11 +1205,9 @@ function play_state()
       end
     })    
 
-  make_spider()
-
-  for i=0,3 do
-    local angle=i/4
-    make_jewel({512+128*cos(angle),0,512+128*sin(angle)},{rnd(),0,rnd()}) 
+  for i=0,9 do
+    local angle=i/10
+    make_jewel({512+256*cos(angle),0,512+256*sin(angle)},{rnd(),0,rnd()}) 
   end
 
   -- scenario
@@ -1190,14 +1215,24 @@ function play_state()
     local script=split2d([[wait_async;90
 random_spawn_angle
 set_spawn;396
-make_squid;
+make_squid
+random_spawn_angle
+set_spawn;350;78
+make_spider
+random_spawn_angle
+set_spawn;350;78
+make_spider
 wait_async;90
 inc_spawn_angle;0.25
 set_spawn;396
-make_squid;
+make_squid
 wait_async;90
 inc_spawn_angle;0.25
-wait_async;150
+make_squid
+wait_async;90
+inc_spawn_angle;0.25
+make_squid
+wait_async;90
 random_spawn_angle
 set_spawn;396
 wait_async;90]],exec) 
@@ -1232,7 +1267,7 @@ wait_async;90]],exec)
     function()
       draw_world()
       -- todo: draw player hand
-      --[[]
+      --[[
       for x=0,31 do
         for y=0,31 do
           local idx,count=x>>16|y,0
@@ -1568,13 +1603,13 @@ _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx
 _worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,300,apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
-_squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2;_skull_template
+_squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,hit,nop;_skull_template
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
 _skull1_base_template;ent,skull,radius,16,hp,2;_skull_template
 _skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_template
-_spider_template;ent,spider1,radius,36,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop]]
+_spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
@@ -1770,12 +1805,14 @@ function _update()
   _plyr:update()
   --
   for i=#_things,1,-1 do
-    local thing=_things[i]
-    if thing.dead then
+    local _ENV=_things[i]
+    if dead then
       -- note: assumes thing is already unregistered
       deli(_things,i)
-    elseif thing.update then
-      thing:update()
+    elseif update then
+      -- common timers
+      if(hit_ttl) hit_ttl=max(hit_ttl-1)
+      update(_ENV)
     end
   end
 
