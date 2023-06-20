@@ -801,6 +801,7 @@ end
 
 -- spider
 function make_spider()
+  local spawn_angle=_spawn_angle
   add(_things,inherit({
     origin=v_clone(_spawn_origin),
     zangle=_spawn_angle,
@@ -811,6 +812,9 @@ function make_spider()
       if hp<0 then
         dead=true
         make_blood(origin)
+        -- unregister
+        grid_unregister(_ENV)
+        _spiders[_ENV]=nil
       end
     end,
     update=function(_ENV)
@@ -822,7 +826,8 @@ function make_spider()
               thing:pickup(true)
               do_async(function()
                 -- spit an egg
-                make_egg(origin,{-8-rnd(2),0,rnd(2)-1})
+                local angle,force=spawn_angle+rnd(0.02)-0.01,8+rnd(4)
+                make_egg(origin,{-force*cos(angle),force*rnd(),force*sin(angle)})
               end)
             end
           end
