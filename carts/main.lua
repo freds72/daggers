@@ -61,6 +61,8 @@ end
 
 -- helper to execute a call (usually from a split string)
 function exec(fn,...)
+  -- debug
+  printh("exec: "..fn)
   _ENV[fn](...) 
 end
 
@@ -81,10 +83,9 @@ end
 -- adds thing in the collision grid
 function grid_register(thing)
   local grid,_ENV=_grid,thing
-  -- need half-radius
-  local r,x,z=radius>>1,origin[1],origin[3]
+  local x,z=origin[1],origin[3]
   -- \32(=5) + >>16
-  local x0,x1,z0,z1=(x-r)>>21,(x+r)>>21,(z-r)\32,(z+r)\32
+  local x0,x1,z0,z1=(x-radius)>>21,(x+radius)>>21,(z-radius)\32,(z+radius)\32
   -- different from previous range?
   if grid_x0!=x0 or grid_x1!=x1 or grid_z0!=z0 or grid_z1!=z1 then
     -- remove previous grid cells
@@ -841,7 +842,7 @@ end
 -- type 1: 3 blocks
 -- type 2: 4 blocks
 function make_squid()
-  local _origin,_velocity=v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,-sin(_spawn_angle)/16}
+  local _origin,_velocity=v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16}
   local _dx,_dz,_angle,_dead=32000,32000,0
   -- spill skulls every x seconds
   local spill=do_async(function()
@@ -946,15 +947,15 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
 end
 
 -- centipede
-function make_worm(_origin)  
-  local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
+function make_worm()  
+  local _origin,t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=v_clone(_spawn_origin),rnd(),3,{},{},{},0
 
   for i=1,20 do
     local seg=add(segments,add(_things,inherit({
-      hit=function(_ENV)
+      hit=function(_ENV,pos)
         -- avoid reentrancy
         if(touched) return
-        make_blood(origin)
+        make_blood(pos)
         make_jewel(origin,head.velocity)
         touched=true
         -- change sprite (no jewels)
@@ -1049,10 +1050,8 @@ function make_jewel(_origin,vel)
         vel=v_add(vel,min_dir,3*force/mid(min_dist,1,5))
         -- limit x/z velocity
         local vn,vl=v_normz(vel)
-        if vl>3 then
-          vel[1]=3/vl
-          vel[3]=3/vl
-        end
+        vel[1]*=3/vl
+        vel[3]*=3/vl
       end
       origin=v_add(origin,vel)
       on_ground=nil
@@ -1178,7 +1177,7 @@ end
 function random_spawn_angle() _spawn_angle=rnd() end
 function inc_spawn_angle(inc) _spawn_angle+=inc end
 function set_spawn(dist,height)       
-  _spawn_origin={512+dist*cos(_spawn_angle),height or 0,512+dist*sin(_spawn_angle)}
+  _spawn_origin={512+dist*cos(_spawn_angle),height or 0,512-dist*sin(_spawn_angle)}
 end
 
 -- gameplay state
@@ -1223,6 +1222,7 @@ random_spawn_angle
 set_spawn;350;78
 make_spider
 wait_async;90
+random_spawn_angle
 inc_spawn_angle;0.25
 set_spawn;396
 make_squid
@@ -1235,6 +1235,10 @@ make_squid
 wait_async;90
 random_spawn_angle
 set_spawn;396
+wait_async;90
+random_spawn_angle
+set_spawn;350;64
+make_worm
 wait_async;90]],exec) 
     end)
 
@@ -1600,7 +1604,7 @@ poke;0x5f2d;0x7]],exec)
 _skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3
 _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
-_worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
+_worm_head_template;ent,worm0,radius,18,hp,10,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,300,apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
 _squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,hit,nop;_skull_template
