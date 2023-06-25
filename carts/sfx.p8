@@ -5,7 +5,6 @@ __lua__
 --by ridgek
 
 --copy all sfx/music to game carts
-cstore(0x3100,0x3100,0x1200,"audiomw.p8")
 cstore(0x3100,0x3100,0x1200,"daggers.p8")
 
 --copy chatter sfx to title cart
