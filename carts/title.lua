@@ -1,47 +1,23 @@
 -- globals
 local _entities,_sprites={},{}
 
--- main menu
-function menu_state()
+function menu_state(buttons,default)
   local skulls,ent,sprites={},_entities.skull,_sprites
-
   -- leaderboard/retry
-  local over_btn,clicked,starting=90
-  local buttons={
-    {"pLAY",1,48,cb=function()      
-      -- avoid reentrancy
-      if(starting) return
-      starting=true
-      music(-1,250)
-      -- todo: fade to black
-      do_async(function()
-        wait_async(10)
-        load("daggers.p8")
-      end)
-    end},
-    {"lEADERBOARD",1,64,
-      cb=function(self) end},
-    {"eDITOR",1,74,
-      cb=function(self) 
-        load("editor.p8")
-      end},
-    {"cREDITS",1,84,
-      cb=function(self) 
-        -- todo: credits!
-      end}
-  }
+  local over_btn,clicked
+  
   -- get actual size
   clip(0,0,0,0)
   for _,btn in pairs(buttons) do
     btn.width=print(btn[1])
   end
   clip()
-  -- position cursor on retry
-  local _,x,y=unpack(buttons[1])
-  local mx,my=x+buttons[1].width/2,y+3
+  -- position cursor on "default"
+  default=default or 1
+  active_btn=buttons[default]
+  local _,x,y=unpack(active_btn)
+  local mx,my=x+active_btn.width/2,y+3
 
-  -- background music
-  music(8)
   return
     -- update
     function()
@@ -54,7 +30,10 @@ function menu_state()
           over_btn=i
           -- click?
           if not clicked and btnp(5) then
+            active_btn=btn
             btn:cb()
+            -- todo: fix
+            clicked=nil
           end
           break
         end
@@ -82,9 +61,9 @@ function menu_state()
           s.yangle+=s.yangle_vel
         end
       end
-    end,
-    -- draw
-    function()    
+    end,  
+    function()
+      -- background
       cls()  
       pal()
       local r0=16-abs(2*cos(time()/4))+0x0.0001
@@ -110,17 +89,82 @@ function menu_state()
         sspr(frame.xmin,0,frame.width,frame.height,s.origin[1]-frame.width/2,s.origin[2]-frame.height/2,frame.width,frame.height,false,yflip)
       end
       pal()
+      
       -- draw menu & all
       for i,btn in pairs(buttons) do
-        local s,x,y=unpack(btn)
+        local s,x,y=unpack(btn)        
         arizona_print(s,x,y,i==over_btn and 1)
       end
+      if(active_btn.draw) active_btn:draw()
 
       -- mouse cursor
       spr(20,mx,my)
       -- hw palette
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end
+end
+
+-- main menu buttons
+local _starting
+local _main_buttons={
+  {"pLAY",1,48,cb=function()      
+    -- avoid reentrancy
+    if(_starting) return
+    _starting=true
+    music(-1,250)
+    -- todo: fade to black
+    do_async(function()
+      wait_async(10)
+      load("daggers.p8")
+    end)
+  end},
+  {"lEADERBOARD",1,64,
+    cb=function(self) 
+      leaderboard_state()
+    end},
+  {"eDITOR",1,74,
+    cb=function(self) 
+      load("editor.p8")
+    end},
+  {"cREDITS",1,84,
+    cb=function(self) 
+      -- todo: credits!
+    end}
+}
+
+-- leaderboard
+function leaderboard_state()
+  
+  -- local score version
+  local local_scores={}
+  if dget(0)==1 then
+    -- number of scores    
+    local mem=0x5e08
+    for i=1,dget(1) do
+      -- duration (sec)
+      -- timestamp yyyy,mm,dd
+      add(local_scores,{peek4(mem,4)})
+      mem+=16
+    end    
+  end
+  next_state(menu_state,{
+    {"bACK",1,111,
+    cb=function() 
+      -- back to main menu
+      next_state(menu_state, _main_buttons)
+    end,
+    draw=function()
+      split2d([[1;24;126;24;4
+      1;25;126;25;2
+      1;109;126;109;2
+      1;108;126;108;4]],line)   
+      arizona_print("lOCAL hIGHSCORES",1,16,2)
+      for i,local_score in ipairs(local_scores) do
+        local t,y,m,d=unpack(local_score)
+        arizona_print(scanf("$. $/$/$\t $S",i,y,m,d,t),1,23+i*7)
+      end          
+    end}
+  })
 end
 
 -- entry points
@@ -135,6 +179,8 @@ function _init()
   -- capture mouse
   -- enable lock
   poke(0x5f2d,0x7)
+
+  cartdata("freds72_daggers")
 
   -- capture gradient
   local mem=0x8000
@@ -164,12 +210,16 @@ function _init()
   end)
   reload()
 
+  -- background music
+  music(8)
+
   -- init game
-  next_state(menu_state)
+  next_state(menu_state, _main_buttons)
 end
 
 function _update()
   update_asyncs()
   _update_state()
 end
+
 

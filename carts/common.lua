@@ -10,7 +10,18 @@ function arizona_print(s,x,y,sel)
   clip()
   return pos
 end
-  
+
+-- string/value replacement function
+-- credits: @heraclum
+function scanf(st,...)
+  local s=""
+  for i,p in inext,split(st,"$") do
+      s..=({"",...})[i]..p
+  end
+  return s
+ end
+
+
 -- radix sort
 function rsort(_data)  
   local _len,buffer1,buffer2,idx=#_data, _data, {}, {}
@@ -85,4 +96,22 @@ function update_asyncs()
     end
   end
 end
+
+-- helper to execute a call (usually from a split string)
+function exec(fn,...)
+  -- skip comments :)
+  if(fn=="--") return
+  _ENV[fn](...) 
+end
+
+-- split a 2d table:
+-- each line is \n separated
+-- section in ; separated
+-- name credits: @krystman
+function split2d(config,cb)
+  for line in all(split(config,"\n")) do
+    cb(unpack(split(line,";")))
+  end
+end
+
 

@@ -5,6 +5,7 @@ local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
 -- must be globals
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
+local _show_timer=false
 -- debug
 local _god_mode=true
 
@@ -57,22 +58,6 @@ function with_properties(props,dst)
     dst[k]=v
   end
   return dst
-end
-
--- helper to execute a call (usually from a split string)
-function exec(fn,...)
-  -- debug
-  printh("exec: "..fn)
-  _ENV[fn](...) 
-end
-
--- split a 2d table:
--- each line is \n separated
--- section in ; separated
-function split2d(config,cb)
-  for line in all(split(config,"\n")) do
-    cb(unpack(split(line,";")))
-  end
 end
 
 -- grid helpers
@@ -846,7 +831,7 @@ end
 -- squid
 -- type 1: 3 blocks
 -- type 2: 4 blocks
-function make_squid()
+function make_squid(type)
   local _origin,_velocity=v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16}
   local _dx,_dz,_angle,_dead=32000,32000,0
   -- spill skulls every x seconds
@@ -888,7 +873,9 @@ function make_squid()
     end
   },_squid_core),_origin)
     
-  local squid_parts=[[_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,24
+  local squid_parts={
+    -- type 1 (1 jewel)
+[[_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,24
 _squid_hood;angle_offset,0.3333,r_offset,8,y_offset,24
 _squid_hood;angle_offset,0.6667,r_offset,8,y_offset,24
 _squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
@@ -902,9 +889,30 @@ _squid_tentacle;angle_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
 _squid_tentacle;angle_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
 _squid_tentacle;angle_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
 _squid_tentacle;angle_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]
+_squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]],
+    -- type 2 (2 jewels)
+[[_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,24
+_squid_hood;angle_offset,0.25,r_offset,8,y_offset,24
+_squid_jewel;angle_offset,0.5,r_offset,8,y_offset,24
+_squid_hood;angle_offset,0.75,r_offset,8,y_offset,24
+_squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;angle_offset,0.25,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.25,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.25,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.25,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;angle_offset,0.5,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.5,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.5,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;angle_offset,0.75,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.75,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.75,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]}
 
-  split2d(squid_parts,function(base_template,properties)
+  split2d(squid_parts[type],function(base_template,properties)
     add(_things,inherit({
       hit=function(_ENV,pos) 
         if(dead) return
@@ -1216,35 +1224,58 @@ function play_state()
 
   -- scenario
   local scenario=do_async(function()
-    local script=split2d([[wait_async;90
+    local script=split2d([[
+--;wait player
+wait_async;90
+--;first squids wave
 random_spawn_angle
 set_spawn;396
-make_squid
+make_squid;1
+wait_async;330
+inc_spawn_angle;0.25
+set_spawn;396
+make_squid;1
+wait_async;150
+inc_spawn_angle;0.25
+make_squid;1
+wait_async;150
+inc_spawn_angle;0.25
+make_squid;1
+wait_async;450
+inc_spawn_angle;0.25
+make_squid;2
+--;first spider
 random_spawn_angle
 set_spawn;350;78
 make_spider
-random_spawn_angle
-set_spawn;350;78
-make_spider
-wait_async;90
-random_spawn_angle
-inc_spawn_angle;0.25
-set_spawn;396
-make_squid
-wait_async;90
-inc_spawn_angle;0.25
-make_squid
-wait_async;90
-inc_spawn_angle;0.25
-make_squid
-wait_async;90
+--; second squid wave
+wait_async;300
 random_spawn_angle
 set_spawn;396
-wait_async;90
+make_squid;1
+random_spawn_angle
+inc_spawn_angle;0.5
+set_spawn;396
+make_squid;2
+wait_async;450
+inc_spawn_angle;-0.25
+set_spawn;396
+make_squid;1
+inc_spawn_angle;0.5
+make_squid;2
+wait_async;450
+inc_spawn_angle;0.5
+make_squid;1
+wait_async;150
+make_squid;2
+inc_spawn_angle;0.25
+make_squid;1
+wait_async;150
+--; first centipede
 random_spawn_angle
 set_spawn;350;64
 make_worm
-wait_async;90]],exec) 
+wait_async;600]],exec) 
     end)
 
   do_async(function()
@@ -1289,8 +1320,14 @@ wait_async;90]],exec)
       spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)      
       ]]
 
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
-      
+      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      if _show_timer then
+        local t=((time()-_start_time)\0.1)/10
+        local s=tostr(t)
+        if(#tostr(t&0x0.ffff)==1) s..=".0"
+        s..="S"
+        arizona_print(s,64-print(s,0,128)/2,1,2)
+      end
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
     -- init
@@ -1301,9 +1338,34 @@ wait_async;90]],exec)
 end
 
 function gameover_state(obituary)  
-  local play_time,origin,target=time()-_start_time,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
+  local play_time,origin,target,selected_tab,clicked=time()-_start_time,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
+  -- check if new playtime enters leaderboard?
+  -- + handle sorting
+  local new_best_i=#_local_scores+1
+  for i,local_score in ipairs(_local_scores) do
+    if play_time>local_score[1] then
+      new_best_i=i
+      break
+    end
+  end
+  -- record time of play
+  add(_local_scores,{play_time,stat(90),stat(91),stat(92)},new_best_i)
+  -- max #scores
+  if(#_local_scores>5) deli(_local_scores)
+  -- save version
+  dset(0,1)
+  -- number of scores
+  dset(1,#_local_scores)
+  local mem=0x5e08
+  for local_score in all(_local_scores) do
+    -- save
+    poke4(mem,unpack(local_score))
+    -- next 4 * 4bytes
+    mem+=16
+  end
+
   -- leaderboard/retry
-  local ttl,buttons,selected_tab,over_btn,clicked=90,{
+  local ttl,buttons,over_btn=90,{
     {"rETRY",1,111,cb=function() 
       -- todo: fade to black
       do_async(function()
@@ -1319,13 +1381,6 @@ function gameover_state(obituary)
       draw=function()
         -- before: 7618
         local x=1
-        local function scanf(st,...)
-          local s=""
-          for i,p in inext,split(st,"$") do
-              s..=({"",...})[i]..p
-          end
-          return s
-         end
         split2d(scanf([[⧗ ;_;30;3
 $S    ;x;30;0
 🐱 ;x;30;3
@@ -1335,7 +1390,7 @@ $;x;38;0
     ● ;x;38;3
 $;x;38;0
     ☉ ;x;38;3
-$%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_hits==0 and 0 or 1000*(_total_hits/_total_bullets))/10),function(s,_,y,sel)
+$%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_bullets==0 and 0 or 1000*(_total_hits/_total_bullets))/10),function(s,_,y,sel)
           -- new line?
           if(_=="_") x=1
           x=arizona_print(s,x,y,sel)
@@ -1345,10 +1400,9 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
     {"lOCAL",46,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
-        -- todo: local 
-        srand(42)
-        for i=1,5 do
-          arizona_print(i..". "..flr(rnd(1500)),1,23+i*7)
+        for i,local_score in ipairs(_local_scores) do
+          local t,y,m,d=unpack(local_score)
+          arizona_print(scanf("$. $/$/$\t $S",i,y,m,d,t),1,23+i*7,new_best_i==i and 4)
         end
       end},
     {"oNLINE",96,16,
@@ -1443,9 +1497,25 @@ function _init()
   -- enable tile 0 + extended memory
   -- capture mouse
   -- enable lock
+  -- cartdata
   split2d([[poke;0x5f58;0x81
 poke;0x5f36;0x18
-poke;0x5f2d;0x7]],exec)
+poke;0x5f2d;0x7
+cartdata;freds72_daggers]],exec)
+
+  -- local score version
+  _local_scores,_local_best_t={}
+  if dget(0)==1 then
+    -- number of scores    
+    local mem=0x5e08
+    for i=1,dget(1) do
+      -- duration (sec)
+      -- timestamp yyyy,mm,dd
+      add(_local_scores,{peek4(mem,4)})
+      mem+=16
+    end    
+    _local_best_t=_local_scores[1][1]
+  end
 
   -- exit menu entry
   menuitem(1,"main menu",function()
@@ -1462,9 +1532,13 @@ poke;0x5f2d;0x7]],exec)
     menuitem(2,"god mode "..tostr(_god_mode),god_menu_handler)
     return true
   end
-  _god_mode=false
+  -- _god_mode=false
   god_menu_handler()
 
+  local show_timer_handler
+  menuitem(3,"display timer",function()
+    _show_timer=not _show_timer
+  end)
   -- always needed  
   _cam=inherit{
     origin=split"0,0,0",    
@@ -1568,6 +1642,7 @@ poke;0x5f2d;0x7]],exec)
                 verts=res
               end
     
+              -- texture
               poke4(0x5f38,planes[i+8])
               -- color(_dist)
               -- local v0=verts[#verts]
@@ -1612,7 +1687,7 @@ _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx
 _worm_head_template;ent,worm0,radius,18,hp,10,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,300,apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
-_squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,hit,nop;_skull_template
+_squid_core;hp,1000,no_render,1,radius,32,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,hit,nop;_skull_template
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
