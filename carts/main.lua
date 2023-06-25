@@ -9,7 +9,7 @@ local _show_timer=false
 -- debug
 local _god_mode=true
 
-local _vertices=split[[256,0,192,
+local _vertices,_ground_extents=split[[256,0,192,
 256,0,832,
 768,0,832,
 768,0,192,
@@ -32,12 +32,13 @@ local _vertices=split[[256,0,192,
 768,-32,256,
 768,-32,768,
 832,-32,768,
-832,-32,256]]
-  
-local _ground_extents={
-  split"256,768,192,832",
-  split"192,256,256,768",
-  split"768,832,256,768"
+832,-32,256]],
+{
+  -- xmin/max - ymin/max
+  -- with 8 unit "coyote" buffer
+  split"248,776,184,840",
+  split"184,248,248,776",
+  split"776,840,248,776"
 }
 
 function nop() end
@@ -84,7 +85,7 @@ function grid_register(thing)
         cells[idx]=cell
       end
     end
-    -- cache grid coords
+    -- cache grid coords (keep inline for speed)
     grid_x0=x0
     grid_x1=x1
     grid_z0=z0
@@ -154,8 +155,8 @@ function make_player(_origin,_a)
   local angle,on_ground={0,_a,0}
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
-    origin=v_add(_origin,{0,1,0}), 
-    eye_pos=v_add(_origin,{0,25,0}), 
+    origin=v_add(_origin,split"0,1,0"), 
+    eye_pos=v_add(_origin,split"0,25,0"), 
     m=make_m_from_euler(angle),
     control=function(_ENV)
       if(dead) return
@@ -262,7 +263,10 @@ function make_player(_origin,_a)
       -- check collisions
       local x,z=origin[1],origin[3]
       if not dead then   
-        local a=atan2(prev_pos[1]-x,prev_pos[3]-z)
+        local dx,dz=prev_pos[1]-x,prev_pos[3]-z
+        local a=atan2(dx,dz)
+        -- for hand effect
+        xz_vel=dx*cos(a)+dz*sin(a)
         -- 
         collect_grid(prev_pos,origin,cos(a),-sin(a),function(grid_cell)
           -- avoid reentrancy
@@ -346,7 +350,7 @@ function make_player(_origin,_a)
 end
 
 function make_bullet(origin,zangle,yangle,spread)
-  local zangle,yscale=0.25-zangle+(1-rnd(2))*spread,yangle+(1-rnd(2))*spread
+  local zangle,yscale=0.25-zangle+(1-rnd"2")*spread,yangle+(1-rnd"2")*spread
   local u,v,s=cos(zangle),-sin(zangle),cos(yscale)
   -- local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
   _bullets[#_bullets+1]={
@@ -360,7 +364,7 @@ function make_bullet(origin,zangle,yangle,spread)
     u=u,
     v=v,
     shadeless=true,
-    ttl=time()+3+rnd(2),
+    ttl=time()+3+rnd"2",
     ent=rnd{_entities.dagger0,_entities.dagger1}
   }
 end
@@ -370,7 +374,7 @@ function make_particle(origin,fwd)
     origin=origin,
     velocity=fwd,
     shadeless=true,
-    ttl=time()+0.25+rnd()/5
+    ttl=time()+0.25+rnd"0.2"
   }
 end
 
@@ -655,11 +659,11 @@ local _flying_target
 -- centipede
 -- spiderling
 function make_skull(actor,_origin)
-  local resolved,wobling={},3+rnd(2)
+  local resolved,wobling={},3+rnd"2"
   local thing=add(_things,inherit({
       chatter=actor.chatter or 12,
       origin=_origin,
-      seed=rnd(16),
+      seed=rnd"16",
       -- grid cells
       cells={},
       hit=function(_ENV)
@@ -680,7 +684,7 @@ function make_skull(actor,_origin)
           end 
           grid_unregister(_ENV)  
           -- custom explosion?
-          if blast then blast(origin) else make_blood(origin) end
+          (blast or make_blood)(origin)
         else
           hit_ttl=5
         end
@@ -811,7 +815,7 @@ function make_spider()
               thing:pickup(true)
               do_async(function()
                 -- spit an egg
-                local angle,force=spawn_angle+rnd(0.02)-0.01,8+rnd(4)
+                local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
                 make_egg(origin,{-force*cos(angle),force*rnd(),force*sin(angle)})
               end)
             end
@@ -841,8 +845,8 @@ function make_squid(type)
       -- don't spawn while outside
       if _dx<256 and _dz<256 then
         for t in all(split"_skull1_template,_skull1_template,_skull1_template,_skull2_template,_skull1_template") do
-          make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
-          wait_async(2+rnd(2))
+          make_skull(_ENV[t],{_origin[1],64+rnd"16",_origin[3]})
+          wait_async(2+rnd"2")
         end
         -- wait 10s
         wait_async(300)
@@ -998,8 +1002,8 @@ function make_worm()
       target_ttl-=1
       if target_ttl<0 then  
         -- circle
-        local a,r=atan2(origin[1]-512,origin[3]-512)+rnd(0.05),96+rnd(32)
-        target,target_ttl={512+r*cos(a),16+rnd(48),512-r*sin(a)},60+rnd(10)
+        local a,r=atan2(origin[1]-512,origin[3]-512)+rnd"0.05",96+rnd"32"
+        target,target_ttl={512+r*cos(a),16+rnd"48",512-r*sin(a)},60+rnd"10"
       end
       -- navigate to target
       local dir=v_dir(origin,target)
@@ -1081,7 +1085,7 @@ end
 
 function make_egg(_origin,vel)
   -- spider spawn time
-  local ttl=300+rnd(10)
+  local ttl=300+rnd"10"
   -- todo: falling support
   grid_register(add(_things,inherit({
     origin=v_clone(_origin),
@@ -1092,7 +1096,6 @@ function make_egg(_origin,vel)
       if hp<=0 then
         dead=true
         grid_unregister(_ENV)
-        -- todo: make green goo
         make_goo(origin)
       else
         hit_ttl=5
@@ -1132,8 +1135,7 @@ function make_egg(_origin,vel)
       end
       -- gravity
       vel[2]-=0.8 
-      origin=v_add(origin,vel)
-      on_ground=nil
+      origin,on_ground=v_add(origin,vel)
       -- on ground?
       if origin[2]<4 then
         origin[2]=4
@@ -1147,7 +1149,7 @@ end
 
 -- draw game world
 function draw_world()
-  cls(0)
+  cls()
 
   -- draw mini bsp
   _bsp[0](_cam)
@@ -1163,7 +1165,6 @@ function draw_world()
   for i=0,127,16 do
     sspr(i,0,16,128,i,(i-64)*yshift+0.5)
   end
-  palt(0,true)
   -- reset
   poke(0x5f54,0x00)
 
@@ -1216,11 +1217,6 @@ function play_state()
         return t
       end
     })    
-
-  for i=0,9 do
-    local angle=i/10
-    make_jewel({512+256*cos(angle),0,512+256*sin(angle)},{rnd(),0,rnd()}) 
-  end
 
   -- scenario
   local scenario=do_async(function()
@@ -1283,7 +1279,7 @@ wait_async;600]],exec)
     while not _plyr.dead do
       local angle,x,y,z=time()/8,unpack(_plyr.origin)
       local r=48*cos(angle)
-      _flying_target={x+r*cos(angle),y+24+rnd(8),z+r*sin(angle)}
+      _flying_target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
       wait_async(10)
     end
 
@@ -1291,8 +1287,8 @@ wait_async;600]],exec)
     -- stop creating monsters
     scenario.co=nil
     while true do
-      _flying_target={256+rnd(512),12+rnd(64),256+rnd(512)}
-      wait_async(45+rnd(15))
+      _flying_target={256+rnd"512",12+rnd"64",256+rnd"512"}
+      wait_async(45+rnd"15")
     end
   end)
   
@@ -1306,7 +1302,31 @@ wait_async;600]],exec)
     -- draw
     function()
       draw_world()
-      -- todo: draw player hand
+      -- draw player hand
+      if not _plyr.dead then
+        -- using poke to avoid true/false for palt
+        split2d(scanf([[poke;0x5f0f;0x1f
+poke;0x5f00;0x0
+clip;0;8;128;112
+camera;0;$]],-abs(_plyr.xz_vel*cos(time()/2)*4)),exec)
+        if _plyr.fire_ttl==0 then
+          --pal(9,1)
+          --pal(7,5)
+          sspr(72,32,64,64,72,64)
+        else          
+          local r=24+rnd"8"
+          split2d(scanf([[poke;0x5f00;0x10
+fillp;0xa5a5.8
+circfill;96;96;$;8
+fillp
+circfill;96;96;$;7
+circ;96;96;$;9
+poke;0x5f00;0x0
+sspr;0;64;64;64;72;64]],r,0.9*r,0.9*r),exec)
+        end
+        clip()
+        camera()
+      end      
       --[[
       for x=0,31 do
         for y=0,31 do
@@ -1411,7 +1431,7 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
         -- todo: online
         srand(42)
         for i=1,5 do
-          arizona_print(i..". bOB48 "..flr(rnd(1500)),1,23+i*7)
+          arizona_print(i..". bOB48 "..flr(rnd"1500"),1,23+i*7)
         end
       end
     }
@@ -1714,10 +1734,10 @@ _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale
       target_ttl-=1
       if target_ttl<0 then  
         -- go opposite from where it stands!  
-        local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd(0.25)
-        local r=64+rnd(64)
-        target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
-        target_ttl=90+rnd(10)
+        local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd"0.25"
+        local r=64+rnd"64"
+        target={512+r*cos(a),16+rnd"48",512-r*sin(a)}
+        target_ttl=60+rnd"10"
       end
       -- navigate to target
       local dir=v_dir(origin,target)
@@ -1825,9 +1845,9 @@ function _update()
           -- no matter what - we hit the ground!
           dead=true
           make_blood(origin)
-          for i=1,rnd(5) do
-            local a=b.zangle+(1-rnd(2))/8
-            local cc,ss,r=cos(a),-sin(a),2+rnd(2)
+          for i=1,rnd"5" do
+            local a=b.zangle+(1-rnd"2")/8
+            local cc,ss,r=cos(a),-sin(a),2+rnd"2"
             local o={x+r*cc,0,z+r*ss}
             make_particle(o,{cc,1+rnd(),ss})
           end
