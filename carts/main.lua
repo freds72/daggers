@@ -1,13 +1,8 @@
-local _bsp,_plyr,_cam,_things,_grid,_futures,_spiders={}
-local _entities,_particles,_bullets,_blood_ents,_goo_ents
+local _bsp,_plyr,_cam,_things,_grid,_futures,_spiders,_entities,_particles,_bullets,_blood_ents,_goo_ents={}
 -- stats
-local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
+local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
 -- must be globals
 _spawn_angle,_spawn_origin=0,split"512,0,512"
-
-local _show_timer=false
--- debug
-local _god_mode=true
 
 local _vertices,_ground_extents=split[[256,0,192,
 256,0,832,
@@ -43,8 +38,7 @@ local _vertices,_ground_extents=split[[256,0,192,
 
 function nop() end
 function with_properties(props,dst)
-  dst=dst or {}
-  local props=split(props)
+  local dst,props=dst or {},split(props)
   for i=1,#props,2 do
     local k,v=props[i],props[i+1]
     -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -94,7 +88,7 @@ function grid_register(thing)
     -- noise emitter?
     if chatter then
       -- \64(=6) + >>16
-      local cell=grid[x>>22|(z\64)]
+      local cell=grid[x>>22|z\64]
       cell.chatter[chatter]+=1
       -- for fast unregister
       chatter_cell=cell
@@ -182,7 +176,7 @@ function make_player(_origin,_a)
         fire_frames+=1
         -- regular fire      
         if dblclick_ttl==0 and fire_ttl<=0 then
-          sfx(48)
+          sfx"48"
           fire_ttl,fire=3,1
         end
         -- 
@@ -190,11 +184,9 @@ function make_player(_origin,_a)
       elseif not fire_released then
         if dblclick_ttl>0  then
           -- double click timer still active?
-          fire_ttl,fire=0,2
-          dblclick_ttl=0				
-          sfx(49)
           -- shotgun (repulsive!)
-          attract_power=-1
+          fire_ttl,fire,dblclick_ttl,attract_power=0,2,0,-1
+          sfx"49"
         elseif fire_frames<4 then
           -- candidate for double click?
           dblclick_ttl=8
@@ -249,13 +241,10 @@ function make_player(_origin,_a)
               y=0
               new_vel[2]=0
               on_ground=true
-            else
-              dying=true
             end
           end
-          -- use corrected velocity + stays within grid
-          origin={mid(x,0,1024),y,mid(z,0,1024)}
-          velocity=new_vel
+          -- use corrected velocity
+          origin,velocity={x,y,z},new_vel
       end
 
       eye_pos=v_add(origin,{0,24,0})
@@ -275,16 +264,13 @@ function make_player(_origin,_a)
             if thing!=_ENV and not thing.dead then
               -- special handling for crawling enemies
               local dist=v_len(thing.on_ground and origin or eye_pos,thing.origin)
-              -- todo: use thing radius!!
-              if dist<16 then
+              if dist<thing.radius then
                 if thing.pickup then
                   thing:pickup()
                 else
-                  if not _god_mode then
-                    -- avoid reentrancy
-                    dead=true
-                    next_state(gameover_state,thing.ent.obituary)
-                  end
+                  -- avoid reentrancy
+                  dead=true
+                  next_state(gameover_state,thing.ent.obituary)
                   return
                 end
               end
@@ -477,17 +463,16 @@ end
 
 function draw_grid(cam,light)
   light=1
-  local m,cx,cy,cz=cam.m,unpack(cam.origin)
+  local things,m,cx,cy,cz={},cam.m,unpack(cam.origin)
   local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
-  local things={}
   -- particles texture
   poke4(0x5f38,0x0400.0101)
 
   pal()
 
   local function project_array(array,type)
-    for i,obj in pairs(array) do
+    for i,obj in inext,array do
       local origin=obj.origin      
       local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
       local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
@@ -678,7 +663,7 @@ function make_skull(actor,_origin)
           else
             sfx(death_sfx or 52)
           end
-          -- draw jewel?
+          -- drop jewel?
           if jewel then
             make_jewel(origin,velocity)
           end 
@@ -711,9 +696,7 @@ function make_skull(actor,_origin)
         think(_ENV)
 
         -- avoid others (noted: limited to a single grid cell)
-        local idx=world_to_grid(origin)
-        
-        local fx,fy,fz=forces[1],forces[2],forces[3]
+        local idx,fx,fy,fz=world_to_grid(origin),forces[1],forces[2],forces[3]
         for other in pairs(_grid[idx].things) do
           -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
@@ -870,8 +853,7 @@ function make_squid(type)
       forces=v_add(forces,_velocity,30)
     end,
     post_think=function(_ENV)
-      _origin=origin
-      _dx,_dz=abs(origin[1]-512),abs(origin[3]-512)
+      _origin,_dx,_dz=origin,abs(origin[1]-512),abs(origin[3]-512)
       -- remove squid if out of sight
       if(_dx>400 or _dz>400) _dead=true
     end
@@ -946,12 +928,10 @@ _squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_o
         end
         zangle=_angle+angle_offset
         -- store u/v angle
-        local cc,ss=cos(zangle),-sin(zangle)
-        local offset=r_offset
+        local cc,ss,offset=cos(zangle),-sin(zangle),r_offset
         if is_tentacle then
-          local t=time()
-          yangle=-cos(t/8+scale)*swirl
-          offset+=sin(t/4+scale)*swirl
+          yangle=-cos(time()/8+scale)*swirl
+          offset+=sin(time()/4+scale)*swirl
         else
           u,v=cc,ss
           zangle+=0.5
@@ -968,7 +948,7 @@ function make_worm()
   local _origin,t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=v_clone(_spawn_origin),rnd(),3,{},{},{},0
 
   for i=1,20 do
-    local seg=add(segments,add(_things,inherit({
+    add(segments,add(_things,inherit({
       hit=function(_ENV,pos)
         -- avoid reentrancy
         if(touched) return
@@ -977,10 +957,9 @@ function make_worm()
         touched=true
         -- change sprite (no jewels)
         ent=_entities.worm2
-        sfx(56)
+        sfx"56"
       end
     },_worm_seg_template)))
-    grid_register(seg)
   end
 
   head=make_skull(inherit({
@@ -1540,25 +1519,15 @@ cartdata;freds72_daggers]],exec)
   -- exit menu entry
   menuitem(1,"main menu",function()
     -- local version
-    load("title.p8")
+    load"title.p8"
     -- bbs version
-    load("#freds72_daggers_title")
+    load"#freds72_daggers_title"
   end)
 
-  -- god mode menu entry
-  local god_menu_handler
-  god_menu_handler=function()
-    _god_mode=not _god_mode
-    menuitem(2,"god mode "..tostr(_god_mode),god_menu_handler)
-    return true
-  end
-  -- _god_mode=false
-  god_menu_handler()
-
-  local show_timer_handler
-  menuitem(3,"display timer",function()
+  menuitem(2,"timer on/off",function()
     _show_timer=not _show_timer
   end)
+
   -- always needed  
   _cam=inherit{
     origin=split"0,0,0",    
@@ -1938,7 +1907,6 @@ function unpack_entities()
         zangles=angles\16,        
         frames=unpack_frames(sprites)
       }
-      printh("restored:"..names[id].." #sprites:"..#sprites)
     end
   end)
   return entities
