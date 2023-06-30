@@ -2,7 +2,6 @@ pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 
-#include debug.lua
 #include main_maths.lua
 #include plain.lua
 #include common.lua

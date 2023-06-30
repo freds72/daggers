@@ -67,7 +67,11 @@ local _entities={
     -- spider "face"
     {text="sPIDER0",angles=0x08,no_export=true},
     -- spider "top"
-    {text="sPIDER1",angles=0x08,bottom="sPIDER0"}
+    {text="sPIDER1",angles=0x08,bottom="sPIDER0"},
+    -- sparks
+    {text="sPARK0",angles=default_angles},
+    {text="sPARK1",angles=default_angles},
+    {text="sPARK2",angles=default_angles}
 }
 local _current_entity
 
