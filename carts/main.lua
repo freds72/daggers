@@ -577,19 +577,8 @@ function draw_grid(cam,light)
   ]]
 end
 
-function rootaccess(tbl,key)
-  if getmetatable(tbl) then
-   local  v=getmetatable(tbl)[key]
-   if (v~=nil)    return v -- needed for bools
-  end 
-  local v=_ENV[key]
-  printh("_ENV: "..tostr(key).."="..tostr(v))
-  return v
- end
-
 function inherit(t,env)
-  -- return setmetatable(t,{__index=env or _ENV})
-  return setmetatable(t,{__index=env or rootaccess})
+  return setmetatable(t,{__index=env or _ENV})
 end
 
 -- things
