@@ -1,4 +1,4 @@
-local _bsp,_plyr,_cam,_things,_grid,_futures,_spiders,_entities,_particles,_bullets,_blood_ents,_goo_ents={}
+local _bsp,_plyr,_cam,_things,_grid,_futures,_spiders,_entities,_bullets,_blood_ents,_goo_ents={}
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
 -- must be globals
@@ -63,6 +63,7 @@ end
 -- adds thing in the collision grid
 function grid_register(thing)
   local grid,_ENV=_grid,thing
+  
   local x,z=origin[1],origin[3]
   -- \32(=5) + >>16
   local x0,x1,z0,z1=(x-radius)>>21,(x+radius)>>21,(z-radius)\32,(z+radius)\32
@@ -355,15 +356,6 @@ function make_bullet(origin,zangle,yangle,spread)
   }
 end
 
-function make_particle(origin,fwd)
-  _particles[#_particles+1]={
-    origin=origin,
-    velocity=fwd,
-    shadeless=true,
-    ttl=time()+0.25+rnd"0.2"
-  }
-end
-
 function mode7(p,np,light)
   local miny,maxy,mini=32000,-32000
   -- find extent
@@ -431,23 +423,12 @@ function mode7(p,np,light)
     
     -- rectfill(rx,y,lx,y,8/rw)
     if rw>0.15 then
-        --[[
-        -- light circle
-        local d=7+(1/rw)
-        if d<64 then
-        local xmax=64*sqrt(64-d*d)
-        local xmin=64-xmax
-        xmax=64+xmax
-        --rectfill(-x+64,y,64+x,y,3)
-        --]]
-        local ddu,ddv=(lu-ru)/(lx-rx),(lv-rv)/(lx-rx)
-        local pal1=rw>0.9375 and maxlight or (light*rw)\0.0625
-        if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) pal0=pal1	-- color shift now to free up a variable
-        -- refresh actual extent
-        -- ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
-        -- ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
-        local pix=1-rx&0x0.ffff
-        tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
+      local ddx=lx-rx
+      local ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
+      local pal1=rw>0.9375 and maxlight or (light*rw)\0.0625
+      if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) pal0=pal1
+      local pix=1-rx&0x0.ffff
+      tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
     end
 
     lx+=ldx
@@ -458,7 +439,7 @@ function mode7(p,np,light)
     ru+=rdu
     rv+=rdv
     rw+=rdw
-  end      
+  end 
 end
 
 function draw_grid(cam,light)
@@ -509,8 +490,6 @@ function draw_grid(cam,light)
 
   -- collect bullets
   project_array(_bullets,1)
-  -- collect particles
-  project_array(_particles,3)
 
   -- radix sort
   rsort(things)
@@ -582,19 +561,6 @@ function draw_grid(cam,light)
 
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
-    elseif item.type==2 then
-      circfill(item.x,item.y,4*item.key,3)
-    elseif item.type==3 then
-      local origin=item.thing.prev
-      local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
-      -- 
-      local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
-      if az>8 then
-        local ay,w=m2*x+m6*y+m10*z,64/az
-        palt(15,false)      
-        tline(item.x,item.y,63.5+ax*w,63.5-ay*w,0,0,1/8,0)
-        palt(15,true)
-      end
     end
   end 
 
@@ -616,8 +582,8 @@ function inherit(t,env)
 end
 
 -- things
-function make_blast(_ents,_origin)  
-  add(_things,inherit({
+function make_blast(_ents,_origin,_velocity)  
+  return add(_things,inherit({
     -- sprite id
     ent=_ents[1],
     origin=_origin,
@@ -625,6 +591,7 @@ function make_blast(_ents,_origin)
       ttl+=1
       if(ttl>15) dead=true return
       ent=_ents[min(ttl\5+1,#_ents)]
+      if(_velocity) origin=v_add(origin,_velocity) origin[2]=2
     end
   },_blast_template))
 end
@@ -645,6 +612,7 @@ local _flying_target
 -- spiderling
 function make_skull(actor,_origin)
   local resolved,wobling={},3+rnd"2"
+
   local thing=add(_things,inherit({
       chatter=actor.chatter or 12,
       origin=_origin,
@@ -762,9 +730,8 @@ function make_skull(actor,_origin)
         grid_register(_ENV)
       end
     },actor))
-  
   grid_register(thing)
-
+  
   --play spawn sfx
   sfx(actor.spawnsfx or 40)
 
@@ -1117,10 +1084,10 @@ function make_egg(_origin,vel)
       origin,on_ground=v_add(origin,vel)
       -- on ground?
       if origin[2]<4 then
-        origin[2]=4
-        vel[2]=0
-        on_ground=true
+        vel[2],on_ground=0,true
       end
+      -- keep spider on ground
+      origin[2]=4
       grid_register(_ENV)     
     end
   },_egg_template)))
@@ -1177,7 +1144,7 @@ end
 function play_state()
   -- camera & player & misc tables
   _plyr=make_player({512,24,512},0)
-  _things,_particles,_bullets,_futures={},{},{},{}
+  _things,_bullets,_futures={},{},{}
   -- spatial partitioning grid
   _grid=setmetatable({},{
       __index=function(self,k)
@@ -1198,6 +1165,8 @@ function play_state()
     })    
 
   -- scenario
+  make_skull(_skull1_template,{300,50,300})
+
   local scenario=do_async(function()
     local script=split2d([[
 --;wait player
@@ -1574,9 +1543,9 @@ cartdata;freds72_daggers]],exec)
     -- ##6: vertex index
     -- ##7: vertex index
     -- ##8: tex coords
-    split2d([[1; 2;0;0;2;5;6;7;8;0x0000.0404; -2;32;0;2;20;19;18;17;0x0008.0404; -3;-256;0;1;5;8;20;17;0x0004.0404; 3;768;0;1;7;6;18;19;0x0004.0404; -1;-192;2;1;17;18;6;5;0x0004.0404
-2; 2;0;0;2;1;2;3;4;0x0000.0404; -2;32;0;2;16;15;14;13;0x0008.0404; -3;-192;0;1;1;4;16;13;0x0004.0404; 3;832;0;1;3;2;14;15;0x0004.0404; -1;-256;2;1;8;1;13;20;0x0004.0404; -1;-256;2;1;2;7;19;14;0x0004.0404; 1;768;2;1;10;3;15;22;0x0004.0404; 1;768;2;1;4;9;21;16;0x0004.0404
-3; 2;0;0;2;9;10;11;12;0x0000.0404; -2;32;0;2;24;23;22;21;0x0008.0404; -3;-256;0;1;9;12;24;21;0x0004.0404; 1;832;2;1;24;12;11;23;0x0004.0404; 3;768;0;1;11;10;22;23;0x0004.0404]],function(id,...)
+    split2d([[1; 2;0;0;2;13;16;19;22;0x0000.0404; -2;32;0;2;58;55;52;49;0x0008.0404; -3;-256;0;1;13;22;58;49;0x0004.0404; 3;768;0;1;19;16;52;55;0x0004.0404; -1;-192;2;1;49;52;16;13;0x0004.0404
+    2; 2;0;0;2;1;4;7;10;0x0000.0404; -2;32;0;2;46;43;40;37;0x0008.0404; -3;-192;0;1;1;10;46;37;0x0004.0404; 3;832;0;1;7;4;40;43;0x0004.0404; -1;-256;2;1;22;1;37;58;0x0004.0404; -1;-256;2;1;4;19;55;40;0x0004.0404; 1;768;2;1;28;7;43;64;0x0004.0404; 1;768;2;1;10;25;61;46;0x0004.0404
+    3; 2;0;0;2;25;28;31;34;0x0000.0404; -2;32;0;2;70;67;64;61;0x0008.0404; -3;-256;0;1;25;34;70;61;0x0004.0404; 1;832;2;1;70;34;31;67;0x0004.0404; 3;768;0;1;31;28;64;67;0x0004.0404]],function(id,...)
       -- localize
       local planes={...}
       _bsp[id]=function(cam)
@@ -1589,7 +1558,7 @@ cartdata;freds72_daggers]],exec)
           if sgn(dir)*origin[abs(dir)]>planes[i+1] then              
             local verts,uindex,vindex,outcode,nearclip={},planes[i+2],planes[i+3],0xffff,0  
             for j=1,4 do
-              local vi=(planes[i+j+3]-1)*3+1
+              local vi=planes[i+j+3]
               local code,x,y,z=2,_vertices[vi]-cx,_vertices[vi+1]-cy,_vertices[vi+2]-cz
               local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
               if(az>8) code=0
@@ -1659,7 +1628,7 @@ cartdata;freds72_daggers]],exec)
   -- load images
   _entities=decompress("pic",0,0,unpack_entities)
   -- predefined entries (avoids constant gc)
-  _blood_ents,_goo_ents={
+  _blood_ents,_goo_ents,_spark_ents={
     _entities.blood0,
     _entities.blood1,
     _entities.blood2
@@ -1667,10 +1636,15 @@ cartdata;freds72_daggers]],exec)
     _entities.goo0,
     _entities.goo1,
     _entities.goo2
+  },{
+    _entities.spark0,
+    _entities.spark1,
+    _entities.spark2
   }
+
   -- global templates
   local templates=[[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
-_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3
+_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,is_skull,1
 _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
 _worm_head_template;ent,worm0,radius,18,hp,10,chatter,20;_skull_template
@@ -1814,11 +1788,11 @@ function _update()
           -- no matter what - we hit the ground!
           dead=true
           make_blood(origin)
+          -- sparkles
           for i=1,rnd"5" do
             local a=b.zangle+(1-rnd"2")/8
             local cc,ss,r=cos(a),-sin(a),2+rnd"2"
-            local o={x+r*cc,0,z+r*ss}
-            make_particle(o,{cc,1+rnd(),ss})
+            make_blast(_spark_ents,{x+r*cc,0,z+r*ss},{1.5*cc,0,1.5*ss}).zangle=a
           end
         end
         -- collect touched grid indices
@@ -1856,24 +1830,6 @@ function _update()
       end
     end
   end
-  -- effects
-  for i=#_particles,1,-1 do
-    local p=_particles[i]
-    if p.ttl<t then
-      deli(_particles,i)
-    else
-      local velocity=v_scale(p.velocity,0.8)
-      -- gravity
-      velocity[2]-=0.8
-      local origin=v_add(p.origin,velocity,5)
-      if origin[2]<0 then
-        origin[2]=0
-        -- fake rebound
-        velocity[2]*=-0.5
-      end
-      p.prev,p.origin,p.velocity=p.origin,origin,velocity
-    end
-  end
 
   _plyr:update()
   --
@@ -1894,8 +1850,8 @@ end
 
 -- unpack assets
 function unpack_entities()
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spiderling0,spiderling1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2,spider0,spider1"
-  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1,nAILED,nAILED,nAILED,spider0,spider1"
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spiderling0,spiderling1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2,spider0,spider1,spark0,spark1,spark2"
+  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1,nAILED,nAILED,nAILED,spider0,spider1,_,_,_"
   unpack_array(function()
     local id=mpeek()
     if id!=0 then
