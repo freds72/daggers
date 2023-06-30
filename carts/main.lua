@@ -577,8 +577,19 @@ function draw_grid(cam,light)
   ]]
 end
 
+function rootaccess(tbl,key)
+  if getmetatable(tbl) then
+   local  v=getmetatable(tbl)[key]
+   if (v~=nil)    return v -- needed for bools
+  end 
+  local v=_ENV[key]
+  printh("_ENV: "..tostr(key).."="..tostr(v))
+  return v
+ end
+
 function inherit(t,env)
-  return setmetatable(t,{__index=env or _ENV})
+  -- return setmetatable(t,{__index=env or _ENV})
+  return setmetatable(t,{__index=env or rootaccess})
 end
 
 -- things
@@ -622,6 +633,7 @@ function make_skull(actor,_origin)
       hit=function(_ENV)
         -- avoid reentrancy
         if(dead) return
+        printh(">>>>hit:"..tostr(_ENV,1))
         hp-=1
         if hp<=0 then
           dead=true
@@ -637,10 +649,12 @@ function make_skull(actor,_origin)
           end 
           grid_unregister(_ENV)  
           -- custom explosion?
-          (blast or make_blood)(origin)
+          -- keep this way until: https://www.lexaloffle.com/bbs/?tid=53289 is fixed
+          if blast then blast(origin) else make_blood(origin) end
         else
           hit_ttl=5
         end
+        printh("<<<<hit:"..tostr(_ENV,1))
       end,
       apply=function(_ENV,other,force,t)
         forces[1]+=t*force[1]
