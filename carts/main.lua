@@ -622,7 +622,6 @@ function make_skull(actor,_origin)
       hit=function(_ENV)
         -- avoid reentrancy
         if(dead) return
-        printh(">>>>hit:"..tostr(_ENV,1))
         hp-=1
         if hp<=0 then
           dead=true
@@ -639,11 +638,10 @@ function make_skull(actor,_origin)
           grid_unregister(_ENV)  
           -- custom explosion?
           -- keep this way until: https://www.lexaloffle.com/bbs/?tid=53289 is fixed
-          if blast then blast(origin) else make_blood(origin) end
+          ;(blast or make_blood)(origin)
         else
           hit_ttl=5
         end
-        printh("<<<<hit:"..tostr(_ENV,1))
       end,
       apply=function(_ENV,other,force,t)
         forces[1]+=t*force[1]
