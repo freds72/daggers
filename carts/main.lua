@@ -898,6 +898,7 @@ _squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_o
           grid_unregister(_ENV)
           -- stop spilling monsters
           spill.co=nil          
+          sfx"39"
         end
         zangle=_angle+angle_offset
         -- store u/v angle
