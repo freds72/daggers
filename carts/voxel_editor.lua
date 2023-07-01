@@ -44,7 +44,7 @@ local _entities={
     {text="gOOO1",angles=0},
     {text="gOOO2",angles=0},
     -- egg
-    {text="eGG",angles=default_angles},
+    {text="eGG",angles=0x44},
     -- spider0
     {text="sPIDERLING0",angles=default_angles},
     {text="sPIDERLING1",angles=default_angles},
@@ -52,7 +52,7 @@ local _entities={
     {text="wORM0",angles=default_angles},
     {text="wORM1",angles=default_angles},
     -- jewel
-    {text="jEWEL",angles=default_angles},
+    {text="jEWEL",angles=0x44},
     -- worm segment without jewel
     {text="wORM2",angles=default_angles},
     -- squid tentacles
