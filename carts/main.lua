@@ -1,12 +1,11 @@
-local _bsp,_plyr,_cam,_things,_grid,_futures={}
-local _entities,_particles,_bullets,_blood_ents,_goo_ents
+-- global arrays
+local _bsp,_bullets,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_ents,_goo_ents={},{},{},{},{}
 -- stats
-local _total_jewels,_total_bullets,_total_hits,_start_time=0,0,0
+local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
+-- must be globals
+_spawn_angle,_spawn_origin=0,split"512,0,512"
 
--- debug
-local _god_mode=true
-
-local _vertices=split[[256,0,192,
+local _vertices,_ground_extents=split[[256,0,192,
 256,0,832,
 768,0,832,
 768,0,192,
@@ -29,18 +28,18 @@ local _vertices=split[[256,0,192,
 768,-32,256,
 768,-32,768,
 832,-32,768,
-832,-32,256]]
-  
-local _ground_extents={
-  split"256,768,192,832",
-  split"192,256,256,768",
-  split"768,832,256,768"
+832,-32,256]],
+{
+  -- xmin/max - ymin/max
+  -- with 8 unit "coyote" buffer
+  split"248,776,184,840",
+  split"184,248,248,776",
+  split"776,840,248,776"
 }
 
 function nop() end
 function with_properties(props,dst)
-  dst=dst or {}
-  local props=split(props)
+  local dst,props=dst or {},split(props)
   for i=1,#props,2 do
     local k,v=props[i],props[i+1]
     -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -57,20 +56,6 @@ function with_properties(props,dst)
   return dst
 end
 
--- helper to execute a call (usually from a split string)
-function exec(fn,...)
-  _ENV[fn](...) 
-end
-
--- split a 2d table:
--- each line is \n separated
--- section in ; separated
-function split2d(config,cb)
-  for line in all(split(config,"\n")) do
-    cb(unpack(split(line,";")))
-  end
-end
-
 -- grid helpers
 function world_to_grid(p)
   return (p[1]\32)>>16|(p[3]\32)
@@ -79,10 +64,10 @@ end
 -- adds thing in the collision grid
 function grid_register(thing)
   local grid,_ENV=_grid,thing
-  -- need half-radius
-  local r,x,z=radius>>1,origin[1],origin[3]
+  
+  local x,z=origin[1],origin[3]
   -- \32(=5) + >>16
-  local x0,x1,z0,z1=(x-r)>>21,(x+r)>>21,(z-r)\32,(z+r)\32
+  local x0,x1,z0,z1=(x-radius)>>21,(x+radius)>>21,(z-radius)\32,(z+radius)\32
   -- different from previous range?
   if grid_x0!=x0 or grid_x1!=x1 or grid_z0!=z0 or grid_z1!=z1 then
     -- remove previous grid cells
@@ -96,7 +81,7 @@ function grid_register(thing)
         cells[idx]=cell
       end
     end
-    -- cache grid coords
+    -- cache grid coords (keep inline for speed)
     grid_x0=x0
     grid_x1=x1
     grid_z0=z0
@@ -105,7 +90,7 @@ function grid_register(thing)
     -- noise emitter?
     if chatter then
       -- \64(=6) + >>16
-      local cell=grid[x>>22|(z\64)]
+      local cell=grid[x>>22|z\64]
       cell.chatter[chatter]+=1
       -- for fast unregister
       chatter_cell=cell
@@ -166,8 +151,8 @@ function make_player(_origin,_a)
   local angle,on_ground={0,_a,0}
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
-    origin=v_add(_origin,{0,1,0}), 
-    eye_pos=v_add(_origin,{0,25,0}), 
+    origin=v_add(_origin,split"0,1,0"), 
+    eye_pos=v_add(_origin,split"0,25,0"), 
     m=make_m_from_euler(angle),
     control=function(_ENV)
       if(dead) return
@@ -193,7 +178,7 @@ function make_player(_origin,_a)
         fire_frames+=1
         -- regular fire      
         if dblclick_ttl==0 and fire_ttl<=0 then
-          sfx(48)
+          sfx"48"
           fire_ttl,fire=3,1
         end
         -- 
@@ -201,11 +186,9 @@ function make_player(_origin,_a)
       elseif not fire_released then
         if dblclick_ttl>0  then
           -- double click timer still active?
-          fire_ttl,fire=0,2
-          dblclick_ttl=0				
-          sfx(49)
           -- shotgun (repulsive!)
-          attract_power=-1
+          fire_ttl,fire,dblclick_ttl,attract_power=0,2,0,-1
+          sfx"49"
         elseif fire_frames<4 then
           -- candidate for double click?
           dblclick_ttl=8
@@ -235,7 +218,7 @@ function make_player(_origin,_a)
       angle=v_add(angle,dangle,1/1024)
 
       -- check next position
-      local vn,vl=v_dir({0,0,0},velocity)      
+      local vn,vl=v_normz(velocity)      
       local prev_pos,new_pos,new_vel=v_clone(origin),v_add(origin,velocity),velocity
       if vl>0.1 then
           local x,y,z=unpack(new_pos)
@@ -260,13 +243,10 @@ function make_player(_origin,_a)
               y=0
               new_vel[2]=0
               on_ground=true
-            else
-              dying=true
             end
           end
-          -- use corrected velocity + stays within grid
-          origin={mid(x,0,1024),y,mid(z,0,1024)}
-          velocity=new_vel
+          -- use corrected velocity
+          origin,velocity={x,y,z},new_vel
       end
 
       eye_pos=v_add(origin,{0,24,0})
@@ -274,25 +254,25 @@ function make_player(_origin,_a)
       -- check collisions
       local x,z=origin[1],origin[3]
       if not dead then   
-        local a=atan2(prev_pos[1]-x,prev_pos[3]-z)
+        local dx,dz=prev_pos[1]-x,prev_pos[3]-z
+        local a=atan2(dx,dz)
+        -- for hand effect
+        xz_vel=dx*cos(a)+dz*sin(a)
         -- 
         collect_grid(prev_pos,origin,cos(a),-sin(a),function(grid_cell)
           -- avoid reentrancy
           if(dead) return
           for thing in pairs(grid_cell) do
-            if thing!=_ENV and not thing.dead then
+            if not thing.dead then
               -- special handling for crawling enemies
               local dist=v_len(thing.on_ground and origin or eye_pos,thing.origin)
-              -- todo: use thing radius!!
-              if dist<16 then
+              if dist<thing.radius then
                 if thing.pickup then
                   thing:pickup()
                 else
-                  if not _god_mode then
-                    -- avoid reentrancy
-                    dead=true
-                    next_state(gameover_state,thing.ent.obituary)
-                  end
+                  -- avoid reentrancy
+                  dead=true
+                  next_state(gameover_state,thing.ent.obituary)
                   return
                 end
               end
@@ -358,7 +338,7 @@ function make_player(_origin,_a)
 end
 
 function make_bullet(origin,zangle,yangle,spread)
-  local zangle,yscale=0.25-zangle+(1-rnd(2))*spread,yangle+(1-rnd(2))*spread
+  local zangle,yscale=0.25-zangle+(1-rnd"2")*spread,yangle+(1-rnd"2")*spread
   local u,v,s=cos(zangle),-sin(zangle),cos(yscale)
   -- local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
   _bullets[#_bullets+1]={
@@ -372,17 +352,8 @@ function make_bullet(origin,zangle,yangle,spread)
     u=u,
     v=v,
     shadeless=true,
-    ttl=time()+3+rnd(2),
+    ttl=time()+3+rnd"2",
     ent=rnd{_entities.dagger0,_entities.dagger1}
-  }
-end
-
-function make_particle(origin,fwd)
-  _particles[#_particles+1]={
-    origin=origin,
-    velocity=fwd,
-    shadeless=true,
-    ttl=time()+0.25+rnd()/5
   }
 end
 
@@ -453,23 +424,12 @@ function mode7(p,np,light)
     
     -- rectfill(rx,y,lx,y,8/rw)
     if rw>0.15 then
-        --[[
-        -- light circle
-        local d=7+(1/rw)
-        if d<64 then
-        local xmax=64*sqrt(64-d*d)
-        local xmin=64-xmax
-        xmax=64+xmax
-        --rectfill(-x+64,y,64+x,y,3)
-        --]]
-        local ddu,ddv=(lu-ru)/(lx-rx),(lv-rv)/(lx-rx)
-        local pal1=rw>0.9375 and maxlight or (light*rw)\0.0625
-        if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) pal0=pal1	-- color shift now to free up a variable
-        -- refresh actual extent
-        -- ddx=lx-rx--((lx+0x1.ffff)&-1)-(rx&-1)
-        -- ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
-        local pix=1-rx&0x0.ffff
-        tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
+      local ddx=lx-rx
+      local ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
+      local pal1=rw>0.9375 and maxlight or (light*rw)\0.0625
+      if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) pal0=pal1
+      local pix=1-rx&0x0.ffff
+      tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
     end
 
     lx+=ldx
@@ -480,25 +440,24 @@ function mode7(p,np,light)
     ru+=rdu
     rv+=rdv
     rw+=rdw
-  end      
+  end 
 end
 
 function draw_grid(cam,light)
   light=1
-  local m,cx,cy,cz=cam.m,unpack(cam.origin)
+  local things,m,cx,cy,cz={},cam.m,unpack(cam.origin)
   local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
-  local things={}
   -- particles texture
   poke4(0x5f38,0x0400.0101)
 
   pal()
 
   local function project_array(array,type)
-    for i,obj in pairs(array) do
+    for i,obj in inext,array do
       local origin=obj.origin      
       local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
-      local ax,az=m1*x+m9*z,m3*x+m11*z
+      local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
       
       -- draw shadows (y=0)
       if not obj.shadeless then
@@ -506,7 +465,7 @@ function draw_grid(cam,light)
           local ay,w=m2*x-m6*cy+m10*z,64/az
           -- thing offset+cam offset              
           local a=atan2(x,z)        
-          local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w>>2
+          local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w>>1
           local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
           ovalfill(x0-r,y0+ry,x0+r,y0-ry)
         end
@@ -514,8 +473,8 @@ function draw_grid(cam,light)
   
       -- 
       if not obj.no_render then
-        ax+=m5*y
-        az+=m7*y
+        ax+=m5*origin[2]
+        az+=m7*origin[2]
         if az>8 and az<384 and 0.5*ax<az and -0.5*ax<az then
           local ay,w=m2*x+m6*y+m10*z,64/az
           things[#things+1]={key=w,type=type,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
@@ -532,8 +491,6 @@ function draw_grid(cam,light)
 
   -- collect bullets
   project_array(_bullets,1)
-  -- collect particles
-  project_array(_particles,3)
 
   -- radix sort
   rsort(things)
@@ -544,17 +501,18 @@ function draw_grid(cam,light)
   -- render in order
   local prev_base,prev_sprites,pal0
   for _,item in inext,things do
-    local hit_ttl,pal1=item.thing.hit_ttl
+    local thing=item.thing
+    local hit_ttl,pal1=thing.hit_ttl
     if hit_ttl and hit_ttl>0 then
       pal1=16+(4-hit_ttl)
     else
+      local light=thing.light_t and min(1,(time()-thing.light_t)/0.15) or light
       pal1=(light*min(15,item.key<<4))\1
     end    
     if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) palt(15,true) pal0=pal1   
     if item.type==1 then
       -- draw things
-      local w0,thing=item.key,item.thing
-      local entity,origin=thing.ent,thing.origin
+      local w0,entity,origin=item.key,thing.ent,thing.origin
       -- zangle (horizontal)
       local dx,dz,yangles,side,flip=cx-origin[1],cz-origin[3],entity.yangles,0
       local zangle=atan2(dx,-dz)
@@ -588,21 +546,23 @@ function draw_grid(cam,light)
       --
       sspr(frame.xmin,0,w,h,sx,sy,w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff),flip)
 
+      --[[
+      circ(item.x,item.y,(thing.radius or 1)*w0,9)
+      if thing.debug_forces then
+        -- draw
+        local forces=thing.debug_forces
+        local x,y,z=origin[1]+forces[1]-cx,origin[2]+forces[2]-cy,origin[3]+forces[3]-cz
+        -- 
+        local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
+        if az>8 then
+          local ay,w=m2*x+m6*y+m10*z,64/az
+          line(item.x,item.y,63.5+ax*w,63.5-ay*w,7)
+        end
+      end
+      ]]
+
       --sspr(0,0,32,32,sx,sy,32,32,flip)
       --print(thing.zangle,sx+sw/2,sy-8,9)      
-    elseif item.type==2 then
-      circfill(item.x,item.y,4*item.key,3)
-    elseif item.type==3 then
-      local origin=item.thing.prev
-      local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
-      -- 
-      local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
-      if az>8 then
-        local ay,w=m2*x+m6*y+m10*z,64/az
-        palt(15,false)      
-        tline(item.x,item.y,63.5+ax*w,63.5-ay*w,0,0,1/8,0)
-        palt(15,true)
-      end
     end
   end 
 
@@ -624,8 +584,8 @@ function inherit(t,env)
 end
 
 -- things
-function make_blast(_ents,_origin)  
-  add(_things,inherit({
+function make_blast(_ents,_origin,_velocity)  
+  return add(_things,inherit({
     -- sprite id
     ent=_ents[1],
     origin=_origin,
@@ -633,6 +593,7 @@ function make_blast(_ents,_origin)
       ttl+=1
       if(ttl>15) dead=true return
       ent=_ents[min(ttl\5+1,#_ents)]
+      if(_velocity) origin=v_add(origin,_velocity) origin[2]=2
     end
   },_blast_template))
 end
@@ -652,11 +613,12 @@ local _flying_target
 -- centipede
 -- spiderling
 function make_skull(actor,_origin)
-  local resolved,wobling={},3+rnd(2)
+  local resolved,wobling={},3+rnd"2"
+
   local thing=add(_things,inherit({
       chatter=actor.chatter or 12,
       origin=_origin,
-      seed=rnd(16),
+      seed=7+rnd(),
       -- grid cells
       cells={},
       hit=function(_ENV)
@@ -671,13 +633,14 @@ function make_skull(actor,_origin)
           else
             sfx(death_sfx or 52)
           end
-          -- draw jewel?
+          -- drop jewel?
           if jewel then
             make_jewel(origin,velocity)
           end 
           grid_unregister(_ENV)  
           -- custom explosion?
-          if blast then blast(origin) else make_blood(origin) end
+          -- keep this way until: https://www.lexaloffle.com/bbs/?tid=53289 is fixed
+          ;(blast or make_blood)(origin)
         else
           hit_ttl=5
         end
@@ -689,7 +652,6 @@ function make_skull(actor,_origin)
         resolved[other]=true
       end,
       update=function(_ENV)
-        hit_ttl=max(hit_ttl-1)
         -- some gravity
         if not on_ground then
           if origin[2]<12 then 
@@ -705,9 +667,7 @@ function make_skull(actor,_origin)
         think(_ENV)
 
         -- avoid others (noted: limited to a single grid cell)
-        local idx=world_to_grid(origin)
-        
-        local fx,fy,fz=forces[1],forces[2],forces[3]
+        local idx,fx,fy,fz=world_to_grid(origin),forces[1],forces[2],forces[3]
         for other in pairs(_grid[idx].things) do
           -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
@@ -725,17 +685,19 @@ function make_skull(actor,_origin)
           end
         end
         -- make sure grounded entities keept on ground
+        -- todo: useless??
         forces={fx,on_ground and 0 or fy,fz}
 
         local old_vel=velocity
-        velocity=v_add(velocity,forces,1/30)
+        -- 
+        velocity=v_add(velocity,forces,1/16)
         -- fixed velocity (on x/z)
         local vx,vz=velocity[1],velocity[3]
         local a=atan2(vx,vz)
         local vlen=vx*cos(a)+vz*sin(a)
         velocity[1]*=min_velocity/vlen
-        velocity[3]*=min_velocity/vlen
-        
+        velocity[3]*=min_velocity/vlen      
+
         -- align direction and sprite direction
         local target_angle=atan2(old_vel[1]-velocity[1],velocity[3]-old_vel[3])
         local shortest=shortest_angle(target_angle,zangle)
@@ -764,23 +726,71 @@ function make_skull(actor,_origin)
         -- for centipede
         if(post_think) post_think(_ENV)
 
+        -- debug
+        debug_forces=forces
+        -- reset
         forces,resolved={0,0,0},{}
         grid_register(_ENV)
       end
     },actor))
-  
   grid_register(thing)
-
+  
   --play spawn sfx
   sfx(actor.spawnsfx or 40)
 
   return thing
 end
 
+-- spider
+function make_spider()
+  local spawn_angle=_spawn_angle
+  add(_things,inherit({
+    origin=v_clone(_spawn_origin),
+    zangle=_spawn_angle,
+    light_t=time(),
+    hit=function(_ENV,pos)
+      if(dead) return
+      hp-=1
+      hit_ttl=5
+      if hp<0 then
+        dead=true
+        make_blood(origin)
+        -- unregister
+        grid_unregister(_ENV)
+        _spiders[_ENV]=nil
+      end
+    end,
+    update=function(_ENV)
+      collect_grid(origin,origin,nil,nil,function(things)
+        for thing in pairs(things) do
+          if thing.is_jewel and not thing.dead then
+            local dir,len=v_dir(origin,thing.origin)
+            if len<radius then
+              thing:pickup(true)
+              do_async(function()
+                -- spit an egg
+                local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
+                make_egg(origin,{-force*cos(angle),force*rnd(),force*sin(angle)})
+              end)
+            end
+          end
+        end
+      end)
+
+      -- todo: move to deck borders
+      -- todo: rotate if HP < 50% ??
+      grid_register(_ENV)
+      -- register for jewel attractor
+      _spiders[_ENV]=origin
+    end
+  },_spider_template))
+end
+
 -- squid
 -- type 1: 3 blocks
 -- type 2: 4 blocks
-function make_squid(_origin,_velocity)
+function make_squid(type)
+  local _origin,_velocity=v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16}
   local _dx,_dz,_angle,_dead=32000,32000,0
   -- spill skulls every x seconds
   local spill=do_async(function()
@@ -789,8 +799,8 @@ function make_squid(_origin,_velocity)
       -- don't spawn while outside
       if _dx<256 and _dz<256 then
         for t in all(split"_skull1_template,_skull1_template,_skull1_template,_skull2_template,_skull1_template") do
-          make_skull(_ENV[t],{_origin[1],64+rnd(16),_origin[3]})
-          wait_async(2+rnd(2))
+          make_skull(_ENV[t],{_origin[1],64+rnd"16",_origin[3]})
+          wait_async(2+rnd"2")
         end
         -- wait 10s
         wait_async(300)
@@ -800,7 +810,6 @@ function make_squid(_origin,_velocity)
   end)
 
   local squid=make_skull(inherit({
-    hit=function() end,
     apply=function(_ENV,other,force,t)
       if other.is_squid_core then
         forces[1]+=t*force[1]
@@ -815,34 +824,59 @@ function make_squid(_origin,_velocity)
       forces=v_add(forces,_velocity,30)
     end,
     post_think=function(_ENV)
-      _origin=origin
-      _dx,_dz=abs(origin[1]-512),abs(origin[3]-512)
+      _origin,_dx,_dz=origin,abs(origin[1]-512),abs(origin[3]-512)
       -- remove squid if out of sight
       if(_dx>400 or _dz>400) _dead=true
     end
   },_squid_core),_origin)
     
-  local squid_parts=[[_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,24
-_squid_hood;angle_offset,0.3333,r_offset,8,y_offset,24
-_squid_hood;angle_offset,0.6667,r_offset,8,y_offset,24
+  local squid_parts={
+    -- type 1 (1 jewel)
+[[_squid_jewel;light_ttl,15,angle_offset,0.0,r_offset,8,y_offset,24
+_squid_hood;light_ttl,15,angle_offset,0.3333,r_offset,8,y_offset,24
+_squid_hood;light_ttl,15,angle_offset,0.6667,r_offset,8,y_offset,24
+_squid_tentacle;light_ttl,15,angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;light_ttl,15,angle_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;light_ttl,15,angle_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;light_ttl,15,angle_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;light_ttl,15,angle_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;light_ttl,15,angle_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;light_ttl,15,angle_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;light_ttl,15,angle_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;light_ttl,15,angle_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;light_ttl,15,angle_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;light_ttl,15,angle_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;light_ttl,15,angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]],
+    -- type 2 (2 jewels)
+[[_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,24
+_squid_hood;angle_offset,0.25,r_offset,8,y_offset,24
+_squid_jewel;angle_offset,0.5,r_offset,8,y_offset,24
+_squid_hood;angle_offset,0.75,r_offset,8,y_offset,24
 _squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
 _squid_tentacle;angle_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
 _squid_tentacle;angle_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
 _squid_tentacle;angle_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
-_squid_tentacle;angle_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;angle_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;angle_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;angle_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
-_squid_tentacle;angle_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;angle_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;angle_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]
+_squid_tentacle;angle_offset,0.25,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.25,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.25,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.25,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;angle_offset,0.5,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.5,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.5,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;angle_offset,0.75,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;angle_offset,0.75,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;angle_offset,0.75,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]}
 
-  split2d(squid_parts,function(base_template,properties)
+  split2d(squid_parts[type],function(base_template,properties)
     add(_things,inherit({
+      light_t=time(),
       hit=function(_ENV,pos) 
+        if(dead) return
         if jewel then
           hp-=1
+          hit_ttl=5
           -- feedback
           make_blood(pos)
           if hp<=0 then
@@ -866,12 +900,10 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
         end
         zangle=_angle+angle_offset
         -- store u/v angle
-        local cc,ss=cos(zangle),-sin(zangle)
-        local offset=r_offset
+        local cc,ss,offset=cos(zangle),-sin(zangle),r_offset
         if is_tentacle then
-          local t=time()
-          yangle=-cos(t/8+scale)*swirl
-          offset+=sin(t/4+scale)*swirl
+          yangle=-cos(time()/8+scale)*swirl
+          offset+=sin(time()/4+scale)*swirl
         else
           u,v=cc,ss
           zangle+=0.5
@@ -884,23 +916,22 @@ _squid_tentacle;angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y
 end
 
 -- centipede
-function make_worm(_origin)  
-  local t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=rnd(),3,{},{},{},0
+function make_worm()  
+  local _origin,t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=v_clone(_spawn_origin),rnd(),3,{},{},{},0
 
   for i=1,20 do
-    local seg=add(segments,add(_things,inherit({
-      hit=function(_ENV)
+    add(segments,add(_things,inherit({
+      hit=function(_ENV,pos)
         -- avoid reentrancy
         if(touched) return
-        make_blood(origin)
+        make_blood(pos)
         make_jewel(origin,head.velocity)
         touched=true
         -- change sprite (no jewels)
         ent=_entities.worm2
-        sfx(56)
+        sfx"56"
       end
     },_worm_seg_template)))
-    grid_register(seg)
   end
 
   head=make_skull(inherit({
@@ -922,8 +953,8 @@ function make_worm(_origin)
       target_ttl-=1
       if target_ttl<0 then  
         -- circle
-        local a,r=atan2(origin[1]-512,origin[3]-512)+rnd(0.05),96+rnd(32)
-        target,target_ttl={512+r*cos(a),16+rnd(48),512-r*sin(a)},60+rnd(10)
+        local a,r=atan2(origin[1]-512,origin[3]-512)+rnd"0.05",96+rnd"32"
+        target,target_ttl={512+r*cos(a),16+rnd"48",512-r*sin(a)},60+rnd"10"
       end
       -- navigate to target
       local dir=v_dir(origin,target)
@@ -947,15 +978,19 @@ end
 function make_jewel(_origin,vel)
   add(_things,inherit({    
     origin=v_clone(_origin),
-    pickup=function(_ENV)
+    pickup=function(_ENV,spider)
       if(dead) return
       dead=true
-      _total_jewels+=1
-      sfx"57"
+      -- no feedback when gobbed by spider
+      if(not spider) _total_jewels+=1 sfx"57"      
       grid_unregister(_ENV)
     end,
     update=function(_ENV)
       ttl-=1
+      -- blink when going to disapear
+      if ttl<30 then
+        no_render=(ttl%2)==0
+      end
       if ttl<0 then
         dead=true
         return
@@ -968,27 +1003,26 @@ function make_jewel(_origin,vel)
       -- gravity
       vel[2]-=0.8
 
-      -- pulled by player?
-      if not _plyr.dead then
-        local force=_plyr.attract_power
-        if force!=0 then
-          local a=atan2(origin[1]-_plyr.origin[1],origin[3]-_plyr.origin[3])
-          -- boost repulsive force
-          if(force<0) force*=8
-          local vx,vz=vel[1]-force*cos(a),vel[3]-force*sin(a)
-          if force>0 then
-            -- limit attraction velocity
-            local a=atan2(vx,vz)
-            local len=vx*cos(a)+vz*sin(a)
-            if len>3 then
-              vx*=3/len
-              vz*=3/len
-            end
-          end
-          vel[1],vel[3]=vx,vz
-        end
+      -- pulled by player or spiders?
+      local force,min_dist,min_dir,min_other=_plyr.attract_power,32000,{0,0,0},_plyr
+      for other,other_origin in pairs(_spiders) do
+        local dist_dir,dist=v_dir(origin,other_origin)
+        if(dist<min_dist) force,min_dir,min_dist,min_other=2,dist_dir,dist,other
+      end
+      -- anyone stil alive?
+      if not min_other.dead and force!=0 then
+        -- update dist if invalid
+        if(min_dist==32000) min_dir,min_dist=v_dir(origin,min_other.origin)
+        -- boost repulsive force
+        if(force<0) force*=8
+        vel=v_add(vel,min_dir,3*force/mid(min_dist,1,5))
+        -- limit x/z velocity
+        local vn,vl=v_normz(vel)
+        vel[1]*=3/vl
+        vel[3]*=3/vl
       end
       origin=v_add(origin,vel)
+      on_ground=nil
       -- on ground?
       if origin[2]<8 then
         origin[2]=8
@@ -1002,7 +1036,7 @@ end
 
 function make_egg(_origin,vel)
   -- spider spawn time
-  local ttl=300+rnd(10)
+  local ttl=300+rnd"10"
   -- todo: falling support
   grid_register(add(_things,inherit({
     origin=v_clone(_origin),
@@ -1013,7 +1047,6 @@ function make_egg(_origin,vel)
       if hp<=0 then
         dead=true
         grid_unregister(_ENV)
-        -- todo: make green goo
         make_goo(origin)
       else
         hit_ttl=5
@@ -1044,14 +1077,31 @@ function make_egg(_origin,vel)
             end
           },_spiderling_template),      
           origin)
+        return
       end
+      -- friction
+      if on_ground then
+        vel[1]*=0.9
+        vel[3]*=0.9
+      end
+      -- gravity
+      vel[2]-=0.8 
+      origin,on_ground=v_add(origin,vel)
+      -- on ground?
+      if origin[2]<4 then
+        vel[2],on_ground=0,true
+      end
+      -- keep spider on ground
+      origin[2]=4
+      grid_register(_ENV)     
     end
   },_egg_template)))
 end
 
 -- draw game world
+local _hand_y=0
 function draw_world()
-  cls(0)
+  cls()
 
   -- draw mini bsp
   _bsp[0](_cam)
@@ -1067,7 +1117,6 @@ function draw_world()
   for i=0,127,16 do
     sspr(i,0,16,128,i,(i-64)*yshift+0.5)
   end
-  palt(0,true)
   -- reset
   poke(0x5f54,0x00)
 
@@ -1088,13 +1137,45 @@ function draw_world()
   end
   print(s..stat(0).."kb",2,2,3)
   ]]
+
+  -- draw player hand (unless player is dead)
+  _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
+  -- using poke to avoid true/false for palt
+  split2d(scanf([[poke;0x5f0f;0x1f
+poke;0x5f00;0x0
+clip;0;8;128;112
+camera;0;$]],-_hand_y),exec)
+  if _plyr.fire_ttl==0 then
+    --pal(9,1)
+    --pal(7,5)
+    sspr(72,32,64,64,72,64)
+  else          
+    local r=24+rnd"8"
+    split2d(scanf([[poke;0x5f00;0x10
+fillp;0xa5a5.8
+circfill;96;96;$;8
+fillp
+circfill;96;96;$;7
+circ;96;96;$;9
+poke;0x5f00;0x0
+sspr;0;64;64;64;72;64]],r,0.9*r,0.9*r),exec)
+  end
+  clip()
+  camera() 
+end
+
+-- script commands
+function random_spawn_angle() _spawn_angle=rnd() end
+function inc_spawn_angle(inc) _spawn_angle+=inc end
+function set_spawn(dist,height)       
+  _spawn_origin={512+dist*cos(_spawn_angle),height or 0,512-dist*sin(_spawn_angle)}
 end
 
 -- gameplay state
 function play_state()
-  -- camera & player & misc tables
-  _plyr=make_player({512,24,512},0)
-  _things,_particles,_bullets,_futures={},{},{},{}
+  -- camera & player & reset misc tables
+  _plyr,_things,_bullets,_futures=make_player({512,24,512},0),{},{},{}
+
   -- spatial partitioning grid
   _grid=setmetatable({},{
       __index=function(self,k)
@@ -1116,26 +1197,74 @@ function play_state()
 
   -- scenario
   local scenario=do_async(function()
-    -- player just spawned
-    wait_async(90)
-    -- 4 squids
-    local angle=rnd()
-    for i=angle,angle+0.75,0.25 do
-      local u,v=cos(i),-sin(i)
-      local x,z=512+396*u,512-396*v
-      make_squid({x,0,z},{-u/16,0,v/16})
-      -- 3s
-      wait_async(90)
-    end
-  end)
+    local script=split2d([[
+--;wait player
+wait_async;90
+--;first squids wave
+random_spawn_angle
+set_spawn;256
+make_squid;1
+wait_async;330
+inc_spawn_angle;0.25
+set_spawn;256
+make_squid;1
+wait_async;150
+inc_spawn_angle;0.25
+set_spawn;396
+make_squid;1
+wait_async;150
+inc_spawn_angle;0.25
+set_spawn;396
+make_squid;1
+wait_async;450
+inc_spawn_angle;0.25
+set_spawn;396
+make_squid;2
+--;first spider
+random_spawn_angle
+set_spawn;350;78
+make_spider
+--; second squid wave
+wait_async;300
+random_spawn_angle
+set_spawn;396
+make_squid;1
+random_spawn_angle
+inc_spawn_angle;0.5
+set_spawn;396
+make_squid;2
+wait_async;450
+inc_spawn_angle;-0.25
+set_spawn;396
+make_squid;1
+inc_spawn_angle;0.5
+set_spawn;396
+make_squid;2
+wait_async;450
+inc_spawn_angle;0.5
+set_spawn;396
+make_squid;1
+wait_async;150
+inc_spawn_angle;0.5
+set_spawn;396
+make_squid;2
+inc_spawn_angle;0.25
+set_spawn;396
+make_squid;1
+wait_async;150
+--; first centipede
+random_spawn_angle
+set_spawn;350;64
+make_worm
+wait_async;600]],exec) 
+    end)
 
   do_async(function()
     -- circle around player
     while not _plyr.dead do
-      local angle=time()/8
-      local x,y,z=unpack(_plyr.origin)
+      local angle,x,y,z=time()/8,unpack(_plyr.origin)
       local r=48*cos(angle)
-      _flying_target={x+r*cos(angle),y+24+rnd(8),z+r*sin(angle)}
+      _flying_target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
       wait_async(10)
     end
 
@@ -1143,12 +1272,11 @@ function play_state()
     -- stop creating monsters
     scenario.co=nil
     while true do
-      _flying_target={256+rnd(512),12+rnd(64),256+rnd(512)}
-      wait_async(45+rnd(15))
+      _flying_target={256+rnd"512",12+rnd"64",256+rnd"512"}
+      wait_async(45+rnd"15")
     end
   end)
   
-
   return
     -- update
     function()
@@ -1158,9 +1286,24 @@ function play_state()
     end,
     -- draw
     function()
-      draw_world()
-      -- todo: draw player hand
-      --[[]
+      draw_world()   
+
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      if _show_timer then
+        local t=((time()-_start_time)\0.1)/10
+        local s=tostr(t)
+        if(#tostr(t&0x0.ffff)==1) s..=".0"
+        s..="S"
+        arizona_print(s,64-print(s,0,128)/2,1,2)
+      end
+      -- todo: move hw palette to memory
+      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
+
+      --[[
+      palt(0,true)
+      local function world_to_map(o)
+        return (4*o[1])\32,(4*o[3])\32
+      end
       for x=0,31 do
         for y=0,31 do
           local idx,count=x>>16|y,0
@@ -1168,14 +1311,21 @@ function play_state()
             count+=1
           end
           rectfill(x*4,y*4,(x+1)*4-1,(y+1)*4-1,count%16)
+          for thing in pairs(_grid[idx].things) do
+            local x0,y0=world_to_map(thing.origin)
+            pset(x0,y0,8)
+            if thing.target then
+              local x1,y1=world_to_map(thing.target)
+              line(x0,y0,x1,y1,5)
+            end
+          end
         end
       end
-      spr(7,4*_plyr.origin[1]\32-2,4*_plyr.origin[3]\32-2)      
+      local x0,y0=world_to_map(_plyr.origin)
+      spr(7,x0-2,y0-2)      
+      local x0,y0=world_to_map(_flying_target)
+      spr(23,x0-2,y0-2)
       ]]
-
-      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
-      
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
     end,
     -- init
     function()
@@ -1185,9 +1335,34 @@ function play_state()
 end
 
 function gameover_state(obituary)  
-  local play_time,origin,target=time()-_start_time,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
+  local play_time,origin,target,selected_tab,clicked=time()-_start_time,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
+  -- check if new playtime enters leaderboard?
+  -- + handle sorting
+  local new_best_i=#_local_scores+1
+  for i,local_score in ipairs(_local_scores) do
+    if play_time>local_score[1] then
+      new_best_i=i
+      break
+    end
+  end
+  -- record time of play
+  add(_local_scores,{play_time,stat(90),stat(91),stat(92)},new_best_i)
+  -- max #scores
+  if(#_local_scores>5) deli(_local_scores)
+  -- save version
+  dset(0,1)
+  -- number of scores
+  dset(1,#_local_scores)
+  local mem=0x5e08
+  for local_score in all(_local_scores) do
+    -- save
+    poke4(mem,unpack(local_score))
+    -- next 4 * 4bytes
+    mem+=16
+  end
+
   -- leaderboard/retry
-  local ttl,buttons,selected_tab,over_btn,clicked=90,{
+  local ttl,buttons,over_btn=90,{
     {"rETRY",1,111,cb=function() 
       -- todo: fade to black
       do_async(function()
@@ -1203,13 +1378,6 @@ function gameover_state(obituary)
       draw=function()
         -- before: 7618
         local x=1
-        local function scanf(st,...)
-          local s=""
-          for i,p in inext,split(st,"$") do
-              s..=({"",...})[i]..p
-          end
-          return s
-         end
         split2d(scanf([[⧗ ;_;30;3
 $S    ;x;30;0
 🐱 ;x;30;3
@@ -1219,7 +1387,7 @@ $;x;38;0
     ● ;x;38;3
 $;x;38;0
     ☉ ;x;38;3
-$%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_hits==0 and 0 or 1000*(_total_hits/_total_bullets))/10),function(s,_,y,sel)
+$%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_bullets==0 and 0 or 1000*(_total_hits/_total_bullets))/10),function(s,_,y,sel)
           -- new line?
           if(_=="_") x=1
           x=arizona_print(s,x,y,sel)
@@ -1229,10 +1397,9 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
     {"lOCAL",46,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
-        -- todo: local 
-        srand(42)
-        for i=1,5 do
-          arizona_print(i..". "..flr(rnd(1500)),1,23+i*7)
+        for i,local_score in ipairs(_local_scores) do
+          local t,y,m,d=unpack(local_score)
+          arizona_print(scanf("$. $/$/$\t $S",i,y,m,d,t),1,23+i*7,new_best_i==i and 4)
         end
       end},
     {"oNLINE",96,16,
@@ -1241,7 +1408,7 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
         -- todo: online
         srand(42)
         for i=1,5 do
-          arizona_print(i..". bOB48 "..flr(rnd(1500)),1,23+i*7)
+          arizona_print(i..". bOB48 "..flr(rnd"1500"),1,23+i*7)
         end
       end
     }
@@ -1327,27 +1494,37 @@ function _init()
   -- enable tile 0 + extended memory
   -- capture mouse
   -- enable lock
+  -- cartdata
   split2d([[poke;0x5f58;0x81
 poke;0x5f36;0x18
-poke;0x5f2d;0x7]],exec)
+poke;0x5f2d;0x7
+cartdata;freds72_daggers]],exec)
+
+  -- local score version
+  _local_scores,_local_best_t={}
+  if dget(0)==1 then
+    -- number of scores    
+    local mem=0x5e08
+    for i=1,dget(1) do
+      -- duration (sec)
+      -- timestamp yyyy,mm,dd
+      add(_local_scores,{peek4(mem,4)})
+      mem+=16
+    end    
+    _local_best_t=_local_scores[1][1]
+  end
 
   -- exit menu entry
   menuitem(1,"main menu",function()
     -- local version
-    load("title.p8")
+    load"title.p8"
     -- bbs version
-    load("#freds72_daggers_title")
+    load"#freds72_daggers_title"
   end)
 
-  -- god mode menu entry
-  local god_menu_handler
-  god_menu_handler=function()
-    _god_mode=not _god_mode
-    menuitem(2,"god mode "..tostr(_god_mode),god_menu_handler)
-    return true
-  end
-  _god_mode=false
-  god_menu_handler()
+  menuitem(2,"timer on/off",function()
+    _show_timer=not _show_timer
+  end)
 
   -- always needed  
   _cam=inherit{
@@ -1395,9 +1572,9 @@ poke;0x5f2d;0x7]],exec)
     -- ##6: vertex index
     -- ##7: vertex index
     -- ##8: tex coords
-    split2d([[1; 2;0;0;2;5;6;7;8;0x0000.0404; -2;32;0;2;20;19;18;17;0x0008.0404; -3;-256;0;1;5;8;20;17;0x0004.0404; 3;768;0;1;7;6;18;19;0x0004.0404; -1;-192;2;1;17;18;6;5;0x0004.0404
-2; 2;0;0;2;1;2;3;4;0x0000.0404; -2;32;0;2;16;15;14;13;0x0008.0404; -3;-192;0;1;1;4;16;13;0x0004.0404; 3;832;0;1;3;2;14;15;0x0004.0404; -1;-256;2;1;8;1;13;20;0x0004.0404; -1;-256;2;1;2;7;19;14;0x0004.0404; 1;768;2;1;10;3;15;22;0x0004.0404; 1;768;2;1;4;9;21;16;0x0004.0404
-3; 2;0;0;2;9;10;11;12;0x0000.0404; -2;32;0;2;24;23;22;21;0x0008.0404; -3;-256;0;1;9;12;24;21;0x0004.0404; 1;832;2;1;24;12;11;23;0x0004.0404; 3;768;0;1;11;10;22;23;0x0004.0404]],function(id,...)
+    split2d([[1; 2;0;0;2;13;16;19;22;0x0000.0404; -2;32;0;2;58;55;52;49;0x0008.0404; -3;-256;0;1;13;22;58;49;0x0004.0404; 3;768;0;1;19;16;52;55;0x0004.0404; -1;-192;2;1;49;52;16;13;0x0004.0404
+    2; 2;0;0;2;1;4;7;10;0x0000.0404; -2;32;0;2;46;43;40;37;0x0008.0404; -3;-192;0;1;1;10;46;37;0x0004.0404; 3;832;0;1;7;4;40;43;0x0004.0404; -1;-256;2;1;22;1;37;58;0x0004.0404; -1;-256;2;1;4;19;55;40;0x0004.0404; 1;768;2;1;28;7;43;64;0x0004.0404; 1;768;2;1;10;25;61;46;0x0004.0404
+    3; 2;0;0;2;25;28;31;34;0x0000.0404; -2;32;0;2;70;67;64;61;0x0008.0404; -3;-256;0;1;25;34;70;61;0x0004.0404; 1;832;2;1;70;34;31;67;0x0004.0404; 3;768;0;1;31;28;64;67;0x0004.0404]],function(id,...)
       -- localize
       local planes={...}
       _bsp[id]=function(cam)
@@ -1410,7 +1587,7 @@ poke;0x5f2d;0x7]],exec)
           if sgn(dir)*origin[abs(dir)]>planes[i+1] then              
             local verts,uindex,vindex,outcode,nearclip={},planes[i+2],planes[i+3],0xffff,0  
             for j=1,4 do
-              local vi=(planes[i+j+3]-1)*3+1
+              local vi=planes[i+j+3]
               local code,x,y,z=2,_vertices[vi]-cx,_vertices[vi+1]-cy,_vertices[vi+2]-cz
               local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
               if(az>8) code=0
@@ -1452,6 +1629,7 @@ poke;0x5f2d;0x7]],exec)
                 verts=res
               end
     
+              -- texture
               poke4(0x5f38,planes[i+8])
               -- color(_dist)
               -- local v0=verts[#verts]
@@ -1475,11 +1653,10 @@ poke;0x5f2d;0x7]],exec)
   -- attach world draw as a named BSP node
   _bsp.grid=draw_grid
   
-  _bullets,_things,_futures={},{},{}
   -- load images
   _entities=decompress("pic",0,0,unpack_entities)
   -- predefined entries (avoids constant gc)
-  _blood_ents,_goo_ents={
+  _blood_ents,_goo_ents,_spark_ents={
     _entities.blood0,
     _entities.blood1,
     _entities.blood2
@@ -1487,21 +1664,27 @@ poke;0x5f2d;0x7]],exec)
     _entities.goo0,
     _entities.goo1,
     _entities.goo2
+  },{
+    _entities.spark0,
+    _entities.spark1,
+    _entities.spark2
   }
+  
   -- global templates
   local templates=[[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
-_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3
-_egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,on_ground,1
+_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,is_skull,1
+_egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
-_worm_head_template;ent,worm0,radius,18,hp,10,apply,nop,chatter,20;_skull_template
-_jewel_template;ent,jewel,radius,8,zangle,rnd,ttl,3000,apply,nop
-_spiderling_template;ent,spider0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
-_squid_core;hp,1000,no_render,1,radius,48,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2;_skull_template
+_worm_head_template;ent,worm0,radius,18,hp,10,chatter,20;_skull_template
+_jewel_template;ent,jewel,radius,12,zangle,rnd,ttl,300,apply,nop,is_jewel,1
+_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
+_squid_core;hp,1000,no_render,1,radius,32,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,hit,nop;_skull_template
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
 _skull1_base_template;ent,skull,radius,16,hp,2;_skull_template
-_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_template]]
+_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_template
+_spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
@@ -1512,7 +1695,7 @@ _skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_temp
       -- converge toward player
       if _flying_target then
         local dir=v_dir(origin,_flying_target)
-        forces=v_add(forces,dir,8+seed*cos(time()/5))
+        forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
       end
     end
   },_skull1_base_template)
@@ -1522,14 +1705,15 @@ _skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1;_skull_temp
       target_ttl-=1
       if target_ttl<0 then  
         -- go opposite from where it stands!  
-        local a=atan2(origin[1]-512,origin[3]-512)+0.625-rnd(0.25)
-        local r=64+rnd(64)
-        target={512+r*cos(a),16+rnd(48),512-r*sin(a)}
-        target_ttl=90+rnd(10)
+        local a=atan2(origin[1]-512,-origin[3]+512)
+        a=shortest_angle(a,a+rnd"0.1")
+        local r=256+rnd"64"
+        target={mid(512+r*cos(a),192,832),16+rnd"48",mid(512-r*sin(a),192,832)}
+        target_ttl=60+rnd"10"
       end
       -- navigate to target
       local dir=v_dir(origin,target)
-      forces=v_add(forces,dir,8+seed*cos(time()/5))
+      forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
     end
   },_skull2_base_template)  
   reload()
@@ -1633,11 +1817,11 @@ function _update()
           -- no matter what - we hit the ground!
           dead=true
           make_blood(origin)
-          for i=1,rnd(5) do
-            local a=b.zangle+(1-rnd(2))/8
-            local cc,ss,r=cos(a),-sin(a),2+rnd(2)
-            local o={x+r*cc,0,z+r*ss}
-            make_particle(o,{cc,1+rnd(),ss})
+          -- sparkles
+          for i=1,rnd"5" do
+            local a=b.zangle+(1-rnd"2")/8
+            local cc,ss,r=cos(a),-sin(a),2+rnd"2"
+            make_blast(_spark_ents,{x+r*cc,0,z+r*ss},{1.5*cc,0,1.5*ss}).zangle=a
           end
         end
         -- collect touched grid indices
@@ -1675,34 +1859,18 @@ function _update()
       end
     end
   end
-  -- effects
-  for i=#_particles,1,-1 do
-    local p=_particles[i]
-    if p.ttl<t then
-      deli(_particles,i)
-    else
-      local velocity=v_scale(p.velocity,0.8)
-      -- gravity
-      velocity[2]-=0.8
-      local origin=v_add(p.origin,velocity,5)
-      if origin[2]<0 then
-        origin[2]=0
-        -- fake rebound
-        velocity[2]*=-0.5
-      end
-      p.prev,p.origin,p.velocity=p.origin,origin,velocity
-    end
-  end
 
   _plyr:update()
   --
   for i=#_things,1,-1 do
-    local thing=_things[i]
-    if thing.dead then
+    local _ENV=_things[i]
+    if dead then
       -- note: assumes thing is already unregistered
       deli(_things,i)
-    elseif thing.update then
-      thing:update()
+    elseif update then
+      -- common timers
+      if(hit_ttl) hit_ttl=max(hit_ttl-1)
+      update(_ENV)
     end
   end
 
@@ -1711,8 +1879,8 @@ end
 
 -- unpack assets
 function unpack_entities()
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spider0,spider1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2"
-  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1,nAILED,nAILED,nAILED"
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spiderling0,spiderling1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2,spider0,spider1,spark0,spark1,spark2"
+  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1,nAILED,nAILED,nAILED,spider0,spider1,_,_,_"
   unpack_array(function()
     local id=mpeek()
     if id!=0 then
@@ -1724,7 +1892,6 @@ function unpack_entities()
         zangles=angles\16,        
         frames=unpack_frames(sprites)
       }
-      printh("restored:"..names[id].." #sprites:"..#sprites)
     end
   end)
   return entities

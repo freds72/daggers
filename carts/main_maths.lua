@@ -58,10 +58,18 @@ function v_len(a,b)
 end 
 
 -- normalized direction 
+function v_normz(a)
+	local d=v_len({0,0,0},a)
+	return {a[1]/d,a[2]/d,a[3]/d},d
+end
+
+-- fast direction/norm (abs)
 -- same as v_len without building a vector
 function v_dir(a,b)
-	local d=v_len(a,b)
-	return {(b[1]-a[1])/d,(b[2]-a[2])/d,(b[3]-a[3])/d},d
+  local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
+	local d=abs(x)+abs(y)+abs(z)
+	if(d==0) return {0,0,0},d
+	return {x/d,y/d,z/d},d
 end 
 
 -- matrix functions
