@@ -51,19 +51,6 @@ function wait_async(t)
 	end
 end
 
-function update_asyncs()
-  for i=#_futures,1,-1 do
-    -- get actual coroutine
-    local f=_futures[i].co
-    -- still active?
-    if f and costatus(f)=="suspended" then
-      assert(coresume(f))
-    else
-      deli(_futures,i)
-    end
-  end
-end
-
 -- misc helpers
 function nop() end
 function with_properties(props,dst)
@@ -1822,7 +1809,16 @@ end
 local _checked=0
 function _update()
   -- any futures?
-  update_asyncs()
+  for i=#_futures,1,-1 do
+    -- get actual coroutine
+    local f=_futures[i].co
+    -- still active?
+    if f and costatus(f)=="suspended" then
+      assert(coresume(f))
+    else
+      deli(_futures,i)
+    end
+  end
 
   -- keep world running    
   local t=time()
