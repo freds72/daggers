@@ -39,6 +39,32 @@ local _vertices,_ground_extents=split[[256,0,192,
   split"776,840,248,776"
 }
 
+-- returns a handle to the coroutine
+-- used to cancel a coroutine
+function do_async(fn)
+  return add(_futures,{co=cocreate(fn)})
+end
+-- wait until timer
+function wait_async(t)
+	for i=1,t do
+		yield()
+	end
+end
+
+function update_asyncs()
+  for i=#_futures,1,-1 do
+    -- get actual coroutine
+    local f=_futures[i].co
+    -- still active?
+    if f and costatus(f)=="suspended" then
+      assert(coresume(f))
+    else
+      deli(_futures,i)
+    end
+  end
+end
+
+-- misc helpers
 function nop() end
 function with_properties(props,dst)
   local dst,props=dst or {},split(props)
@@ -103,8 +129,7 @@ end
 -- removes thing from the collision grid
 function grid_unregister(_ENV)
   for idx,cell in pairs(cells) do
-    cell.things[_ENV]=nil
-    cells[idx]=nil
+    cell.things[_ENV],cells[idx]=nil
   end  
   if chatter_cell then
     chatter_cell.chatter[chatter]-=1
@@ -142,14 +167,13 @@ printh(s,"@clip")
 -- 210012
 -- 211112
 --  2222
-local _chatter_ranges={
-  split"0x0000.0000,0x0001.0000,0x0000.0001,0x0001.0001",
-  split"0x0000.0000,0x0001.0000,0x0002.0000,0x0003.0000,0x0000.0001,0x0003.0001,0x0000.0002,0x0003.0002,0x0000.0003,0x0001.0003,0x0002.0003,0x0003.0003",
-  split"0x0001.0000,0x0002.0000,0x0003.0000,0x0004.0000,0x0000.0001,0x0005.0001,0x0000.0002,0x0005.0002,0x0000.0003,0x0005.0003,0x0000.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
-}
 
 function make_player(_origin,_a)
-
+  local _chatter_ranges={
+    split"0x0000.0000,0x0001.0000,0x0000.0001,0x0001.0001",
+    split"0x0000.0000,0x0001.0000,0x0002.0000,0x0003.0000,0x0000.0001,0x0003.0001,0x0000.0002,0x0003.0002,0x0000.0003,0x0001.0003,0x0002.0003,0x0003.0003",
+    split"0x0001.0000,0x0002.0000,0x0003.0000,0x0004.0000,0x0000.0001,0x0005.0001,0x0000.0002,0x0005.0002,0x0000.0003,0x0005.0003,0x0000.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
+  }  
   local angle,on_ground={0,_a,0}
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
@@ -1063,9 +1087,10 @@ function set_spawn(dist,height)
 end
 
 -- gameplay state
+local _frame=0
 function play_state()
   -- camera & player & reset misc tables
-  _plyr,_things,_bullets,_futures,_spiders=make_player({512,24,512},0),{},{},{},{}
+  _plyr,_things,_bullets,_spiders=make_player({512,24,512},0),{},{},{}
 
   -- spatial partitioning grid
   _grid=setmetatable({},{
@@ -1086,9 +1111,67 @@ function play_state()
       end
     })    
 
-  -- scenario
-  local scenario=do_async(function()
-    local script=split2d([[
+  return
+    -- update
+    function()
+      _frame+=1
+      _plyr:control()
+      
+      _cam:track(_plyr.eye_pos,_plyr.m,_plyr.angle,_plyr.tilt)
+    end,
+    -- draw
+    function()
+      draw_world()   
+
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      if _show_timer then
+        local t=((time()-_start_time)\0.1)/10
+        local s=tostr(t)
+        if(#tostr(t&0x0.ffff)==1) s..=".0"
+        s..="S"
+        arizona_print(s,64-print(s,0,128)/2,1,2)
+      end
+      -- todo: move hw palette to memory
+      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
+
+      --[[
+      palt(0,true)
+      local function world_to_map(o)
+        return (4*o[1])\32,(4*o[3])\32
+      end
+
+      for x=0,31 do
+        for y=0,31 do
+          local idx,count=x>>16|y,0
+          for _ in pairs(_grid[idx].things) do
+            count+=1
+          end
+          rectfill(x*4,y*4,(x+1)*4-1,(y+1)*4-1,count%16)
+          for thing in pairs(_grid[idx].things) do
+            local x0,y0=world_to_map(thing.origin)
+            pset(x0,y0,8)
+            if thing.target then
+              local x1,y1=world_to_map(thing.target)
+              line(x0,y0,x1,y1,5)
+            end
+          end
+        end
+      end
+      local x0,y0=world_to_map(_plyr.origin)
+      spr(7,x0-2,y0-2)      
+      local x0,y0=world_to_map(_flying_target)
+      spr(23,x0-2,y0-2)
+      ]]
+    end,
+    -- init
+    function()
+      music(32)
+      _start_time=time()
+      -- must be done *outside* async update loop!!!
+      _futures={}
+      -- scenario
+      local scenario=do_async(function()
+        local script=split2d([[
 --;wait player
 wait_async;90
 --;first squids wave
@@ -1150,79 +1233,24 @@ make_worm
 wait_async;600]],exec) 
     end)
 
-  do_async(function()
-    -- circle around player
-    while not _plyr.dead do
-      local angle,x,y,z=time()/8,unpack(_plyr.origin)
-      local r=48*cos(angle)
-      _flying_target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
-      wait_async(10)
-    end
-
-    -- if player dead, find a random spot on map
-    -- stop creating monsters
-    scenario.co=nil
-    while true do
-      _flying_target={256+rnd"512",12+rnd"64",256+rnd"512"}
-      wait_async(45+rnd"15")
-    end
-  end)
-  
-  return
-    -- update
-    function()
-      _plyr:control()
-      
-      _cam:track(_plyr.eye_pos,_plyr.m,_plyr.angle,_plyr.tilt)
-    end,
-    -- draw
-    function()
-      draw_world()   
-
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
-      if _show_timer then
-        local t=((time()-_start_time)\0.1)/10
-        local s=tostr(t)
-        if(#tostr(t&0x0.ffff)==1) s..=".0"
-        s..="S"
-        arizona_print(s,64-print(s,0,128)/2,1,2)
-      end
-      -- todo: move hw palette to memory
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
-
-      --[[
-      palt(0,true)
-      local function world_to_map(o)
-        return (4*o[1])\32,(4*o[3])\32
-      end
-      for x=0,31 do
-        for y=0,31 do
-          local idx,count=x>>16|y,0
-          for _ in pairs(_grid[idx].things) do
-            count+=1
-          end
-          rectfill(x*4,y*4,(x+1)*4-1,(y+1)*4-1,count%16)
-          for thing in pairs(_grid[idx].things) do
-            local x0,y0=world_to_map(thing.origin)
-            pset(x0,y0,8)
-            if thing.target then
-              local x1,y1=world_to_map(thing.target)
-              line(x0,y0,x1,y1,5)
-            end
-          end
+    do_async(function()
+        -- circle around player
+        while not _plyr.dead do      
+          local angle,x,y,z=time()/8,unpack(_plyr.origin)
+          local r=48*cos(angle)
+          _flying_target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
+          wait_async(10)
         end
-      end
-      local x0,y0=world_to_map(_plyr.origin)
-      spr(7,x0-2,y0-2)      
-      local x0,y0=world_to_map(_flying_target)
-      spr(23,x0-2,y0-2)
-      ]]
-    end,
-    -- init
-    function()
-      music(32)
-      _start_time=time()
-    end
+
+        -- if player dead, find a random spot on map
+        -- stop creating monsters
+        scenario.co=nil
+        while true do
+          _flying_target={256+rnd"512",12+rnd"64",256+rnd"512"}
+          wait_async(45+rnd"15")
+        end
+      end)
+    end   
 end
 
 function gameover_state(obituary)  
@@ -1255,8 +1283,8 @@ function gameover_state(obituary)
   -- leaderboard/retry
   local ttl,buttons,over_btn=90,{
     {"rETRY",1,111,cb=function() 
-      -- todo: fade to black
       do_async(function()
+        -- todo: fade to black
         for i=0,15 do
           --memcpy(0x5f00,0x4300|i<<4,16)
           yield()
