@@ -1,5 +1,7 @@
 -- global arrays
 local _bsp,_bullets,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_ents,_goo_ents={},{},{},{},{}
+-- flying things:
+local _flying_target
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
 -- must be globals
@@ -606,135 +608,20 @@ function make_goo(_origin)
   return make_blast(_goo_ents,_origin)
 end
 
--- flying things:
-local _flying_target
 -- base class for:
 -- skull I II III
 -- centipede
 -- spiderling
 function make_skull(actor,_origin)
-  local resolved,wobling={},3+rnd"2"
-
   local thing=add(_things,inherit({
-      chatter=actor.chatter or 12,
       origin=_origin,
+      resolved={},
+      wobling=3+rnd"2",
       seed=7+rnd(),
       -- grid cells
-      cells={},
-      hit=function(_ENV)
-        assert(not is_squid_core,"wut?")
-        
-        -- avoid reentrancy
-        if(dead) return
-        hp-=1
-        if hp<=0 then
-          dead=true
-          -- custom death function?
-          if die then
-            die(_ENV)
-          else
-            sfx(death_sfx or 52)
-          end
-          -- drop jewel?
-          if jewel then
-            make_jewel(origin,velocity)
-          end 
-          grid_unregister(_ENV)  
-          -- custom explosion?
-          -- keep this way until: https://www.lexaloffle.com/bbs/?tid=53289 is fixed
-          ;(blast or make_blood)(origin)
-        else
-          hit_ttl=5
-        end
-      end,
-      apply=function(_ENV,other,force,t)
-        forces[1]+=t*force[1]
-        forces[2]+=t*force[2]
-        forces[3]+=t*force[3]
-        resolved[other]=true
-      end,
-      update=function(_ENV)
-        -- some gravity
-        if not on_ground then
-          if origin[2]<12 then 
-            forces={0,wobling,0}
-          elseif origin[2]>80 then
-            forces={0,-wobling*2,0}
-          end
-        end
-        -- some friction
-        velocity=v_scale(velocity,0.8)
-
-        -- custom think function
-        think(_ENV)
-
-        -- avoid others (noted: limited to a single grid cell)
-        local idx,fx,fy,fz=world_to_grid(origin),forces[1],forces[2],forces[3]
-        for other in pairs(_grid[idx].things) do
-          -- apply inverse force to other (and keep track)
-          if not resolved[other] and other!=_ENV then
-            local avoid,avoid_dist=v_dir(origin,other.origin)
-            if(avoid_dist<4) avoid_dist=1
-            -- todo: tune...
-            local t=-2/avoid_dist
-            local t_self=other.radius*t 
-            fx+=t_self*avoid[1]
-            fy+=t_self*avoid[2]
-            fz+=t_self*avoid[3]
-
-            other:apply(_ENV,avoid,-t*radius)
-            resolved[other]=true
-          end
-        end
-        -- make sure grounded entities keept on ground
-        -- todo: useless??
-        forces={fx,on_ground and 0 or fy,fz}
-
-        local old_vel=velocity
-        -- 
-        velocity=v_add(velocity,forces,1/16)
-        -- fixed velocity (on x/z)
-        local vx,vz=velocity[1],velocity[3]
-        local a=atan2(vx,vz)
-        local vlen=vx*cos(a)+vz*sin(a)
-        velocity[1]*=min_velocity/vlen
-        velocity[3]*=min_velocity/vlen      
-
-        -- align direction and sprite direction
-        local target_angle=atan2(old_vel[1]-velocity[1],velocity[3]-old_vel[3])
-        local shortest=shortest_angle(target_angle,zangle)
-        --[[
-        if abs(target_angle-shortest)>0.125/2 then
-          -- relative change
-          shortest=mid(shortest-target_angle,-0.125/2,0.125/2)
-          -- preserve length
-          local x,z=vel[1],vel[3]
-          local len=sqrt(x*x+z*z)
-          x,z=old_vel[1],old_vel[3]
-          local old_len=sqrt(x*x+z*z)
-          x/=old_len
-          z/=old_len
-          vel[1],vel[3]=len*(x*cos(shortest)+z*sin(shortest)),len*(-x*sin(shortest)+z*cos(shortest))
-          shortest+=target_angle
-        end
-        ]]
-        zangle=lerp(shortest,target_angle,0.2)
-        
-        -- move & clamp
-        origin[1]=mid(origin[1]+velocity[1],0,1024)
-        origin[2]=max(4,origin[2]+velocity[2])
-        origin[3]=mid(origin[3]+velocity[3],0,1024)
-
-        -- for centipede
-        if(post_think) post_think(_ENV)
-
-        -- debug
-        debug_forces=forces
-        -- reset
-        forces,resolved={0,0,0},{}
-        grid_register(_ENV)
-      end
+      cells={}
     },actor))
+  
   grid_register(thing)
   
   --play spawn sfx
@@ -831,7 +718,7 @@ function make_squid(type)
       if(_dx>400 or _dz>400) _dead=true
     end
   },_squid_core),_origin)
-    
+
   local squid_parts={
     -- type 1 (1 jewel)
 [[_squid_jewel;light_ttl,15,angle_offset,0.0,r_offset,8,y_offset,24
@@ -881,6 +768,7 @@ _squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_o
           hit_ttl=5
           -- feedback
           make_blood(pos)
+          sfx"56"
           if hp<=0 then
             make_jewel(origin,{u,3,v},16)
             -- avoid reentrancy
@@ -899,6 +787,7 @@ _squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_o
           grid_unregister(_ENV)
           -- stop spilling monsters
           spill.co=nil          
+          sfx"39"
         end
         zangle=_angle+angle_offset
         -- store u/v angle
@@ -1671,16 +1560,130 @@ cartdata;freds72_daggers]],exec)
     _entities.spark1,
     _entities.spark2
   }
-  
+
+  _skull_core=inherit({
+    hit=function(_ENV)
+      -- avoid reentrancy
+      if(dead) return
+      hp-=1
+      if hp<=0 then
+        dead=true
+        -- custom death function?
+        if die then
+          die(_ENV)
+        else
+          sfx(death_sfx or 52)
+        end
+        -- drop jewel?
+        if jewel then
+          make_jewel(origin,velocity)
+        end 
+        grid_unregister(_ENV)  
+        -- custom explosion?
+        -- keep this way until: https://www.lexaloffle.com/bbs/?tid=53289 is fixed
+        ;(blast or make_blood)(origin)
+      else
+        hit_ttl=5
+      end
+    end,
+    apply=function(_ENV,other,force,t)
+      forces[1]+=t*force[1]
+      forces[2]+=t*force[2]
+      forces[3]+=t*force[3]
+      resolved[other]=true
+    end,
+    update=function(_ENV)
+      -- some gravity
+      if not on_ground then
+        if origin[2]<12 then 
+          forces={0,wobling,0}
+        elseif origin[2]>80 then
+          forces={0,-wobling*2,0}
+        end
+      end
+      -- some friction
+      velocity=v_scale(velocity,0.8)
+
+      -- custom think function
+      think(_ENV)
+
+      -- avoid others (noted: limited to a single grid cell)
+      local idx,fx,fy,fz=world_to_grid(origin),forces[1],forces[2],forces[3]
+      for other in pairs(_grid[idx].things) do
+        -- apply inverse force to other (and keep track)
+        if not resolved[other] and other!=_ENV then
+          local avoid,avoid_dist=v_dir(origin,other.origin)
+          if(avoid_dist<4) avoid_dist=1
+          -- todo: tune...
+          local t=-2/avoid_dist
+          local t_self=other.radius*t 
+          fx+=t_self*avoid[1]
+          fy+=t_self*avoid[2]
+          fz+=t_self*avoid[3]
+          
+          other:apply(_ENV,avoid,-t*radius)
+          resolved[other]=true
+        end
+      end
+      -- make sure grounded entities keept on ground
+      -- todo: useless??
+      forces={fx,on_ground and 0 or fy,fz}
+
+      local old_vel=velocity
+      -- 
+      velocity=v_add(velocity,forces,1/16)
+      -- fixed velocity (on x/z)
+      local vx,vz=velocity[1],velocity[3]
+      local a=atan2(vx,vz)
+      local vlen=vx*cos(a)+vz*sin(a)
+      velocity[1]*=min_velocity/vlen
+      velocity[3]*=min_velocity/vlen      
+
+      -- align direction and sprite direction
+      local target_angle=atan2(old_vel[1]-velocity[1],velocity[3]-old_vel[3])
+      local shortest=shortest_angle(target_angle,zangle)
+      --[[
+      if abs(target_angle-shortest)>0.125/2 then
+        -- relative change
+        shortest=mid(shortest-target_angle,-0.125/2,0.125/2)
+        -- preserve length
+        local x,z=vel[1],vel[3]
+        local len=sqrt(x*x+z*z)
+        x,z=old_vel[1],old_vel[3]
+        local old_len=sqrt(x*x+z*z)
+        x/=old_len
+        z/=old_len
+        vel[1],vel[3]=len*(x*cos(shortest)+z*sin(shortest)),len*(-x*sin(shortest)+z*cos(shortest))
+        shortest+=target_angle
+      end
+      ]]
+      zangle=lerp(shortest,target_angle,0.2)
+      
+      -- move & clamp
+      origin[1]=mid(origin[1]+velocity[1],0,1024)
+      origin[2]=max(4,origin[2]+velocity[2])
+      origin[3]=mid(origin[3]+velocity[3],0,1024)
+
+      -- for centipede
+      if(post_think) post_think(_ENV)
+
+      -- debug
+      debug_forces=forces
+      -- reset
+      forces,resolved={0,0,0},{}
+      grid_register(_ENV)
+    end
+  })
+
   -- global templates
   local templates=[[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
-_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,is_skull,1
+_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12;_skull_core
 _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
 _worm_head_template;ent,worm0,radius,18,hp,10,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,12,zangle,rnd,ttl,300,apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
-_squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,hit,nop;_skull_template
+_squid_core;no_render,1,radius,32,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,hit,nop;_skull_template
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
