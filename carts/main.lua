@@ -7,36 +7,36 @@ local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,fal
 -- must be globals
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
-local _vertices,_ground_extents=split[[256,0,192,
-256,0,832,
-768,0,832,
-768,0,192,
-192,0,256,
-192,0,768,
-256,0,768,
-256,0,256,
-768,0,256,
-768,0,768,
-832,0,768,
-832,0,256,
-256,-32,192,
-256,-32,832,
-768,-32,832,
-768,-32,192,
-192,-32,256,
-192,-32,768,
-256,-32,768,
-256,-32,256,
-768,-32,256,
-768,-32,768,
-832,-32,768,
-832,-32,256]],
+local _vertices,_ground_extents=split[[384.0,0,320.0,
+384.0,0,704.0,
+640.0,0,704.0,
+640.0,0,320.0,
+320.0,0,384.0,
+320.0,0,640.0,
+384.0,0,640.0,
+384.0,0,384.0,
+640.0,0,384.0,
+640.0,0,640.0,
+704.0,0,640.0,
+704.0,0,384.0,
+384.0,-32,320.0,
+384.0,-32,704.0,
+640.0,-32,704.0,
+640.0,-32,320.0,
+320.0,-32,384.0,
+320.0,-32,640.0,
+384.0,-32,640.0,
+384.0,-32,384.0,
+640.0,-32,384.0,
+640.0,-32,640.0,
+704.0,-32,640.0,
+704.0,-32,384.0]],
 {
   -- xmin/max - ymin/max
-  -- with 8 unit "coyote" buffer
-  split"248,776,184,840",
-  split"184,248,248,776",
-  split"776,840,248,776"
+  -- with 8 unit buffer simulate player "volume"
+  split"312.0,392.0,376.0,648.0",
+  split"376.0,648.0,312.0,712.0",
+  split"632.0,712.0,376.0,648.0"
 }
 
 -- returns a handle to the coroutine
@@ -365,7 +365,7 @@ function make_bullet(origin,zangle,yangle,spread)
     u=u,
     v=v,
     shadeless=true,
-    ttl=time()+3+rnd"2",
+    ttl=time()+0.5+rnd"0.1",
     ent=rnd{_entities.dagger0,_entities.dagger1}
   }
 end
@@ -1078,7 +1078,7 @@ local _frame=0
 function play_state()
   -- camera & player & reset misc tables
   _plyr,_things,_bullets,_spiders=make_player({512,24,512},0),{},{},{}
-
+  
   -- spatial partitioning grid
   _grid=setmetatable({},{
       __index=function(self,k)
@@ -1163,59 +1163,59 @@ function play_state()
 wait_async;90
 --;first squids wave
 random_spawn_angle
-set_spawn;256
+set_spawn;200
 make_squid;1
 wait_async;330
 inc_spawn_angle;0.25
-set_spawn;256
+set_spawn;200
 make_squid;1
 wait_async;150
 inc_spawn_angle;0.25
-set_spawn;396
+set_spawn;200
 make_squid;1
 wait_async;150
 inc_spawn_angle;0.25
-set_spawn;396
+set_spawn;200
 make_squid;1
 wait_async;450
 inc_spawn_angle;0.25
-set_spawn;396
+set_spawn;200
 make_squid;2
 --;first spider
 random_spawn_angle
-set_spawn;350;78
+set_spawn;200;78
 make_spider
 --; second squid wave
 wait_async;300
 random_spawn_angle
-set_spawn;396
+set_spawn;200
 make_squid;1
 random_spawn_angle
 inc_spawn_angle;0.5
-set_spawn;396
+set_spawn;200
 make_squid;2
 wait_async;450
 inc_spawn_angle;-0.25
-set_spawn;396
+set_spawn;200
 make_squid;1
 inc_spawn_angle;0.5
-set_spawn;396
+set_spawn;200
 make_squid;2
 wait_async;450
 inc_spawn_angle;0.5
-set_spawn;396
+set_spawn;200
 make_squid;1
 wait_async;150
 inc_spawn_angle;0.5
-set_spawn;396
+set_spawn;200
 make_squid;2
 inc_spawn_angle;0.25
-set_spawn;396
+set_spawn;200
 make_squid;1
 wait_async;150
 --; first centipede
 random_spawn_angle
-set_spawn;350;64
+set_spawn;200;64
 make_worm
 wait_async;600]],exec) 
     end)
@@ -1457,8 +1457,8 @@ cartdata;freds72_daggers]],exec)
     --             /   \ 
     --          brush  brush
     split2d([[0;2;0;-1;grid
--1;1;256;1;-2
--2;1;768;2;3]],function(id,plane_id,plane,left,right)
+-1;1;384.0;1;-2
+-2;1;640.0;2;3]],function(id,plane_id,plane,left,right)
       _bsp[id]=function(cam)
         local l,r=_bsp[left],_bsp[right]                
         if(cam.origin[plane_id]<=plane) l,r=r,l
@@ -1478,9 +1478,9 @@ cartdata;freds72_daggers]],exec)
     -- ##6: vertex index
     -- ##7: vertex index
     -- ##8: tex coords
-    split2d([[1; 2;0;0;2;13;16;19;22;0x0000.0404; -2;32;0;2;58;55;52;49;0x0008.0404; -3;-256;0;1;13;22;58;49;0x0004.0404; 3;768;0;1;19;16;52;55;0x0004.0404; -1;-192;2;1;49;52;16;13;0x0004.0404
-    2; 2;0;0;2;1;4;7;10;0x0000.0404; -2;32;0;2;46;43;40;37;0x0008.0404; -3;-192;0;1;1;10;46;37;0x0004.0404; 3;832;0;1;7;4;40;43;0x0004.0404; -1;-256;2;1;22;1;37;58;0x0004.0404; -1;-256;2;1;4;19;55;40;0x0004.0404; 1;768;2;1;28;7;43;64;0x0004.0404; 1;768;2;1;10;25;61;46;0x0004.0404
-    3; 2;0;0;2;25;28;31;34;0x0000.0404; -2;32;0;2;70;67;64;61;0x0008.0404; -3;-256;0;1;25;34;70;61;0x0004.0404; 1;832;2;1;70;34;31;67;0x0004.0404; 3;768;0;1;31;28;64;67;0x0004.0404]],function(id,...)
+    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0000.0404; -2;32.0;0;2;58;55;52;49;0x0008.0404; -3;-384.0;0;1;13;22;58;49;0x0004.0404; 3;640.0;0;1;19;16;52;55;0x0004.0404; -1;-320.0;2;1;49;52;16;13;0x0004.0404
+2; 2;0.0;0;2;1;4;7;10;0x0000.0404; -2;32.0;0;2;46;43;40;37;0x0008.0404; -3;-320.0;0;1;1;10;46;37;0x0004.0404; 3;704.0;0;1;7;4;40;43;0x0004.0404; -1;-384.0;2;1;22;1;37;58;0x0004.0404; -1;-384.0;2;1;4;19;55;40;0x0004.0404; 1;640.0;2;1;28;7;43;64;0x0004.0404; 1;640.0;2;1;10;25;61;46;0x0004.0404
+3; 2;0.0;0;2;25;28;31;34;0x0000.0404; -2;32.0;0;2;70;67;64;61;0x0008.0404; -3;-384.0;0;1;25;34;70;61;0x0004.0404; 1;704.0;2;1;70;34;31;67;0x0004.0404; 3;640.0;0;1;31;28;64;67;0x0004.0404]],function(id,...)
       -- localize
       local planes={...}
       _bsp[id]=function(cam)
@@ -1537,13 +1537,15 @@ cartdata;freds72_daggers]],exec)
     
               -- texture
               poke4(0x5f38,planes[i+8])
-              -- color(_dist)
-              -- local v0=verts[#verts]
-              -- for i=1,#verts do
-              --   local v1=verts[i]
-              --   line(v0.x,v0.y,v1.x,v1.y)
-              --   v0=v1
-              -- end        
+              --[[
+              color(_dist)
+              local v0=verts[#verts]
+              for i=1,#verts do
+                local v1=verts[i]
+                line(v0.x,v0.y,v1.x,v1.y)
+                v0=v1
+              end 
+              ]]  
               mode7(verts,#verts,1)  
               -- local mx,my=0,0
               -- for _,v in inext,verts do
@@ -1618,6 +1620,7 @@ cartdata;freds72_daggers]],exec)
       end
       -- some friction
       velocity=v_scale(velocity,0.8)
+      yangle=lerp(yangle,0,0.95)
 
       -- custom think function
       think(_ENV)
@@ -1676,7 +1679,13 @@ cartdata;freds72_daggers]],exec)
       
       -- move & clamp
       origin[1]=mid(origin[1]+velocity[1],0,1024)
-      origin[2]=max(4,origin[2]+velocity[2])
+      local oy=origin[2]+velocity[2]
+      if oy<4 then
+        oy=4
+        yangle+=rnd(1)
+        -- printh("touch ground")
+      end
+      origin[2]=oy
       origin[3]=mid(origin[3]+velocity[3],0,1024)
 
       -- for centipede
@@ -1727,9 +1736,9 @@ _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale
         -- go opposite from where it stands!  
         local a=atan2(origin[1]-512,-origin[3]+512)
         a=shortest_angle(a,a+rnd"0.1")
-        local r=256+rnd"64"
-        target={mid(512+r*cos(a),192,832),16+rnd"48",mid(512-r*sin(a),192,832)}
-        target_ttl=60+rnd"10"
+        local r=160+rnd"32"
+        target={512+r*cos(a),16+rnd"48",512-r*sin(a)}
+        target_ttl=30+rnd"10"
       end
       -- navigate to target
       local dir=v_dir(origin,target)
