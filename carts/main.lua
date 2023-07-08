@@ -1620,7 +1620,6 @@ cartdata;freds72_daggers]],exec)
       end
       -- some friction
       velocity=v_scale(velocity,0.8)
-      yangle=lerp(yangle,0,0.95)
 
       -- custom think function
       think(_ENV)
@@ -1649,7 +1648,8 @@ cartdata;freds72_daggers]],exec)
 
       local old_vel=velocity
       -- 
-      velocity=v_add(velocity,forces,1/16)
+      velocity=v_add(velocity,forces,1/16)      
+
       -- fixed velocity (on x/z)
       local vx,vz=velocity[1],velocity[3]
       local a=atan2(vx,vz)
@@ -1685,6 +1685,7 @@ cartdata;freds72_daggers]],exec)
         yangle+=rnd(1)
         -- printh("touch ground")
       end
+
       origin[2]=oy
       origin[3]=mid(origin[3]+velocity[3],0,1024)
 
@@ -1721,16 +1722,19 @@ _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale
   -- scripted skulls
   _skull1_template=inherit({
     think=function(_ENV)
+      yangle=lerp(yangle,0,0.95)
       -- converge toward player
       if _flying_target then
         local dir=v_dir(origin,_flying_target)
         forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
       end
+      yangle-=mid(forces[2]/seed,-0.5,0.5)
     end
   },_skull1_base_template)
 
   _skull2_template=inherit({
     think=function(_ENV)      
+      yangle=lerp(yangle,0,0.8)
       target_ttl-=1
       if target_ttl<0 then  
         -- go opposite from where it stands!  
@@ -1743,6 +1747,7 @@ _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale
       -- navigate to target
       local dir=v_dir(origin,target)
       forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
+      yangle-=mid(forces[2]/16,-0.5,0.5)
     end
   },_skull2_base_template)  
   reload()
