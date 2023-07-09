@@ -218,10 +218,11 @@ function _init()
     end
   end
   -- hit palette
-  for _,c in pairs{15,6,4,2} do
-    poke(mem,0)
-    memset(mem+1,c,15)  
-    mem+=16
+  for i=0,3 do
+    for j=0,15 do
+      poke(mem,sget(31-i,j+16))
+      mem+=1
+    end
   end
 
   -- todo: generate assets if not there
