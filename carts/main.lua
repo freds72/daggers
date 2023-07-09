@@ -1712,7 +1712,7 @@ _squid_core;no_render,1,radius,32,origin,v_zero,on_ground,1,is_squid_core,1,min_
 _squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
-_skull1_base_template;ent,skull,radius,16,hp,2,cost,1;_skull_template
+_skull1_base_template;ent,skull,radius,12,hp,2,cost,1;_skull_template
 _skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,cost,1;_skull_template
 _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop,cost,1]]
   split2d(templates,function(name,template,parent)
@@ -1722,13 +1722,13 @@ _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale
   -- scripted skulls
   _skull1_template=inherit({
     think=function(_ENV)
-      yangle=lerp(yangle,0,0.95)
+      yangle=lerp(yangle,0,0.8)
       -- converge toward player
       if _flying_target then
         local dir=v_dir(origin,_flying_target)
         forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
       end
-      yangle-=mid(forces[2]/seed,-0.5,0.5)
+      yangle-=mid(forces[2]/seed,-0.25,0.25)
     end
   },_skull1_base_template)
 
