@@ -296,8 +296,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  --dead=true
-                  --next_state(gameover_state,thing.ent.obituary)
+                  dead=true
+                  next_state(gameover_state,thing.ent.obituary)
                   return
                 end
               end
