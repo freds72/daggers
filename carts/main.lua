@@ -51,6 +51,18 @@ function wait_async(t)
 	end
 end
 
+-- record number of "things" on playground and wait until free slots are available
+-- note: must be called from a coroutine
+local _total_things,_time_penalty=0,0
+function reserve_async(n)
+  local t=time()
+  while _total_things>60 do
+    yield()
+  end
+  _total_things+=n
+  _time_penalty+=time()-t
+end
+
 -- misc helpers
 function nop() end
 function with_properties(props,dst)
@@ -459,25 +471,27 @@ end
 function draw_grid(cam,light)
   light=1
   local things,m,cx,cy,cz={},cam.m,unpack(cam.origin)
-  local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
   -- particles texture
   poke4(0x5f38,0x0400.0101)
 
   pal()
 
-  local function project_array(array,type)
+  local function project_array(array)
+    -- make sure camera matrix is local
+    local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
     for i,obj in inext,array do
-      local origin=obj.origin      
-      local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
+      local origin=obj.origin  
+      local oy=origin[2]
+      local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
       local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
       
       -- draw shadows (y=0)
       if not obj.shadeless then
-        if az>8 and az<384 and 0.5*ax<az and -0.5*ax<az then
-          local ay,w=m2*x-m6*cy+m10*z,64/az
+        local ay=m2*x-m6*cy+m10*z
+        if az>8 and az<128 and 0.5*ax<az and -0.5*ax<az and -0.5*ax<az and 0.5*ay<az and -0.5*ay<az then
           -- thing offset+cam offset              
-          local a=atan2(x,z)        
+          local w,a=64/az,atan2(x,z)
           local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w>>1
           local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
           ovalfill(x0-r,y0+ry,x0+r,y0-ry)
@@ -486,11 +500,12 @@ function draw_grid(cam,light)
   
       -- 
       if not obj.no_render then
-        ax+=m5*origin[2]
-        az+=m7*origin[2]
-        if az>8 and az<384 and 0.5*ax<az and -0.5*ax<az then
-          local ay,w=m2*x+m6*y+m10*z,64/az
-          things[#things+1]={key=w,type=type,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
+        ax+=m5*oy
+        az+=m7*oy
+        local ay=m2*x+m6*y+m10*z
+        if az>8 and az<192 and 0.5*ax<az and -0.5*ax<az and 0.5*ay<az and -0.5*ay<az then
+          local w=64/az
+          things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
         end
       end
     end
@@ -499,11 +514,11 @@ function draw_grid(cam,light)
   -- render shadows (& collect)
   poke(0x5f5e, 0b11111110)
   color(1)
-  project_array(_things,1)
+  project_array(_things)
   poke(0x5f5e, 0xff)
 
   -- collect bullets
-  project_array(_bullets,1)
+  project_array(_bullets)
 
   -- radix sort
   rsort(things)
@@ -523,73 +538,60 @@ function draw_grid(cam,light)
       pal1=(light*min(15,item.key<<4))\1
     end    
     if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) palt(15,true) pal0=pal1   
-    if item.type==1 then
-      -- draw things
-      local w0,entity,origin=item.key,thing.ent,thing.origin
-      -- zangle (horizontal)
-      local dx,dz,yangles,side,flip=cx-origin[1],cz-origin[3],entity.yangles,0
-      local zangle=atan2(dx,-dz)
-      if yangles!=0 then
-        local step=1/(yangles<<1)
-        side=((zangle-thing.zangle+0.5+step/2)&0x0.ffff)\step
-        if(side>yangles) side=yangles-(side%yangles) flip=true
-      end
-
-      -- up/down angle
-      -- todo: adjust with height*w/2 ?
-      local zangles,yside=entity.zangles,0
-      if zangles!=0 then
-        local yangle,step=thing.yangle or 0,1/(zangles<<1)
-        yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
-        if(yside>zangles) yside=zangles-(yside%zangles)
-      end
-      -- copy to spr
-      -- skip top+top rotation
-      local frame,sprites=entity.frames[(yangles+1)*yside+side+1],entity.sprites
-      local mem,base,w,h=0x0,frame.base,frame.width,frame.height
-      if prev_base!=base or prev_sprites!=sprites then
-        prev_base,prev_sprites=base,sprites
-        for i=mem,mem+(h-1)<<6,64 do
-          poke4(i,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
-          base+=4
-        end
-      end
-      w0*=(thing.scale or 1)
-      local sx,sy=item.x-w*w0/2,item.y-h*w0/2
-      --
-      sspr(frame.xmin,0,w,h,sx,sy,w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff),flip)
-
-      --[[
-      circ(item.x,item.y,(thing.radius or 1)*w0,9)
-      if thing.debug_forces then
-        -- draw
-        local forces=thing.debug_forces
-        local x,y,z=origin[1]+forces[1]-cx,origin[2]+forces[2]-cy,origin[3]+forces[3]-cz
-        -- 
-        local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
-        if az>8 then
-          local ay,w=m2*x+m6*y+m10*z,64/az
-          line(item.x,item.y,63.5+ax*w,63.5-ay*w,7)
-        end
-      end
-      ]]
-
-      --sspr(0,0,32,32,sx,sy,32,32,flip)
-      --print(thing.zangle,sx+sw/2,sy-8,9)      
+    -- draw things
+    local w0,entity,origin=item.key,thing.ent,thing.origin
+    -- zangle (horizontal)
+    local dx,dz,yangles,side,flip=cx-origin[1],cz-origin[3],entity.yangles,0
+    local zangle=atan2(dx,-dz)
+    if yangles!=0 then
+      local step=1/(yangles<<1)
+      side=((zangle-thing.zangle+0.5+step/2)&0x0.ffff)\step
+      if(side>yangles) side=yangles-(side%yangles) flip=true
     end
-  end 
 
-  --[[
-  for _,thing in pairs(_things) do
-    local x,_,z=unpack(thing.origin)
-    local x0,y0=128*((x-256)/512),128*((z-256)/512)
-    if thing==_plyr then
-      spr(7,x0,y0)
-    else
-      pset(x0,y0,9)
+    -- up/down angle
+    -- todo: adjust with height*w/2 ?
+    local zangles,yside=entity.zangles,0
+    if zangles!=0 then
+      local yangle,step=thing.yangle or 0,1/(zangles<<1)
+      yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
+      if(yside>zangles) yside=zangles-(yside%zangles)
     end
+    -- copy to spr
+    -- skip top+top rotation
+    local frame,sprites=entity.frames[(yangles+1)*yside+side+1],entity.sprites
+    local base,w,h=frame.base,frame.width,frame.height
+    -- useful?
+    if prev_base!=base or prev_sprites!=sprites then
+      prev_base,prev_sprites=base,sprites
+      for i=0,(h-1)<<6,64 do
+        poke4(i,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
+        base+=4
+      end
+    end
+    w0*=(thing.scale or 1)
+    local sx,sy=item.x-w*w0/2,item.y-h*w0/2
+    local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
+    --
+    sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip)
+    --[[
+    circ(item.x,item.y,(thing.radius or 1)*w0,9)
+    if thing.debug_forces then
+      -- draw
+      local forces=thing.debug_forces
+      local x,y,z=origin[1]+forces[1]-cx,origin[2]+forces[2]-cy,origin[3]+forces[3]-cz
+      -- 
+      local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
+      if az>8 then
+        local ay,w=m2*x+m6*y+m10*z,64/az
+        line(item.x,item.y,63.5+ax*w,63.5-ay*w,7)
+      end
+    end
+    ]]
+
+    --sspr(0,0,32,32,sx,sy,32,32,flip)
+    --print(thing.zangle,sx+sw/2,sy-8,9)      
   end
-  ]]
 end
 
 function inherit(t,env)
@@ -630,7 +632,9 @@ function make_skull(actor,_origin)
       wobling=3+rnd"2",
       seed=7+rnd(),
       -- grid cells
-      cells={}
+      cells={},
+      -- perf test
+      -- yangle=rnd()
     },actor))
   
   grid_register(thing)
@@ -690,6 +694,9 @@ end
 -- type 1: 3 blocks
 -- type 2: 4 blocks
 function make_squid(type)
+  -- wait for a free slot
+  reserve_async(5)
+
   local _origin,_velocity=v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16}
   local _dx,_dz,_angle,_dead=32000,32000,0
   -- spill skulls every x seconds
@@ -698,6 +705,7 @@ function make_squid(type)
     while not _plyr.dead do
       -- don't spawn while outside
       if _dx<256 and _dz<256 then
+        reserve_async(5)
         for t in all(split"_skull1_template,_skull1_template,_skull1_template,_skull2_template,_skull1_template") do
           make_skull(_ENV[t],{_origin[1],64+rnd"16",_origin[3]})
           wait_async(2+rnd"2")
@@ -732,7 +740,7 @@ function make_squid(type)
 
   local squid_parts={
     -- type 1 (1 jewel)
-[[_squid_jewel;light_ttl,15,angle_offset,0.0,r_offset,8,y_offset,24
+[[_squid_jewel;light_ttl,15,angle_offset,0.0,r_offset,8,y_offset,24,cost,5
 _squid_hood;light_ttl,15,angle_offset,0.3333,r_offset,8,y_offset,24
 _squid_hood;light_ttl,15,angle_offset,0.6667,r_offset,8,y_offset,24
 _squid_tentacle;light_ttl,15,angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
@@ -797,7 +805,8 @@ _squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_o
           make_blood(origin) 
           grid_unregister(_ENV)
           -- stop spilling monsters
-          spill.co=nil          
+          spill.co=nil
+          _total_things-=cost or 0   
           sfx"39"
         end
         zangle=_angle+angle_offset
@@ -819,6 +828,8 @@ end
 
 -- centipede
 function make_worm()  
+  reserve_async(10)
+
   local _origin,t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=v_clone(_spawn_origin),rnd(),3,{},{},{},0
 
   for i=1,20 do
@@ -1110,7 +1121,10 @@ function play_state()
     function()
       draw_world()   
 
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      local s=_total_things.."/60 ⧗:".._time_penalty.."S"
+      print(s,64-print(s,0,128)/2,2,7)
+
       if _show_timer then
         local t=((time()-_start_time)\0.1)/10
         local s=tostr(t)
@@ -1241,7 +1255,8 @@ wait_async;600]],exec)
 end
 
 function gameover_state(obituary)  
-  local play_time,origin,target,selected_tab,clicked=time()-_start_time,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
+  -- remove time spent "waiting"!!
+  local play_time,origin,target,selected_tab,clicked=time()-_start_time-_time_penalty,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
   -- check if new playtime enters leaderboard?
   -- + handle sorting
   local new_best_i=#_local_scores+1
@@ -1538,21 +1553,23 @@ cartdata;freds72_daggers]],exec)
               -- texture
               poke4(0x5f38,planes[i+8])
               --[[
-              color(_dist)
+              color(1)
               local v0=verts[#verts]
               for i=1,#verts do
                 local v1=verts[i]
                 line(v0.x,v0.y,v1.x,v1.y)
                 v0=v1
               end 
-              ]]  
+              ]]
               mode7(verts,#verts,1)  
-              -- local mx,my=0,0
-              -- for _,v in inext,verts do
-              --   mx+=v.x
-              --   my+=v.y
-              -- end
-              -- print(id.." / "..((i\9)+1),mx/#verts,my/#verts,8)
+              --[[
+              local mx,my=0,0
+              for _,v in inext,verts do
+                mx+=v.x
+                my+=v.y
+              end
+              print(id.." / "..((i\9)+1),mx/#verts,my/#verts,8)
+              ]]
             end
           end
         end
@@ -1585,6 +1602,8 @@ cartdata;freds72_daggers]],exec)
       hp-=1
       if hp<=0 then
         dead=true
+        -- free a spawn slot
+        _total_things-=cost or 0
         -- custom death function?
         if die then
           die(_ENV)
@@ -1649,7 +1668,7 @@ cartdata;freds72_daggers]],exec)
       local old_vel=velocity
       -- 
       velocity=v_add(velocity,forces,1/16)      
-
+      
       -- fixed velocity (on x/z)
       local vx,vz=velocity[1],velocity[3]
       local a=atan2(vx,vz)
@@ -1705,7 +1724,7 @@ cartdata;freds72_daggers]],exec)
 _skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12;_skull_core
 _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop
 _worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
-_worm_head_template;ent,worm0,radius,18,hp,10,chatter,20,cost,10;_skull_template
+_worm_head_template;ent,worm0,radius,18,hp,10,chatter,20;_skull_template
 _jewel_template;ent,jewel,radius,12,zangle,rnd,ttl,300,apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
 _squid_core;no_render,1,radius,32,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,hit,nop,cost,5;_skull_template
@@ -1722,19 +1741,19 @@ _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale
   -- scripted skulls
   _skull1_template=inherit({
     think=function(_ENV)
-      yangle=lerp(yangle,0,0.8)
+      yangle=lerp(yangle,0,0.7)
       -- converge toward player
       if _flying_target then
         local dir=v_dir(origin,_flying_target)
         forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
       end
-      yangle-=mid(forces[2]/seed,-0.25,0.25)
+      yangle-=mid(forces[2]/seed,-0.25,0.25)      
     end
   },_skull1_base_template)
 
   _skull2_template=inherit({
     think=function(_ENV)      
-      yangle=lerp(yangle,0,0.8)
+      yangle=lerp(yangle,0,0.6)
       target_ttl-=1
       if target_ttl<0 then  
         -- go opposite from where it stands!  
