@@ -53,14 +53,14 @@ end
 
 -- record number of "things" on playground and wait until free slots are available
 -- note: must be called from a coroutine
-local _total_things,_time_penalty=0,0
+local _total_things,_time_penalty,_time_wait=0,0
 function reserve_async(n)
-  local t=time()
   while _total_things>60 do
+    if(not _time_wait) _time_wait=time()
     yield()
   end
   _total_things+=n
-  _time_penalty+=time()-t
+  if(_time_wait) _time_penalty+=time()-_time_wait _time_wait=nil
 end
 
 -- misc helpers
@@ -296,8 +296,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.ent.obituary)
+                  --dead=true
+                  --next_state(gameover_state,thing.ent.obituary)
                   return
                 end
               end
