@@ -69,13 +69,13 @@ function with_properties(props,dst)
   local dst,props=dst or {},split(props)
   for i=1,#props,2 do
     local k,v=props[i],props[i+1]
-    -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    -- note: assumes that function never returns a falsey value
     if v=="nop" then v=nop
     elseif k=="ent" then 
       v=_entities[v] 
     else
       local fn=_ENV[v]
+      -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      -- note: assumes that function never returns a falsey value
       v=type(fn)=="function" and fn() or v 
     end
     dst[k]=v
@@ -1169,7 +1169,7 @@ function play_state()
       music(32)
       _start_time=time()
       -- must be done *outside* async update loop!!!
-      _futures={}
+      _futures,_total_things,_time_penalty,_time_wait={},0,0
       -- scenario
       local scenario=do_async(function()
         local script=split2d([[
@@ -1637,38 +1637,41 @@ cartdata;freds72_daggers]],exec)
           forces={0,-wobling*2,0}
         end
       end
+      local old_vel=velocity
       -- some friction
       velocity=v_scale(velocity,0.8)
 
       -- custom think function
       think(_ENV)
 
-      -- avoid others (noted: limited to a single grid cell)
-      local idx,fx,fy,fz=world_to_grid(origin),forces[1],forces[2],forces[3]
-      for other in pairs(_grid[idx].things) do
-        -- apply inverse force to other (and keep track)
-        if not resolved[other] and other!=_ENV then
-          local avoid,avoid_dist=v_dir(origin,other.origin)
-          if(avoid_dist<4) avoid_dist=1
-          -- todo: tune...
-          local t=-2/avoid_dist
-          local t_self=other.radius*t 
-          fx+=t_self*avoid[1]
-          fy+=t_self*avoid[2]
-          fz+=t_self*avoid[3]
-          
-          other:apply(_ENV,avoid,-t*radius)
-          resolved[other]=true
+      -- makes the boids behavior a lot more "natural"
+      if rnd()>0.25 then
+        -- avoid others (noted: limited to a single grid cell)
+        local idx,fx,fy,fz=world_to_grid(origin),forces[1],forces[2],forces[3]
+        for other in pairs(_grid[idx].things) do
+          -- apply inverse force to other (and keep track)
+          if not resolved[other] and other!=_ENV then
+            local avoid,avoid_dist=v_dir(origin,other.origin)
+            if(avoid_dist<4) avoid_dist=1
+            -- todo: tune...
+            local t=-2/avoid_dist
+            local t_self=other.radius*t 
+            fx+=t_self*avoid[1]
+            fy+=t_self*avoid[2]
+            fz+=t_self*avoid[3]
+            
+            other:apply(_ENV,avoid,-t*radius)
+            resolved[other]=true
+          end
         end
-      end
-      -- make sure grounded entities keept on ground
-      -- todo: useless??
-      forces={fx,on_ground and 0 or fy,fz}
+        -- make sure grounded entities keept on ground
+        -- todo: useless??
+        forces={fx,on_ground and 0 or fy,fz}
 
-      local old_vel=velocity
-      -- 
-      velocity=v_add(velocity,forces,1/16)      
-      
+        -- 
+        velocity=v_add(velocity,forces,1/16)      
+      end
+
       -- fixed velocity (on x/z)
       local vx,vz=velocity[1],velocity[3]
       local a=atan2(vx,vz)
@@ -1677,7 +1680,7 @@ cartdata;freds72_daggers]],exec)
       velocity[3]*=min_velocity/vlen      
 
       -- align direction and sprite direction
-      local target_angle=atan2(old_vel[1]-velocity[1],velocity[3]-old_vel[3])
+      local target_angle=atan2(-velocity[1],velocity[3])
       local shortest=shortest_angle(target_angle,zangle)
       --[[
       if abs(target_angle-shortest)>0.125/2 then
@@ -1711,8 +1714,6 @@ cartdata;freds72_daggers]],exec)
       -- for centipede
       if(post_think) post_think(_ENV)
 
-      -- debug
-      debug_forces=forces
       -- reset
       forces,resolved={0,0,0},{}
       grid_register(_ENV)
@@ -1741,13 +1742,13 @@ _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale
   -- scripted skulls
   _skull1_template=inherit({
     think=function(_ENV)
-      yangle=lerp(yangle,0,0.7)
+      yangle=lerp(yangle,0.1,0.4)
       -- converge toward player
       if _flying_target then
         local dir=v_dir(origin,_flying_target)
         forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
       end
-      yangle-=mid(forces[2]/seed,-0.25,0.25)      
+      yangle-=mid(forces[2]/(2*seed),-0.25,0.25)      
     end
   },_skull1_base_template)
 
