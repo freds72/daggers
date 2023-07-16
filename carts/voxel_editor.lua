@@ -2,6 +2,7 @@
 -- to validate archive presence
 local _magic_number=0x8764.1359
 
+local _hw_palette={128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0}
 -- editor state
 _editor_state={
     -- to be used to lookup in palette
@@ -979,13 +980,18 @@ function pack_entities()
                 if(count%2!=0) return
                 cls()
                 fillp()
-                rectfill(0,0,127,8,8)
-                print("eXPORTING SPRITES",1,1,0)
-                for j=1,i-1 do
-                    print(_entities[j].text..": 100%",2,j*6+4,7)
-                end
-                print(_entities[i].text..": "..flr(100*count/40).."%",2,i*6+4,7)
+                rectfill(0,0,127,7,8)
+                print("gENERATING gAME aSSETS ["..flr(100*(i-1)/#_entities).."%]",1,1,1)
+                local s,total_frames=ent.text,(ent.angles\16)+(ent.angles&0xf)
+                print(s,64-print(s,0,130)/2,10,6)
+                local x=128*count/total_frames
+                rectfill(0,9,x,15,8)
+                clip(0,0,x,128)
+                print(s,64-print(s,0,130)/2,10,1)
+                clip()
+                -- print(_entities[i].text..": "..flr(100*count/40).."%",2,i*6+4,7)
                 flip()
+                pal(_hw_palette,1)
                 holdframe()
             end)        
             -- save entity identifier
@@ -1024,25 +1030,44 @@ function pack_entities()
 end
 
 function _init()  
-    -- clear screen cache
-    memset(0x8000,0,0x2000)
-
     -- integrated fill colors
     poke(0x5f34, 1)
-
-    -- reload previous archive (if any)
-    unpack_archive()
-    
-    -- create ui and callbacks
-    _main=main_window({cursor=0,pal={128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0}})
-    local banner=_main:add(make_static(8),0,0,127,7)
-    local pickers=banner:add(make_list(64,8,8,bounded_binding(_editor_state,"selected_color",0,18)),64,0,80,7)
 
     -- integrated fillp palette
     for i=0,15 do
         _palette[i]=i|i<<4|0x1000
         _palette[15+i]=i|sget(57,i)<<4|0x1000.a5a5
     end
+
+    -- init keys for cube points
+    for i=1,#cube do
+        local p=cube[i]
+        p.idx=p[1]>>16|p[2]>>8|p[3]
+    end    
+
+    -- bind verts to face (avoids 1 indirection)
+    for _,face in pairs(cube.faces) do
+        for i=1,4 do            
+            face[i]=cube[face[i]]
+        end
+    end
+    
+    -- reload previous archive (if any)
+    unpack_archive()
+    
+    if stat(6)=="generate" then
+        pack_entities()
+        load("title.p8")
+    end
+
+    -- clear screen cache
+    memset(0x8000,0,0x2000)
+
+    -- create ui and callbacks
+    _main=main_window({cursor=0,pal=_hw_palette})
+    local banner=_main:add(make_static(8),0,0,127,7)
+    local pickers=banner:add(make_list(64,8,8,bounded_binding(_editor_state,"selected_color",0,18)),64,0,80,7)
+
     for i=0,31 do
         pickers:add(make_color_picker({color=i,palette=_palette},binding(_editor_state,"selected_color")))
     end 
@@ -1098,32 +1123,52 @@ function _init()
 
     -- preview images
     _main:add(make_button(33,binding(function()
-        -- 
-        cls()
+        local screenbackup={peek4(0x0,0x2000)}
         _current_entity.data=grid_tostr(_grid)
         local frames,count=collect_frames(_current_entity)
-        cls()
-        local x,y,hmax=0,0,0
-        for j,frame in ipairs(frames) do            
-            local h=frame.ymax-frame.ymin+1
-            if h>0 then
-                local w=32*ceil((frame.xmax-frame.xmin+1)/32)
-                if(h>hmax) hmax=h
-                if(x+w>128) printh(x+w) x=0 y+=hmax+1 hmax=0
-                rect(x,y,x+w,y+h,1)
-                local base,mem=1,0x6000+(x\2)+y*64
-                for i=mem,mem+((h-1)<<6),64 do
-                    poke4(i,frame[base],frame[base+1],frame[base+2],frame[base+3])
-                    base+=4
+        poke4(0x0,unpack(screenbackup))
+
+        local dyangle,dzangle,yangle,zangle,ymax,zmax=0,0,0,0,_current_entity.angles\16,_current_entity.angles&0xf
+        local dialog=_main:dialog({border=4},9,8,96,96)
+        dialog:add(make_static(8,read_binding(function() return _current_entity.text.." pREVIEW",2 end)),10,9,95,7)
+        dialog:add(is_window({
+            draw=function(self)
+                local r=self.rect
+                rectfill(10,17,104,103,0)
+
+                -- copy to middle of spritesheet    
+                local base,frame=1,frames[zangle\1+flr(yangle)*(zmax+1)+1]
+                local h=frame.ymax-frame.ymin+1
+                if h>0 then
+                    for i=32,32+((h-1)<<6),64 do
+                        poke4(i,frame[base],frame[base+1],frame[base+2],frame[base+3])
+                        base+=4
+                    end
+                    palt(15,true)
+                    sspr(64,0,32,h,41,48-h/2)
+                    palt()
                 end
-                x+=w
+            end,
+            mousemove=function(self,msg)
+                if msg.mmb then
+                    -- capture mouse
+                    poke(0x5f2d, 0x5)
+                    -- hide cursor
+                    self:send({
+                        name="cursor"
+                    })
+                    dzangle-=msg.mdx
+                    dyangle+=msg.mdy
+                else
+                    poke(0x5f2d, 0x1)
+                end
+                yangle=mid(yangle+dyangle/256,0,ymax)
+                zangle=mid(zangle+dzangle/256,0,zmax)
+                -- friction
+                dyangle=dyangle*0.7
+                dzangle=dzangle*0.7
             end
-            flip()
-        end        
-        -- wait
-        while btn()&0x30==0 do
-            flip()
-        end
+        }),11,18,96,96)
     end)),9,0,6)
 
     -- generate images to disk
@@ -1151,19 +1196,6 @@ function _init()
     -- main editor
     _main:add(make_voxel_editor(),0,8,127,119)
     
-    -- init keys for cube points
-    for i=1,#cube do
-        local p=cube[i]
-        p.idx=p[1]>>16|p[2]>>8|p[3]
-    end    
-
-    -- bind verts to face (avoids 1 indirection)
-    for _,face in pairs(cube.faces) do
-        for i=1,4 do            
-            face[i]=cube[face[i]]
-        end
-    end
-
     -- load "default" model
     _current_entity=_entities[1]    
     _main:send({

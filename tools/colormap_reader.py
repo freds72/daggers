@@ -80,6 +80,10 @@ def std_palette():
 def std_rgba_palette():
   return {(int(rgb[2:4],16),int(rgb[4:6],16),int(rgb[6:8],16),255):p8 for rgb,p8 in rgb_to_pico8.items() if p8<16}
 
+def label_palette():
+  return rgb_to_label
+
+# palette from a 16x1 image
 def palette_from_png(filename):
   src = Image.open(filename)
   width, height = src.size
@@ -96,6 +100,37 @@ def palette_from_png(filename):
     palette.append(rgb_to_pico8["0x{:02x}{:02x}{:02x}".format(rgb[0],rgb[1],rgb[2])])
   return palette
 
+# helper class to check or build a new palette
+class AutoPalette:  
+  # palette: an array of (r,g,b,a) tuples
+  def __init__(self, palette=None):
+    self.auto = palette is None
+    self.palette = palette or []
+
+  def register(self, rgba):
+    # invalid color (drop alpha)?
+    if "0x{0[0]:02x}{0[1]:02x}{0[2]:02x}".format(rgba) not in rgb_to_pico8:
+      raise Exception("Invalid color: {} in image".format(rgba))
+    # returns a 0-15 value for image encoding
+    if rgba in self.palette: return self.palette.index(rgba)
+    # not found and auto-palette
+    if self.auto:
+      # already full?
+      count = len(self.palette)
+      if count==16:
+        raise Exception("Image uses too many colors (16+). New color: {} not allowed".format(rgba))
+      self.palette.append(rgba)
+      return count
+    raise Exception("Color: {} not in palette".format(rgba))
+
+  # returns a list of hardware colors matching the palette
+  # label indicates if color coding should be using 'fake' hexa or standard
+  def pal(self, label=False):
+    encoding = rgb_to_pico8
+    if label:
+      encoding = rgb_to_label
+    return list(map(encoding.get,map("0x{0[0]:02x}{0[1]:02x}{0[2]:02x}".format,self.palette)))
+  
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("--palette", required=True, type=str, help="path to palette image")

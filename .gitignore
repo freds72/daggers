@@ -15,4 +15,6 @@ favourites.txt
 __pycache__/
 *.swp
 *.swo
+/.venv
+
 
