@@ -497,6 +497,9 @@ function play_state()
     end
   end
 
+  --playback ambient music
+  music"32"
+
   return
     -- update
     function()
