@@ -741,7 +741,7 @@ cartdata;freds72_daggers]],exec)
   reload()
 
   -- background music
-  music(8)
+  music"3"
   
   -- init game
   next_state(title_state)
