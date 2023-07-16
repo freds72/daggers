@@ -35,5 +35,7 @@ def main():
   cart += "\n"
   print(cart)
   
+  print(p.pal())
+  
 if __name__ == '__main__':
   main()
