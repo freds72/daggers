@@ -148,7 +148,7 @@ function px9_decomp(x0,y0,src,vget,vset)
 end
 
 
-function draw_things(things,cam,lightshift)
+function draw_things(things,cam,fov,lightshift)
   local lightshift=lightshift or 1
   local m,cx,cy,cz=cam.m,unpack(cam.origin)
   local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
@@ -167,7 +167,7 @@ function draw_things(things,cam,lightshift)
         local ay=m2*x-m6*cy+m10*z
         if az>8 and az<128 and 0.5*ax<az and -0.5*ax<az and -0.5*ax<az and 0.5*ay<az and -0.5*ay<az then
           -- thing offset+cam offset              
-          local w,a=64/az,atan2(x,z)
+          local w,a=fov/az,atan2(x,z)
           local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w>>1
           local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
           ovalfill(x0-r,y0+ry,x0+r,y0-ry)
@@ -179,7 +179,7 @@ function draw_things(things,cam,lightshift)
       az+=m7*oy
       local ay=m2*x+m6*y+m10*z
       if az>8 and az<192 and 0.5*ax<az and -0.5*ax<az and 0.5*ay<az and -0.5*ay<az then
-        local w=64/az
+        local w=fov/az
         cache[#cache+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
       end
     end
@@ -329,13 +329,13 @@ function menu_state(buttons,default)
       ovalfill(r0/2,128-r0*0.75,127-r0/2,128+r0*0.75,2)
 
       -- 
-      draw_things(skulls,cam,0.8)
+      draw_things(skulls,cam,64,0.8)
 
       pal()
       
       -- draw menu & all
       for i,btn in pairs(buttons) do
-        btn.x=lerp(btn.x,1,0.4)
+        btn.x=lerp(btn.x,2,0.4)
         local s,y=unpack(btn)        
         arizona_print(s,btn.x,y,i==over_btn and 1)
       end
@@ -361,7 +361,6 @@ local _main_buttons={
     do_async(function()
       wait_async(10)
       next_state(play_state)
-      -- load("daggers.p8")
     end)
   end},
   {"lEADERBOARD",64,
@@ -370,6 +369,7 @@ local _main_buttons={
     end},
   {"eDITOR",74,
     cb=function(self) 
+      load("editor_mini.p8")
       load("editor.p8")
     end},
   {"cREDITS",84,
@@ -453,6 +453,7 @@ function credits_state()
 end
 
 function play_state()
+  local fov=64
   local cam=setmetatable({
     origin=v_zero(),    
     track=function(_ENV,_origin,_m,angles,_tilt)
@@ -531,7 +532,11 @@ function play_state()
         launching=true
         do_async(function()
           -- todo: fade to red? black?
-          wait_async(10)
+          for i=1,24 do
+            fov=lerp(fov,32,0.3)
+            yield()
+          end
+          load("daggers_mini.p8")
           load("daggers.p8")
         end)
       end
@@ -551,7 +556,7 @@ function play_state()
         if(-ax>az) code|=4
         if(ax>az) code|=8
         
-        local w=64/az 
+        local w=fov/az 
         verts[i]={ax,ay,az,u=v0[1],v=v0[3],x=63.5+ax*w,y=63.5-ay*w,w=w}
         
         outcode&=code
@@ -573,9 +578,9 @@ function play_state()
               local v=v_lerp(v0,v1,t)
               -- project
               -- z is clipped to near plane
-              v.x=63.5+(v[1]<<3)
-              v.y=63.5-(v[2]<<3)
-              v.w=8 -- 64/8
+              v.x=63.5+fov*v[1]/8
+              v.y=63.5-fov*v[2]/8
+              v.w=fov/8
               v.u=lerp(v0.u,v1.u,t)
               v.v=lerp(v0.v,v1.v,t)
               res[#res+1]=v
@@ -609,7 +614,7 @@ function play_state()
           zangle=0,
           radius=12
         }
-      },cam)
+      },cam,fov)
 
       -- tilt!
       -- screen = gfx
@@ -671,6 +676,7 @@ end
 function _init()
   -- generate assets if not there
   if reload(0x6000,0x0,0x1,"pic_0.p8")==0 then
+    load("editor_mini.p8","","generate")
     load("editor.p8","","generate")
   end
 

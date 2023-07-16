@@ -296,8 +296,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  --dead=true
-                  --next_state(gameover_state,thing.ent.obituary)
+                  dead=true
+                  next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -363,6 +363,9 @@ function make_player(_origin,_a)
 end
 
 function make_bullet(origin,zangle,yangle,spread)
+  -- no bullets while falling
+  if(origin[2]<4) return
+
   local zangle,yscale=0.25-zangle+(1-rnd"2")*spread,yangle+(1-rnd"2")*spread
   local u,v,s=cos(zangle),-sin(zangle),cos(yscale)
   -- local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
@@ -402,7 +405,7 @@ function draw_grid(cam,light)
         local ay=m2*x-m6*cy+m10*z
         if az>8 and az<128 and 0.5*ax<az and -0.5*ax<az and -0.5*ax<az and 0.5*ay<az and -0.5*ay<az then
           -- thing offset+cam offset              
-          local w,a=64/az,atan2(x,z)
+          local w,a=32/az,atan2(x,z)
           local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w>>1
           local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
           ovalfill(x0-r,y0+ry,x0+r,y0-ry)
@@ -414,8 +417,8 @@ function draw_grid(cam,light)
         ax+=m5*oy
         az+=m7*oy
         local ay=m2*x+m6*y+m10*z
-        if az>8 and az<192 and 0.5*ax<az and -0.5*ax<az and 0.5*ay<az and -0.5*ay<az then
-          local w=64/az
+        if az>8 and az<192 and 0.25*ax<az and -0.25*ax<az and 0.25*ay<az and -0.25*ay<az then
+          local w=32/az
           things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
         end
       end
@@ -1236,22 +1239,16 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
     {"oNLINE",96,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
-        -- todo: online
-        srand(42)
-        for i=1,5 do
-          arizona_print(i..". bOB48 "..flr(rnd"1500"),1,23+i*7)
-        end
+        arizona_print("tO BE ANNOUNCED...",1,30)
       end
     }
   }
   -- default (stats)
   selected_tab=buttons[2]
   -- get actual size
-  clip(0,0,0,0)
   for _,btn in pairs(buttons) do
-    btn.width=print(btn[1])
+    btn.width=print(btn[1],0,130)
   end
-  clip()
   -- position cursor on retry
   local _,x,y=unpack(buttons[1])
   local mx,my=x+buttons[1].width/2,y+3
@@ -1423,10 +1420,10 @@ cartdata;freds72_daggers]],exec)
               local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
               if(az>8) code=0
               if(az>384) code|=1
-              if(-ax>az) code|=4
-              if(ax>az) code|=8
+              if(-0.5*ax>az) code|=4
+              if(0.5*ax>az) code|=8
               
-              local w=64/az 
+              local w=32/az 
               verts[j]={ax,ay,az,u=_vertices[vi+uindex]>>4,v=_vertices[vi+vindex]>>4,x=63.5+ax*w,y=63.5-ay*w,w=w}
               
               outcode&=code
@@ -1448,9 +1445,9 @@ cartdata;freds72_daggers]],exec)
                     local v=v_lerp(v0,v1,t)
                     -- project
                     -- z is clipped to near plane
-                    v.x=63.5+(v[1]<<3)
-                    v.y=63.5-(v[2]<<3)
-                    v.w=8 -- 64/8
+                    v.x=63.5+(v[1]<<2)
+                    v.y=63.5-(v[2]<<2)
+                    v.w=4 -- 64/8
                     v.u=lerp(v0.u,v1.u,t)
                     v.v=lerp(v0.v,v1.v,t)
                     res[#res+1]=v
@@ -1633,17 +1630,17 @@ cartdata;freds72_daggers]],exec)
   -- global templates
   local templates=[[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
 _skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12;_skull_core
-_egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop
-_worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42
-_worm_head_template;ent,worm0,radius,18,hp,10,chatter,20;_skull_template
+_egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,obituary,aCIDIFIED
+_worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42,obituary,wORMED
+_worm_head_template;ent,worm0,radius,18,hp,10,chatter,20,obituary,wORMED;_skull_template
 _jewel_template;ent,jewel,radius,12,zangle,rnd,ttl,300,apply,nop,is_jewel,1
-_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41;_skull_template
-_squid_core;no_render,1,radius,32,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,hit,nop,cost,5;_skull_template
-_squid_hood;ent,squid2,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
-_squid_jewel;jewel,1,hp,10,ent,squid1,radius,32,origin,v_zero,zangle,0,shadeless,1,apply,nop
+_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED;_skull_template
+_squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,hit,nop,cost,5,obituary,nAILED;_skull_template
+_squid_hood;ent,squid2,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
+_squid_jewel;jewel,1,hp,10,ent,squid1,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
-_skull1_base_template;ent,skull,radius,12,hp,2,cost,1;_skull_template
-_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,cost,1;_skull_template
+_skull1_base_template;ent,skull,radius,12,hp,2,cost,1,obituary,sKULLED;_skull_template
+_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED;_skull_template
 _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop,cost,1]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
@@ -1721,6 +1718,7 @@ function collect_grid(a,b,u,v,cb)
       mapy+=mapdy
     end
     cb(_grid[mapx>>16|mapy].things)
+    printh(mapx.."/"..dest_mapx.." "..mapy.."/"..dest_mapy)
   end  
 end
 
@@ -1853,13 +1851,11 @@ end
 -- unpack assets
 function unpack_entities()
   local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spiderling0,spiderling1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2,spider0,spider1,spark0,spark1,spark2"
-  local obituaries=split"sKULLED,iMPALED,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,aCIDIFIED,wEBBED,wEBBED,wORMED,wORMED,jewel,wORMED,tentacle0,tentacle1,nAILED,nAILED,nAILED,spider0,spider1,_,_,_"
   unpack_array(function()
     local id=mpeek()
     if id!=0 then
       local sprites,angles={},mpeek()
       entities[names[id]]={  
-        obituary=obituaries[id],
         sprites=sprites,   
         yangles=angles&0xf,
         zangles=angles\16,        

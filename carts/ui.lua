@@ -56,9 +56,6 @@ function main_window(params,is_dialog)
     }
     local cursor=cursors.pointer
 
-    -- mouse
-    poke(0x5f2d,1)
-
     local win=is_window({
         mousemove=function(self,msg)            
             mx,my=msg.mx,msg.my     

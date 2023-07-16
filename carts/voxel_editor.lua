@@ -609,8 +609,6 @@ function make_voxel_editor()
         mousemove=function(self,msg)
             local prev_mode=rotation_mode
             if msg.mmb then
-                -- capture mouse
-                poke(0x5f2d, 0x5)
                 -- hide cursor
                 self:send({
                     name="cursor"
@@ -620,7 +618,6 @@ function make_voxel_editor()
                 rotation_mode=true
                 current_voxel=nil
             else
-                poke(0x5f2d, 0x1)
                 rotation_mode=nil
             end
 
@@ -1032,6 +1029,7 @@ end
 function _init()  
     -- integrated fill colors
     poke(0x5f34, 1)
+    poke(0x5f2d, 0x5)
 
     -- integrated fillp palette
     for i=0,15 do
@@ -1152,15 +1150,12 @@ function _init()
             mousemove=function(self,msg)
                 if msg.mmb then
                     -- capture mouse
-                    poke(0x5f2d, 0x5)
                     -- hide cursor
                     self:send({
                         name="cursor"
                     })
                     dzangle-=msg.mdx
                     dyangle+=msg.mdy
-                else
-                    poke(0x5f2d, 0x1)
                 end
                 yangle=mid(yangle+dyangle/256,0,ymax)
                 zangle=mid(zangle+dzangle/256,0,zmax)
