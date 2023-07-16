@@ -476,7 +476,7 @@ function play_state()
   local velocity=v_zero()
   local origin={192*cos(a),0,192*sin(a)}
   local eye_pos=v_add(origin,split"0,24,0")
-  local launching
+  local distance,launching=32000
 
   local plane={
     {0,0,0},
@@ -496,6 +496,11 @@ function play_state()
       end
     end
   end
+  local message_time,messages=0,{
+    "lOOK AROUND WITH MOUSE",
+    "mOVE WITH ESDF",
+    "bEST PLAYED WITH ♪ ON!"
+  }
 
   --playback ambient music
   music"32"
@@ -503,6 +508,7 @@ function play_state()
   return
     -- update
     function()
+      message_time+=1
       -- move
       local dx,dz,a=0,0,angle[2]
       if(btn(0,1)) dx=3
@@ -530,7 +536,8 @@ function play_state()
       cam:track(eye_pos,m,angle,tilt)
 
       -- player close to dagger?
-      if not launching and v_len(origin,{0,0,0})<16 then
+      distance=min(distance,v_len(origin,{0,0,0}))
+      if not launching and distance<16 then
         -- avoid reentrancy
         launching=true
 
@@ -540,8 +547,9 @@ function play_state()
 
         do_async(function()
           -- todo: fade to red? black?
-          for i=1,24 do
-            fov=lerp(fov,32,0.3)
+          for i=0,44 do
+            local t=i/45
+            fov=lerp(64,32,t*t)
             yield()
           end
           load("daggers_mini.p8")
@@ -614,16 +622,18 @@ function play_state()
         mode7(verts,#verts,1)        
       end
 
-      draw_things({
-        {
-          ent=_entities.dagger,
-          origin={0,24+3*cos(time()/4),0},
-          yangle=0,
-          zangle=0,
-          radius=12
-        }
-      },cam,fov)
-
+      if not launching then
+        draw_things({
+          {
+            ent=_entities.dagger,
+            origin={0,24+3*cos(time()/4),0},
+            yangle=0,
+            zangle=0,
+            radius=12
+          }
+        },cam,fov)
+      end
+      
       -- tilt!
       -- screen = gfx
       -- reset palette
@@ -645,10 +655,11 @@ function play_state()
       --[[
       local s="HUM...cURSED?"
       print(s,64-print(s,0,130)/2,2,6)
-      
-      local s="cOMING SOON ON PICO8..."
-      print(s,64-print(s,0,130)/2,122,8)
       ]]
+      if distance>96 then
+        local s=messages[flr(message_time/60)%#messages+1]
+        print(s,64-print(s,0,130)/2,122,1)
+      end
 
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end
