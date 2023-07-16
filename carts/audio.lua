@@ -13,8 +13,7 @@ function do_chatter(chatter)
     =
     flr(rnd"4"),
     unpack(chatter)
-  -- 
-  if(not idx) return
+
   --loop audio channels
   for i = 0, 2 do
     --loop chatter sfx variants
