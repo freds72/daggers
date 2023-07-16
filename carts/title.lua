@@ -530,6 +530,11 @@ function play_state()
       if not launching and v_len(origin,{0,0,0})<16 then
         -- avoid reentrancy
         launching=true
+
+        --play daggercollect
+        memcpy(0x31fc, 0x2800, 548)
+        music"63"
+
         do_async(function()
           -- todo: fade to red? black?
           for i=1,24 do
