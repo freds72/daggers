@@ -1076,7 +1076,8 @@ function play_state()
     end,
     -- init
     function()
-      music(32)
+      sfx"-1"
+      music"32"
       _start_time=time()
       -- must be done *outside* async update loop!!!
       _futures,_total_things,_time_penalty,_time_wait={},0,0
@@ -1256,6 +1257,7 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
   local _,x,y=unpack(buttons[1])
   local mx,my=x+buttons[1].width/2,y+3
   -- death music
+  sfx"-1"
   music"36"
   return
     -- update
