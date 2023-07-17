@@ -346,7 +346,7 @@ function menu_state(buttons,default)
       -- hw palette
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end,
-    function() reload() end
+    function() reload(0, 0, 0x3100) end
 end
 
 -- main menu buttons
@@ -678,6 +678,11 @@ function title_state()
       ttl-=1
       if not launching and ttl<0 or btnp()&0x30!=0 then
         launching=true
+
+        --play musicii
+        print("\^!3100"..musicii)
+        music"3"
+
         do_async(function()
           -- todo: fade to black
           next_state(menu_state, _main_buttons)
@@ -752,7 +757,8 @@ cartdata;freds72_daggers]],exec)
   reload()
 
   -- background music
-  music"3"
+  -- @todo change this for musiciii
+  -- music"3"
   
   -- init game
   next_state(title_state)
