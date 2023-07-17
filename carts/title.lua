@@ -671,12 +671,11 @@ function title_state()
   holdframe()
   px9_decomp(0,0,title_img,pget,pset)
 
-  local ttl,launching=900
+  local launching
   return
     -- update
     function()
-      ttl-=1
-      if not launching and ttl<0 or btnp()&0x30!=0 then
+      if btnp()&0x30!=0 then
         launching=true
 
         --play musicii
