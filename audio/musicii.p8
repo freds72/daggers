@@ -4,12 +4,6 @@ __lua__
 --"this is a cover of devil daggers ii"
 --by ridgek
 
---copy music patterns to title.p8
-cstore(0x3100, 0x3100, 0x100, "../carts/title.p8")
-
---copy sfx 0-35 to title.p8
-cstore(0x3200, 0x3200, 68 * 28, "../carts/title.p8")
-
 ---escape binary string
 --by zep
 --@see https://www.lexaloffle.com/bbs/?tid=38692
