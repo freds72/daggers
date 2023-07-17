@@ -272,6 +272,12 @@ function menu_state(buttons,default)
   return
     -- update
     function()
+      if not stat"57" then
+        --play musicii
+        print("\^!3100"..musicii)
+        music(3, 1000)
+      end
+
       mx,my=mid(mx+stat(38)/2,0,127),mid(my+stat(39)/2,0,127)
       -- over button?
       over_btn=-1
@@ -346,7 +352,7 @@ function menu_state(buttons,default)
       -- hw palette
       pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end,
-    function() reload() end
+    function() reload(0, 0, 0x3100) end
 end
 
 -- main menu buttons
@@ -356,7 +362,7 @@ local _main_buttons={
     -- avoid reentrancy
     if(_starting) return
     _starting=true
-    music(-1,250)
+    music(-1,1000)
     -- todo: fade to black
     do_async(function()
       wait_async(10)
@@ -502,13 +508,17 @@ function play_state()
     "bEST PLAYED WITH ♪ ON!"
   }
 
-  --playback ambient music
-  music"32"
-
   return
     -- update
     function()
       message_time+=1
+
+      if not stat"57" then
+        --play ambient music
+        print("\^!3100"..musicii)
+        music(32, 1000)
+      end
+
       -- move
       local dx,dz,a=0,0,angle[2]
       if(btn(0,1)) dx=3
@@ -671,13 +681,16 @@ function title_state()
   holdframe()
   px9_decomp(0,0,title_img,pget,pset)
 
-  local ttl,launching=900
+  local launching
   return
     -- update
     function()
-      ttl-=1
-      if not launching and ttl<0 or btnp()&0x30!=0 then
+      if btnp()&0x30!=0 then
         launching=true
+
+        --fade out musiciii
+        music(-1, 2000)
+
         do_async(function()
           -- todo: fade to black
           next_state(menu_state, _main_buttons)
@@ -754,8 +767,8 @@ cartdata;freds72_daggers]],exec)
   end)
   reload()
 
-  -- background music
-  music"3"
+  -- play musiciii
+  music"0"
   
   -- init game
   next_state(title_state)
