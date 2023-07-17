@@ -272,6 +272,12 @@ function menu_state(buttons,default)
   return
     -- update
     function()
+      if not stat"57" then
+        --play musicii
+        print("\^!3100"..musicii)
+        music(3, 1000)
+      end
+
       mx,my=mid(mx+stat(38)/2,0,127),mid(my+stat(39)/2,0,127)
       -- over button?
       over_btn=-1
@@ -356,7 +362,7 @@ local _main_buttons={
     -- avoid reentrancy
     if(_starting) return
     _starting=true
-    music(-1,250)
+    music(-1,1000)
     -- todo: fade to black
     do_async(function()
       wait_async(10)
@@ -502,13 +508,17 @@ function play_state()
     "bEST PLAYED WITH ♪ ON!"
   }
 
-  --playback ambient music
-  music"32"
-
   return
     -- update
     function()
       message_time+=1
+
+      if not stat"57" then
+        --play ambient music
+        print("\^!3100"..musicii)
+        music(32, 1000)
+      end
+
       -- move
       local dx,dz,a=0,0,angle[2]
       if(btn(0,1)) dx=3
@@ -678,9 +688,8 @@ function title_state()
       if btnp()&0x30!=0 then
         launching=true
 
-        --play musicii
-        print("\^!3100"..musicii)
-        music"3"
+        --fade out musiciii
+        music(-1, 2000)
 
         do_async(function()
           -- todo: fade to black
@@ -755,9 +764,8 @@ cartdata;freds72_daggers]],exec)
   end)
   reload()
 
-  -- background music
-  -- @todo change this for musiciii
-  -- music"3"
+  -- play musiciii
+  music"0"
   
   -- init game
   next_state(title_state)
