@@ -732,18 +732,21 @@ cartdata;freds72_daggers]],exec)
   decompress("pic",0,0,function()
     local names={
       [1]="skull",
-      [7]="dagger"
+      [7]="dagger",
+      [8]="break"
     }
     -- drop array size
     for i=1,mpeek2() do
       local id,sprites,angles=mpeek(),{},mpeek()    
+      local name=names[id]
+      -- todo: rearange sprites
+      if(name=="break") break
       local ent={  
         sprites=sprites,   
         yangles=angles&0xf,
         zangles=angles\16,        
         frames=unpack_frames(sprites)
       }
-      local name=names[id]
       if name then
         _entities[name]=ent
       end
