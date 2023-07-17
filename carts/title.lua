@@ -681,10 +681,11 @@ function title_state()
   holdframe()
   px9_decomp(0,0,title_img,pget,pset)
 
-  local launching
+  local msg_ttl,launching=300
   return
     -- update
     function()
+      msg_ttl=max(msg_ttl-1)
       if btnp()&0x30!=0 then
         launching=true
 
@@ -701,6 +702,10 @@ function title_state()
     function()
       -- apply 
       pal({[0]=0, 130, 2, 8, 136, 128, 7},1)
+      if msg_ttl==0 then
+        local s="mOUSE CLICK TO CONTINUE"
+        print(s,64-print(s,0,130)/2,120,1+abs(flr(2.9*cos(time()/4))))
+      end
     end
 end
 
