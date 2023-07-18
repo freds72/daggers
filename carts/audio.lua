@@ -32,6 +32,7 @@ function do_chatter(chatter)
   local offset = (idx + variant) * 68
 
   --copy dampened sfx
+  --start from 0xf120 to account for sfx idx 0-7 in offset value
   memcpy(0x3200 + offset, 0xf120 + 0x440 * dist + offset, 68)
 
   --playback random chatter variant
