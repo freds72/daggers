@@ -458,6 +458,14 @@ function credits_state()
   })
 end
 
+-- credits: https://easings.net/#easeOutElastic
+function easeoutelastic(t)
+  if(t==0) return 0
+  if(t==1) return 1
+  local c4=1/3
+   return -(2^(-10*t))*sin((t*10-0.75)*c4)+1
+ end
+
 function play_state()
   local fov=64
   local cam=setmetatable({
@@ -558,8 +566,7 @@ function play_state()
         do_async(function()
           -- todo: fade to red? black?
           for i=0,44 do
-            local t=i/45
-            fov=lerp(64,32,t*t)
+            fov=lerp(64,32,easeoutelastic(i/45))
             yield()
           end
           load("daggers_mini.p8")
