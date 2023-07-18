@@ -474,7 +474,7 @@ function draw_grid(cam,light)
     -- skip top+top rotation
     local frame,sprites=entity.frames[(yangles+1)*yside+side+1],entity.sprites
     local base,w,h=frame.base,frame.width,frame.height
-    -- useful?
+    -- cache works in 10% of cases :/
     if prev_base!=base or prev_sprites!=sprites then
       prev_base,prev_sprites=base,sprites
       for i=0,(h-1)<<6,64 do
@@ -1034,7 +1034,7 @@ function play_state()
     function()
       draw_world()   
 
-      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       local s=_total_things.."/60 ⧗:".._time_penalty.."S"
       print(s,64-print(s,0,128)/2,2,7)
 
@@ -1723,30 +1723,27 @@ function collect_grid(a,b,u,v,cb)
   end  
 end
 
--- ray (a->b) intersection
+-- segment (a->b)/sphere(origin,r) intersection
 -- returns distance to target
-function ray_sphere_intersect(a,b,dir,len,origin,r)
-  -- todo: persist in mins,maxs extent (worth it?)
-  -- todo: with grid - may not be worth it...
-  local ox,oy,oz=origin[1],origin[2],origin[3]
-  local xmin,xmax,ymin,ymax,zmin,zmax,ax,ay,az,bx,by,bz=ox-r,ox+r,oy-r,oy+r,oz-r,oz+r,a[1],a[2],a[3],b[1],b[2],b[3]
-  -- 2d SAT check
-  if(ax<xmin and bx<xmin or ax>xmax and bx>xmax) return
-  if(az<zmin and bz<zmin or az>zmax and bz>zmax) return
-  -- 3d check  
-  if(ay<ymin and by<ymin or ay>ymax and by>ymax) return
-
+function ray_sphere_intersect(a,dir,len,o,r)
+  -- note: no need to scale down as check is done per 32x32 region
+  local dx,dy,dz,ax,ay,az=dir[1],dir[2],dir[3],a[1],a[2],a[3]
   -- projection on ray
-  local dx,dy,dz=dir[1],dir[2],dir[3]
-  local t=dx*(ox-ax)+dy*(oy-ay)+dz*(oz-az)
-  if t>=-r and t<=len+r then
-    -- distance to sphere?
-    ox-=t*dx
-    oy-=t*dy
-    oz-=t*dz
-    --assert(dx*dx+dy*dy+dz*dz>=0)
-    return ox*ox+oy*oy+oz*oz<r*r,t,{ox,oy,oz}
-  end
+  local mx,my,mz=ax-o[1],ay-o[2],az-o[3]
+  local b,c=dx*mx+dy*my+dz*mz,mx*mx+my*my+mz*mz-r*r
+  if(c>0 and b>0) return
+  local disc=b*b-c
+  if(disc<0) return
+  local t=-b-sqrt(disc)
+  -- far away?
+  if(t>len) return
+  -- inside radius?
+  if(t<0) t=rnd(len)
+  ax+=t*dx
+  ay+=t*dy
+  az+=t*dz
+  -- return intersection point (rebased in world space)
+  return true,t,{ax,ay,az}
 end
 
 local _checked=0
@@ -1774,9 +1771,9 @@ function _update()
     else
       b.yangle+=0.1
       local prev,origin,len,dead=b.origin,v_add(b.origin,b.velocity,10),10
-      -- out of bounds?
+      -- out of bounds (>1024)
       local x,z=origin[1],origin[3]
-      if x>64 and x<1024 and z>64 and z<1024 then
+      if (x|z)&0xfc00==0 then
         local y=origin[2]
         if y<0 then
           -- hit ground?
@@ -1805,7 +1802,7 @@ function _update()
             -- avoid checking the same enemy twice
             if not thing.dead and thing.hit and thing.checked!=_checked then
               thing.checked=_checked
-              local hit,t,pos=ray_sphere_intersect(prev,origin,b.velocity,len,thing.origin,thing.radius)
+              local hit,t,pos=ray_sphere_intersect(prev,b.velocity,len,thing.origin,thing.radius)
               if hit and t<hit_t then
                 hit_thing,hit_t,hit_pos=thing,t,pos
               end
