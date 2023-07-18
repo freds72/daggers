@@ -4,6 +4,7 @@ local _bsp,_bullets,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_
 local _flying_target
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
+local _fire_ttl,_shotgun_count,_shotgun_spread=3,10,0.025
 -- must be globals
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
@@ -50,6 +51,11 @@ function wait_async(t)
 		yield()
 	end
 end
+
+-- wait until a certain number of jewels is captured
+function wait_jewels(n)
+  while _total_jewels<n do yield() end
+end 
 
 -- record number of "things" on playground and wait until free slots are available
 -- note: must be called from a coroutine
@@ -204,7 +210,7 @@ function make_player(_origin,_a)
         -- regular fire      
         if dblclick_ttl==0 and fire_ttl<=0 then
           sfx"48"
-          fire_ttl,fire=3,1
+          fire_ttl,fire=_fire_ttl,1
         end
         -- 
         attract_power=0
@@ -351,10 +357,10 @@ function make_player(_origin,_a)
         make_bullet(v_add(origin,{0,18,0}),angle[2],angle[1],0.02)
       elseif fire==2 then
         -- shotgun
-        _total_bullets+=0x0.000a
+        _total_bullets+=_shotgun_count>>16
         local o=v_add(origin,{0,18,0})
-        for i=1,10 do
-          make_bullet(o,angle[2],angle[1],0.025)
+        for i=1,_shotgun_count do
+          make_bullet(o,angle[2],angle[1],_shotgun_spread)
         end
       end
       fire=nil          
@@ -1000,8 +1006,8 @@ end
 -- gameplay state
 local _frame=0
 function play_state()
-  -- camera & player & reset misc tables
-  _plyr,_things,_bullets,_spiders=make_player({512,24,512},0),{},{},{}
+  -- camera & player & reset misc values
+  _plyr,_things,_bullets,_spiders,_total_jewels,_total_bullets,_total_hits=make_player({512,24,512},0),{},{},{},0,0,0
   
   -- spatial partitioning grid
   _grid=setmetatable({},{
@@ -1146,6 +1152,18 @@ random_spawn_angle
 set_spawn;200;64
 make_worm
 wait_async;600]],exec) 
+    end)
+
+    -- progression
+    do_async(function()
+      -- reset values
+      _fire_ttl,_shotgun_count,_shotgun_spread=3,10,0.025
+      wait_jewels(10)
+      _shotgun_count,_shotgun_spread=20,0.033
+      wait_jewels(70)
+      _fire_ttl=2
+      wait_jewels(150)
+      -- 
     end)
 
     do_async(function()
