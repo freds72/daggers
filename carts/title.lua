@@ -376,7 +376,7 @@ local _main_buttons={
     end},
   {"eDITOR",74,
     cb=function(self) 
-      load("editor_mini.p8")
+      -- ensure dev version is loaded first
       load("editor.p8")
     end},
   {"cREDITS",84,
@@ -570,8 +570,9 @@ function play_state()
             fov=lerp(64,32,easeoutelastic(i/45))
             yield()
           end
-          load("daggers_mini.p8")
+          -- load dev version first
           load("daggers.p8")
+          load("daggers_mini.p8")
         end)
       end
     end,
@@ -722,7 +723,6 @@ end
 function _init()
   -- generate assets if not there
   if reload(0x6000,0x0,0x1,"pic_0.p8")==0 then
-    load("editor_mini.p8","","generate")
     load("editor.p8","","generate")
   end
 

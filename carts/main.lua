@@ -1816,10 +1816,6 @@ function _update()
         end
         -- collect touched grid indices
         local hit_t,hit_thing,hit_pos=32000
-        local function v_str(a)
-          return a[1].." "..a[2].." "..a[3]
-        end
-        printh(v_str(prev).." -> "..v_str(origin).." len: "..len.." u:"..b.u.." v:"..b.v)
         collect_grid(prev,origin,b.u,b.v,function(things)
           -- todo: advanced bullets can traverse enemies
           for thing in pairs(things) do
