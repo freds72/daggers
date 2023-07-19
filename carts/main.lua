@@ -247,7 +247,8 @@ function make_player(_origin,_a)
       fire_ttl=max(fire_ttl-1)
 
       angle=v_add(angle,dangle,1/1024)
-
+      -- limit x amplitude
+      angle[1]=mid(angle[1],-0.24,0.24)
       -- check next position
       local vn,vl=v_normz(velocity)      
       local prev_pos,new_pos,new_vel=v_clone(origin),v_add(origin,velocity),velocity
@@ -382,9 +383,11 @@ function make_bullet(origin,zangle,yangle,spread)
     -- fixed zangle
     zangle=zangle,
     yangle=rnd(),
+    -- 2d unit vector
     -- precomputed for collision detection
-    u=u,
-    v=v,
+    -- make sure to keep the sign of the y component!!
+    u=sgn(s)*u,
+    v=sgn(s)*v,
     shadeless=true,
     ttl=time()+0.5+rnd"0.1",
     ent=rnd{_entities.dagger0,_entities.dagger1}
@@ -591,6 +594,7 @@ function make_spider()
             if len<radius then
               thing:pickup(true)
               do_async(function()
+                wait_async(3)
                 -- spit an egg
                 local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
                 make_egg(origin,{-force*cos(angle),force*rnd(),force*sin(angle)})
@@ -1051,8 +1055,8 @@ function play_state()
         s..="S"
         arizona_print(s,64-print(s,0,128)/2,1,2)
       end
-      -- todo: move hw palette to memory
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135,0},1)
+      -- hw palette
+      memcpy(0x5f10,0x8140,16)
 
       --[[
       palt(0,true)
@@ -1188,7 +1192,7 @@ end
 
 function gameover_state(obituary)  
   -- remove time spent "waiting"!!
-  local play_time,origin,target,selected_tab,clicked=time()-_start_time-_time_penalty,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
+  local hw_pal,play_time,origin,target,selected_tab,clicked=0,time()-_start_time-_time_penalty,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
   -- check if new playtime enters leaderboard?
   -- + handle sorting
   local new_best_i=#_local_scores+1
@@ -1218,9 +1222,8 @@ function gameover_state(obituary)
   local ttl,buttons,over_btn=90,{
     {"rETRY",1,111,cb=function() 
       do_async(function()
-        -- todo: fade to black
         for i=0,15 do
-          --memcpy(0x5f00,0x4300|i<<4,16)
+          hw_pal=i<<4
           yield()
         end
         next_state(play_state)
@@ -1332,7 +1335,8 @@ arizona_print;hIGHSCORES;1;8]],exec)
         spr(20,mx,my)
       end
       -- hw palette
-      pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
+      memcpy(0x5f10,0x8140+hw_pal,16)
+      -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end
 end
 
@@ -1608,7 +1612,6 @@ cartdata;freds72_daggers]],exec)
 
       -- align direction and sprite direction
       local target_angle=atan2(-velocity[1],velocity[3])
-      local shortest=shortest_angle(target_angle,zangle)
       --[[
       if abs(target_angle-shortest)>0.125/2 then
         -- relative change
@@ -1624,7 +1627,7 @@ cartdata;freds72_daggers]],exec)
         shortest+=target_angle
       end
       ]]
-      zangle=lerp(shortest,target_angle,0.2)
+      zangle=lerp(shortest_angle(target_angle,zangle),target_angle,0.2)
       
       -- move & clamp
       origin[1]=mid(origin[1]+velocity[1],0,1024)
@@ -1800,7 +1803,7 @@ function _update()
           x,z=lerp(prev[1],x,dy),lerp(prev[3],z,dy)
           origin={x,0,z}
           -- adjust length
-          len=v_len(prev,origin)
+          len*=dy
           -- no matter what - we hit the ground!
           dead=true
           make_blood(origin)
@@ -1813,6 +1816,10 @@ function _update()
         end
         -- collect touched grid indices
         local hit_t,hit_thing,hit_pos=32000
+        local function v_str(a)
+          return a[1].." "..a[2].." "..a[3]
+        end
+        printh(v_str(prev).." -> "..v_str(origin).." len: "..len.." u:"..b.u.." v:"..b.v)
         collect_grid(prev,origin,b.u,b.v,function(things)
           -- todo: advanced bullets can traverse enemies
           for thing in pairs(things) do
