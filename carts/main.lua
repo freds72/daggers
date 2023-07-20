@@ -174,15 +174,15 @@ printh(s,"@clip")
 --  2222
 
 function make_player(_origin,_a)
-  local _chatter_ranges={
+  local _chatter_ranges,on_ground={
     split"0x0000.0000,0x0001.0000,0x0000.0001,0x0001.0001",
     split"0x0000.0000,0x0001.0000,0x0002.0000,0x0003.0000,0x0000.0001,0x0003.0001,0x0000.0002,0x0003.0002,0x0000.0003,0x0001.0003,0x0002.0003,0x0003.0003",
     split"0x0001.0000,0x0002.0000,0x0003.0000,0x0004.0000,0x0000.0001,0x0005.0001,0x0000.0002,0x0005.0002,0x0000.0003,0x0005.0003,0x0000.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
   }  
-  local angle,on_ground={0,_a,0}
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
     origin=v_add(_origin,split"0,1,0"), 
+    angle={0,_a,0},
     eye_pos=v_add(_origin,split"0,25,0"), 
     m=make_m_from_euler(angle),
     control=function(_ENV)
@@ -303,8 +303,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  --dead=true
+                  --next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -402,7 +402,8 @@ function draw_grid(cam,light)
 
   local function project_array(array)
     -- make sure camera matrix is local
-    local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
+    local m1,m5,m9,m2,m6,m10,m3,m7,m11,r_scale=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11],sin(0.625+cam.angles[1]/2)
+    printh(r_scale)
     for i,obj in inext,array do
       local origin=obj.origin  
       local oy=origin[2]
@@ -412,11 +413,11 @@ function draw_grid(cam,light)
       -- draw shadows (y=0)
       if not obj.shadeless then
         local ay=m2*x-m6*cy+m10*z
-        if az>4 and az<96 and 0.5*ax<az and -0.5*ax<az and -0.5*ax<az and 0.5*ay<az and -0.5*ay<az then
+        if az>4 and az<96 and 0.25*ax<az and -0.25*ax<az and -0.25*ax<az and 0.25*ay<az and -0.25*ay<az then
           -- thing offset+cam offset              
-          local w,a=32/az,atan2(x,z)
-          local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w
-          local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
+          local w=32/az
+          local r=obj.radius*w
+          local x0,y0,ry=63.5+ax*w,63.5-ay*w,-r*r_scale
           ovalfill(x0-r,y0+ry,x0+r,y0-ry)
         end
       end
@@ -1383,7 +1384,7 @@ cartdata;freds72_daggers]],exec)
   -- always needed  
   _cam=inherit{
     origin=split"0,0,0",    
-    track=function(_ENV,_origin,_m,angles,_tilt)
+    track=function(_ENV,_origin,_m,_angles,_tilt)
       --
       tilt=_tilt or 0
       m={unpack(_m)}		
@@ -1394,6 +1395,7 @@ cartdata;freds72_daggers]],exec)
       m[7],m[10]=m[10],m[7]
       
       origin=_origin
+      angles=_angles
     end}
     
     -- mini bsp:
@@ -1664,8 +1666,8 @@ _squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_
 _squid_hood;ent,squid2,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
-_skull1_base_template;ent,skull,radius,12,hp,2,cost,1,obituary,sKULLED;_skull_template
-_skull2_base_template;ent,reaper,radius,18,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED;_skull_template
+_skull1_base_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED;_skull_template
+_skull2_base_template;ent,reaper,radius,12,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED;_skull_template
 _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop,cost,1]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
@@ -1748,11 +1750,12 @@ end
 
 -- segment (a->b)/sphere(origin,r) intersection
 -- returns distance to target
-function ray_sphere_intersect(a,dir,len,o,r)
+function ray_sphere_intersect(a,b,dir,len,o,r)
   -- note: no need to scale down as check is done per 32x32 region
   local dx,dy,dz,ax,ay,az=dir[1],dir[2],dir[3],a[1],a[2],a[3]
   -- projection on ray
-  local mx,my,mz=ax-o[1],ay-o[2],az-o[3]
+  local mx,my,mz,ny=ax-o[1],ay-o[2],az-o[3],b[2]-o[2]
+  if((my<-r and ny<-r) or (my>r and ny>r)) return
   local b,c=dx*mx+dy*my+dz*mz,mx*mx+my*my+mz*mz-r*r
   if(c>0 and b>0) return
   local disc=b*b-c
@@ -1825,7 +1828,7 @@ function _update()
             -- avoid checking the same enemy twice
             if not thing.dead and thing.hit and thing.checked!=_checked then
               thing.checked=_checked
-              local hit,t,pos=ray_sphere_intersect(prev,b.velocity,len,thing.origin,thing.radius)
+              local hit,t,pos=ray_sphere_intersect(prev,origin,b.velocity,len,thing.origin,thing.radius)
               if hit and t<hit_t then
                 hit_thing,hit_t,hit_pos=thing,t,pos
               end
