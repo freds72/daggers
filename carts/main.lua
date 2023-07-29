@@ -1,7 +1,5 @@
 -- global arrays
 local _bsp,_bullets,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_ents,_goo_ents={},{},{},{},{}
--- flying things:
-local _flying_target
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
 local _fire_ttl,_shotgun_count,_shotgun_spread=3,10,0.025
@@ -394,42 +392,43 @@ function make_bullet(origin,zangle,yangle,spread)
   }
 end
 
-function draw_grid(cam,light)
-  light=1
+function draw_grid(cam)
   local things,m,cx,cy,cz={},cam.m,unpack(cam.origin)
 
   pal()
 
   local function project_array(array)
     -- make sure camera matrix is local
-    local m1,m5,m9,m2,m6,m10,m3,m7,m11,r_scale=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11],sin(0.625+cam.angles[1]/2)
-    printh(r_scale)
+    local m1,m5,m9,m2,m6,m10,m3,m7,m11,r_scale=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11],-sin(0.625+cam.angles[1]/2)
     for i,obj in inext,array do
       local origin=obj.origin  
       local oy=origin[2]
-      local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
-      local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
-      
-      -- draw shadows (y=0)
-      if not obj.shadeless then
-        local ay=m2*x-m6*cy+m10*z
-        if az>4 and az<96 and 0.25*ax<az and -0.25*ax<az and -0.25*ax<az and 0.25*ay<az and -0.25*ay<az then
-          -- thing offset+cam offset              
-          local w=32/az
-          local r=obj.radius*w
-          local x0,y0,ry=63.5+ax*w,63.5-ay*w,-r*r_scale
-          ovalfill(x0-r,y0+ry,x0+r,y0-ry)
+      -- centipede can be below ground...
+      if oy>1 then
+        local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
+        local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
+        local az4=az<<2
+        -- draw shadows (y=0)
+        if not obj.shadeless then
+          local ay=m2*x-m6*cy+m10*z
+          if az>4 and az<96 and ax<az4 and -ax<az4 and -ay<az4 and ay<az4 then
+            -- thing offset+cam offset              
+            local w=32/az
+            local a,r=atan2(az,-cy),obj.radius*w
+            local x0,y0,ry=63.5+ax*w,63.5-ay*w,-r*sin(a)
+            ovalfill(x0-r,y0+ry,x0+r,y0-ry)
+          end
         end
-      end
-  
-      -- 
-      if not obj.no_render then
-        ax+=m5*oy
-        az+=m7*oy
-        local ay=m2*x+m6*y+m10*z
-        if az>4 and az<192 and 0.25*ax<az and -0.25*ax<az and 0.25*ay<az and -0.25*ay<az then
-          local w=32/az
-          things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
+    
+        -- 
+        if not obj.no_render then
+          ax+=m5*oy
+          az+=m7*oy
+          local ay,az4=m2*x+m6*y+m10*z,az<<2
+          if az>4 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
+            local w=32/az
+            things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
+          end
         end
       end
     end
@@ -458,7 +457,7 @@ function draw_grid(cam,light)
     if hit_ttl and hit_ttl>0 then
       pal1=15+hit_ttl
     else
-      local light=thing.light_t and min(1,(time()-thing.light_t)/0.15) or light
+      local light=thing.light_t and min(1,(time()-thing.light_t)/0.15) or 1
       pal1=(light*min(15,item.key<<4))\1
     end    
     if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) palt(15,true) pal0=pal1   
@@ -497,6 +496,7 @@ function draw_grid(cam,light)
     local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
     --
     sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip)
+    -- if(thing.radius) circ(item.x,item.y,w0*thing.radius,9)
     --[[
     circ(item.x,item.y,(thing.radius or 1)*w0,9)
     if thing.debug_forces then
@@ -527,6 +527,7 @@ function make_blast(_ents,_origin,_velocity)
     -- sprite id
     ent=_ents[1],
     origin=_origin,
+    zangle=rnd(),
     update=function(_ENV)
       ttl+=1
       if(ttl>15) dead=true return
@@ -550,16 +551,19 @@ end
 -- spiderling
 function make_skull(actor,_origin)
   local thing=add(_things,inherit({
-      origin=_origin,
-      resolved={},
-      wobling=3+rnd"2",
-      seed=7+rnd(),
-      -- grid cells
-      cells={},
-      -- perf test
-      -- yangle=rnd()
-    },actor))
-  
+    origin=_origin,
+    resolved={},
+    wobling=3+rnd"2",
+    seed=7+rnd(),
+    -- grid cells
+    cells={}
+    -- perf test
+    -- yangle=rnd()
+  },actor))
+
+  -- custom init function?
+  if(thing.init) thing:init()
+
   grid_register(thing)
   
   --play spawn sfx
@@ -581,7 +585,7 @@ function make_spider()
       hit_ttl=5
       if hp<0 then
         dead=true
-        make_blood(origin)
+        make_goo(origin)
         -- unregister
         grid_unregister(_ENV)
         _spiders[_ENV]=nil
@@ -642,6 +646,7 @@ function make_squid(type)
   end)
 
   local squid=make_skull(inherit({
+    ai=spill,
     apply=function(_ENV,other,force,t)
       if other.is_squid_core then
         forces[1]+=t*force[1]
@@ -728,8 +733,6 @@ _squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_o
           dead=true     
           make_blood(origin) 
           grid_unregister(_ENV)
-          -- stop spilling monsters
-          spill.co=nil
           _total_things-=cost or 0   
           sfx"39"
         end
@@ -754,21 +757,23 @@ end
 function make_worm()  
   reserve_async(10)
 
-  local _origin,t_offset,seg_delta,segments,prev_angles,prev,target_ttl,head=v_clone(_spawn_origin),rnd(),3,{},{},{},0
+  local _origin,t_offset,seg_delta,segments,prev_angles,prev,head=v_clone(_spawn_origin),rnd(),4,{},{},{}
+  _origin={512,-64,512}
 
   for i=1,20 do
     add(segments,add(_things,inherit({
       hit=function(_ENV,pos)
+        -- tail? (no jewels)
+        if(not jewel) return
         -- avoid reentrancy
         if(touched) return
         make_blood(pos)
         make_jewel(origin,head.velocity)
-        touched=true
         -- change sprite (no jewels)
-        ent=_entities.worm2
+        touched,ent=true,_entities.worm2
         sfx"56"
       end
-    },_worm_seg_template)))
+    },_ENV["_worm_seg_template"..i] or _worm_seg_template)))
   end
 
   head=make_skull(inherit({
@@ -778,35 +783,64 @@ function make_worm()
       -- clean segment
       do_async(function()
         while #segments>0 do
-          local seg=deli(segments,1)
-          grid_unregister(seg)
-          seg.dead=true
-          make_blood(seg.origin)
+          local _ENV=deli(segments,1)
+          grid_unregister(_ENV)
+          dead=true
+          make_blood(origin)
           wait_async(3)
         end
       end)
     end,
-    think=function(_ENV)
-      target_ttl-=1
-      if target_ttl<0 then  
-        -- circle
-        local a,r=atan2(origin[1]-512,origin[3]-512)+rnd"0.05",96+rnd"32"
-        target,target_ttl={512+r*cos(a),16+rnd"48",512-r*sin(a)},60+rnd"10"
-      end
-      -- navigate to target
-      local dir=v_dir(origin,target)
-      forces=v_add(forces,dir,8+seed*cos(time()/5))
+    init=function(_ENV)
+      ai=do_async(function()
+        target=v_clone(_origin,96)
+        wait_async(60)
+    
+        for i=1,6 do
+          local a,r=atan2(origin[1],origin[3])+rnd"0.05",96+rnd"32"
+          target={512+r*cos(a),16+rnd"48",512-r*sin(a)}
+          wait_async(60+rnd"10")
+          target=v_clone(_plyr.eye_pos)
+          wait_async(60)
+        end
+    
+        target=v_clone(_plyr.eye_pos,128)
+        wait_async(90)
+        -- go away
+        target=v_clone(_plyr.eye_pos,-96)
+        wait_async(90)
+        _total_things-=10
+        -- wait until all segments are underground
+        while true do
+          for _ENV in all(segments) do
+            if origin[2]>0 then
+              goto above_ground
+            else
+              dead=true
+              grid_unregister(_ENV)
+            end
+          end
+          break
+    ::above_ground::
+          yield()
+        end
+        dead=true
+        grid_unregister(_ENV)
+      end)
     end,
     post_think=function(_ENV)
-      origin[2]=40+24*sin(t_offset+time()/3)
-      add(prev,v_clone(origin),1)
-      add(prev_angles,zangle,1)
-      if(#prev>20*seg_delta) deli(prev) deli(prev_angles)
+      -- todo: wave based on target 'up' vector?
+      -- todo: bounce logic
+      -- origin[2]+=2*sin(t_offset+time()/3)
+      add(prev,{v_clone(origin),zangle,yangle},1)
+      if(#prev>20*seg_delta) deli(prev)
       for i=1,#prev,seg_delta do
-        local seg=segments[i\seg_delta+1]
-        seg.origin=prev[i]
-        seg.zangle=prev_angles[i]
-        grid_register(seg)
+        local _ENV=segments[i\seg_delta+1]
+        -- can happen when centipede is dying
+        if _ENV then
+          origin,zangle,yangle=unpack(prev[i])
+          grid_register(_ENV)
+        end
       end
     end
   },_worm_head_template),_origin)
@@ -999,7 +1033,9 @@ sspr;0;64;64;64;72;64]],r,0.9*r,0.9*r),exec)
   end
   clip()
   camera() 
+
 end
+
 
 -- script commands
 function random_spawn_angle() _spawn_angle=rnd() end
@@ -1009,7 +1045,6 @@ function set_spawn(dist,height)
 end
 
 -- gameplay state
-local _frame=0
 function play_state()
   -- camera & player & reset misc values
   _plyr,_things,_bullets,_spiders,_total_jewels,_total_bullets,_total_hits=make_player({512,24,512},0),{},{},{},0,0,0
@@ -1036,7 +1071,6 @@ function play_state()
   return
     -- update
     function()
-      _frame+=1
       _plyr:control()
       
       _cam:track(_plyr.eye_pos,_plyr.m,_plyr.angle,_plyr.tilt)
@@ -1103,6 +1137,8 @@ wait_async;90
 --;first squids wave
 random_spawn_angle
 set_spawn;200
+make_worm
+wait_async;330
 make_squid;1
 wait_async;330
 inc_spawn_angle;0.25
@@ -1172,11 +1208,11 @@ wait_async;600]],exec)
     end)
 
     do_async(function()
-        -- circle around player
+        -- skull 1 circle around player
         while not _plyr.dead do      
           local angle,x,y,z=time()/8,unpack(_plyr.origin)
           local r=48*cos(angle)
-          _flying_target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
+          _skull1_base_template.target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
           wait_async(10)
         end
 
@@ -1184,7 +1220,7 @@ wait_async;600]],exec)
         -- stop creating monsters
         scenario.co=nil
         while true do
-          _flying_target={256+rnd"512",12+rnd"64",256+rnd"512"}
+          _skull1_base_template.target={256+rnd"512",12+rnd"64",256+rnd"512"}
           wait_async(45+rnd"15")
         end
       end)
@@ -1515,6 +1551,8 @@ cartdata;freds72_daggers]],exec)
   
   -- load images
   _entities=decompress("pic",0,0,unpack_entities)
+  reload()
+
   -- predefined entries (avoids constant gc)
   _blood_ents,_goo_ents,_spark_ents={
     _entities.blood0,
@@ -1563,15 +1601,18 @@ cartdata;freds72_daggers]],exec)
       forces[3]+=t*force[3]
       resolved[other]=true
     end,
-    update=function(_ENV)
-      -- some gravity
-      if not on_ground then
-        if origin[2]<12 then 
-          forces={0,wobling,0}
-        elseif origin[2]>80 then
-          forces={0,-wobling*2,0}
-        end
+    -- default think
+    think=function(_ENV)
+      yangle=lerp(yangle,target_yangle,0.4)
+      -- converge toward player
+      if target then
+        local dir=v_dir(origin,target)
+        forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
       end
+      -- move head up/down
+      yangle-=mid(forces[2]/(2*seed),-0.25,0.25)      
+    end,
+    update=function(_ENV)
       local old_vel=velocity
       -- some friction
       velocity=v_scale(velocity,0.8)
@@ -1582,14 +1623,14 @@ cartdata;freds72_daggers]],exec)
       -- makes the boids behavior a lot more "natural"
       if rnd()>0.25 then
         -- avoid others (noted: limited to a single grid cell)
-        local idx,fx,fy,fz=world_to_grid(origin),forces[1],forces[2],forces[3]
+        local idx,fx,fy,fz=world_to_grid(origin),unpack(forces)
         for other in pairs(_grid[idx].things) do
           -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
             local avoid,avoid_dist=v_dir(origin,other.origin)
             if(avoid_dist<4) avoid_dist=1
-            -- todo: tune...
-            local t=-2/avoid_dist
+            -- 4: good separation
+            local t=-4/avoid_dist
             local t_self=other.radius*t 
             fx+=t_self*avoid[1]
             fy+=t_self*avoid[2]
@@ -1636,8 +1677,8 @@ cartdata;freds72_daggers]],exec)
       -- move & clamp
       origin[1]=mid(origin[1]+velocity[1],0,1024)
       local oy=origin[2]+velocity[2]
-      if oy<4 then
-        oy=4
+      if oy<ground_limit then
+        oy=ground_limit
         yangle+=rnd(1)
         -- printh("touch ground")
       end
@@ -1656,17 +1697,19 @@ cartdata;freds72_daggers]],exec)
 
   -- global templates
   local templates=[[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
-_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12;_skull_core
+_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,4,target_yangle,0;_skull_core
 _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,obituary,aCIDIFIED
-_worm_seg_template;ent,worm1,radius,16,zangle,0,origin,v_zero,apply,nop,spawnsfx,42,obituary,wORMED
-_worm_head_template;ent,worm0,radius,18,hp,10,chatter,20,obituary,wORMED;_skull_template
+_worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
+_worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,apply,nop,obituary,wORMED,scale,1.2
+_worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,apply,nop,obituary,wORMED,scale,0.8
+_worm_head_template;ent,worm0,radius,18,hp,10,chatter,20,obituary,wORMED,ground_limit,-64;_skull_template
 _jewel_template;ent,jewel,radius,12,zangle,rnd,ttl,300,apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED;_skull_template
 _squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,hit,nop,cost,5,obituary,nAILED;_skull_template
 _squid_hood;ent,squid2,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
-_skull1_base_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED;_skull_template
+_skull1_base_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_template
 _skull2_base_template;ent,reaper,radius,12,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED;_skull_template
 _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop,cost,1]]
   split2d(templates,function(name,template,parent)
@@ -1674,37 +1717,22 @@ _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale
   end)
 
   -- scripted skulls
-  _skull1_template=inherit({
-    think=function(_ENV)
-      yangle=lerp(yangle,0.1,0.4)
-      -- converge toward player
-      if _flying_target then
-        local dir=v_dir(origin,_flying_target)
-        forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
-      end
-      yangle-=mid(forces[2]/(2*seed),-0.25,0.25)      
-    end
-  },_skull1_base_template)
+  _skull1_template=_skull1_base_template
 
   _skull2_template=inherit({
-    think=function(_ENV)      
-      yangle=lerp(yangle,0,0.6)
-      target_ttl-=1
-      if target_ttl<0 then  
-        -- go opposite from where it stands!  
-        local a=atan2(origin[1]-512,-origin[3]+512)
-        a=shortest_angle(a,a+rnd"0.1")
-        local r=160+rnd"32"
-        target={512+r*cos(a),16+rnd"48",512-r*sin(a)}
-        target_ttl=30+rnd"10"
-      end
-      -- navigate to target
-      local dir=v_dir(origin,target)
-      forces=v_add(forces,dir,seed)--,8+seed*cos(time()/5))
-      yangle-=mid(forces[2]/16,-0.5,0.5)
+    init=function(_ENV)
+      ai=do_async(function()
+        while true do
+          -- go opposite from where it stands!  
+          local a=atan2(origin[1]-512,-origin[3]+512)
+          a=shortest_angle(a,a+rnd"0.1")
+          local r=160+rnd"32"
+          target={512+r*cos(a),16+rnd"48",512-r*sin(a)}
+          wait_async(10+rnd"10")
+        end
+      end)
     end
   },_skull2_base_template)  
-  reload()
 
   -- run game
   next_state(play_state)
@@ -1860,6 +1888,8 @@ function _update()
   for i=#_things,1,-1 do
     local _ENV=_things[i]
     if dead then
+      -- kill ai coroutine (if any)
+      if(ai) ai.co=nil
       -- note: assumes thing is already unregistered
       deli(_things,i)
     elseif update then

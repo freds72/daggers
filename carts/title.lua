@@ -156,6 +156,7 @@ function draw_things(things,cam,fov,lightshift)
   local cache={}
 
   local function project_array(array)
+    local r_scale=-sin(0.625+cam.angles[1]/2)*atan2(0,cy)
     for i,obj in inext,array do
       local origin=obj.origin  
       local oy=origin[2]
@@ -165,11 +166,11 @@ function draw_things(things,cam,fov,lightshift)
       -- draw shadows (y=0)
       if not obj.shadeless then
         local ay=m2*x-m6*cy+m10*z
-        if az>8 and az<128 and 0.5*ax<az and -0.5*ax<az and -0.5*ax<az and 0.5*ay<az and -0.5*ay<az then
+        if az>8 and az<128 and 0.5*ax<az and -0.5*ax<az and 0.5*ay<az and -0.5*ay<az then
           -- thing offset+cam offset              
-          local w,a=fov/az,atan2(x,z)
-          local a,r=atan2(x*cos(a)+z*sin(a),cy),obj.radius*w>>1
-          local x0,y0,ry=63.5+ax*w,63.5-ay*w,r*sin(a)
+          local w=fov/az
+          local a,r=atan2(az,-cy),obj.radius*w>>1
+          local x0,y0,ry=63.5+ax*w,63.5-ay*w,-r*sin(a)
           ovalfill(x0-r,y0+ry,x0+r,y0-ry)
         end
       end
@@ -256,8 +257,9 @@ function menu_state(buttons,default)
 
   local cam=setmetatable({
     origin=v_zero(),    
-    track=function(_ENV,_origin,_m,angles,_tilt)
+    track=function(_ENV,_origin,_m)
       --
+      angles={0,0,0}
       tilt=_tilt or 0
       m={unpack(_m)}		
 
@@ -471,8 +473,9 @@ function play_state()
   local fov=64
   local cam=setmetatable({
     origin=v_zero(),    
-    track=function(_ENV,_origin,_m,angles,_tilt)
+    track=function(_ENV,_origin,_m,_angles,_tilt)
       --
+      angles=_angles
       tilt=_tilt or 0
       m={unpack(_m)}		
 
@@ -549,7 +552,8 @@ function play_state()
       velocity[1]*=0.7
       velocity[3]*=0.7
       angle=v_add(angle,dangle,1/1024)
-      
+      -- limit x amplitude
+      angle[1]=mid(angle[1],-0.24,0.24)
       local m=make_m_from_euler(unpack(angle))        
 
       cam:track(eye_pos,m,angle,tilt)
@@ -805,7 +809,7 @@ cartdata;freds72_daggers]],exec)
     end
   end)
   reload()
-
+  
   -- play musiciii
   music"0"
   
