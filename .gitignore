@@ -9,6 +9,7 @@ favourites.txt
 /carts/*.p8.png
 /carts/pic_*.p8
 /carts/*_mini.p8
+/carts/*_mini.lua
 /cdata/
 /cstore/
 *.bin

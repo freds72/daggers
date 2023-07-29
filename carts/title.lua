@@ -1,5 +1,6 @@
 -- globals
 local _entities={}
+local _hw_pal=0
 
 local title_img="◝◝ヲ○◝◝♥や²うめ◝◝ネり◝ョヘ○フ█ュaりaᶠ◝ネれス~□ ヌ\0▮B★▮\n$◆◜0∧⁸	\n@BるHカDロ\0、█\0█`$?ワ…t█▤▮`BPHY◀D✽「1 \0♥◝そcらN@゜⬅️wXけBC★▮◝ムbQ\0ナ\0\n○◝ス。³◝◝◝◝◝マ3◆チ◝◝I◝き◝◜セラ○□エら◝◜qオLセ○░チ@つセ◝ュC█さHた◝😐⬇️⌂Y▶こ◝ホゅ➡️\n○マL,Hえ゜ョウ\"@Cロル\0ョょENᶠ◜f$☉ᶠク…*t~░)🅾️Oョす\"HCリd…かの~d⁘c⧗◝1☉そcレヒ,🅾️ャら2~つま⁵NOュ&⁘SヲオさフQカPかろつ@ノ◝ᶜC゜ん0)9XおQ▮かもな\nr○⁶!◆ヌHEのs(|ᵇ$ョハpS⧗レ8!◆ヌHI#▥゜▤,⧗ワ➡️り🅾️ᶠアわ1ュI	$s#レ⁵?웃'⁶9=)そ♥ワd★ょ8ˇャ🐱I?✽✽こ⬇️。⁘を?ょ$∧ゃ⬆️○▮のOマW⁷⁷⁶)😐○★BI」!ュ∧ゃ?キう▤⁘ひcュ★□Yfち◜ゃ%'ロqF1カゃ◜セ%へMiョ∧ょ?れこの▤んョ#Uあつャ-の○せ&1そんョdあセ2◝し★⧗◝¹hナナノ◝りdあょ?リゃ	◝。¥⁘ノ◝れ#웃⁴◝イ$'◜³これ⬇️◝ᶜ⧗い$ぬ◜ウ*?ユえ⁘す?ヨっマI◆ュVI◝☉ノケp○ヌの;★X○'(Oュ19けうかヲけᵉノ▤ョエᶠュ2Nっr○ネ…*ᵇ$んマ@p○ヌ★tS⬇️◝、…Xq$んヒXr○ネ★tᵉOュˇ■‖&Bcネ\"さ◝ク$ヘ「◝ゅ🐱BC░「ヘニ1◝すGPナ◝ょQ!aア◆◝ナゃ:⁶?ラスHhr⬇️ラNᶠョ2?⁙◝4@♥\0ヒGゃカOュゃヲ゜ッ*▮ヘ●➡️ソx○マ웃ヨ◝けりᶠJ$Tッけかンさ|○ヘのE★~0$Oろせ◜⬇️ネ◝L!◝ュヲ|○マ█◝ケ○ホ>?レ$のOり□I$レ1◝けIヨ◝ちIᶠり:★~'◜こネ◝\\◀。ろ★N)9,◆ョ)ヲ゜ャ$⬅️ᵉK$モI⬅️#◝Z|○メヌD⁸AさDN⁙た'◜ひュᶠョキB⁙$Hえせ)◝まッ◆ョのD⧗お$E=Oョゃン゜ャカax웃、。せ◜ノュエ◜HHX☉えI⁷◜ルュエ◜ ☉AソI゜ュ\"~g◝4✽N◆◜➡️?C◝★u⁙⬆️▮◝ト$ョO◝\0ル◝ツ⬇️レ?ャれユ?ワCワこ◝😐😐\0²⧗◝t?⧗◝|➡️\nv!◝ひ◜エ◜⁷◝ユᶠル◝◝a◜か◝ヘこ◝¹◝◜cル♥ヌ○◝…ョAヲかつPXxb🐱るるるるれ゜★~…ュエキ9D█▤⁴♥²▮▮▮▮▮▮…ッれル!ンかすきA\0▮ミ\0ぬ███ま⁷んモᶠサ◆ろ`BC∧ナうき~Pフ⁷⬆️○⁴?sハヒゅ゜ウ⁸⁸⁵¹E♥Gルcワ=➡️れ/'rよ⁸XXAら⁵:★○+ゃャか9L□、▮ヘQく¹¹(²C⬇️ッ;?z?◝う○Gせラ○◝0◜◆ら◜h◝◜'\0◜◆っ◜ヘ◝ャGュ~♥ャG◝z?ユかね◝🐱◆◜g◜3ヲ?ヨQ◝へ◆ュgル○ノナ゜ヲヲ⁷◜S◜?リ○ネ\0\0\0³◝9◝😐◝◝)◝⬆️◝◝」ッN_の○◝tョエナ◝◜セャし?d◝◜ゃャせ⁷ユか◝ク?░ム◜⧗◝ンせルか゜ゅ○◝,◜⧗ヨ?ひ◝◜)ョせヘ○た◝ヲ◝Sワ?ユせ◝C◝□○'◜4◝チ○ネOュ⁷◜さョエョI◝⬆️◝◝」ッ4?C◝ャせメ\n~♥◝ロエスノョ◆◝マかみホッか◝ク?sヨ?⧗◝ン⁷ラ~んラ○◝ᶜ◜エナ◝ᶠ◝Gュ○♥ッ○ラ?ユ゜ヲOュg◜s◝!◝😐◝オ○'◜⧗◝Y◝ョ⧗◝➡️◝ョc◝た◝ョ⁙◝ニ◝ュ⧗◝ヲg◝ヨᶠ◝ハ゜◜エ◝ム゜ッᶠ◝リかカ◝◝ワ`"
 
@@ -241,11 +242,14 @@ function menu_state(buttons,default)
   local skulls,ent={},_entities.skull
   -- leaderboard/retry
   local over_btn,clicked
-  
+  -- reset hw palette offset
+  hw_pal=0
   -- get actual size
   clip(0,0,0,0)
-  for _,btn in pairs(buttons) do
-    btn.width=print(btn[1])
+  for btn in all(buttons) do
+    local txt=btn[1]
+    if(type(txt)=="function") txt=txt(btn)
+    btn.width=print(txt)
     btn.x=-btn.width-2
   end
   clip()
@@ -283,7 +287,7 @@ function menu_state(buttons,default)
       mx,my=mid(mx+stat(38)/2,0,127),mid(my+stat(39)/2,0,127)
       -- over button?
       over_btn=-1
-      for i,btn in pairs(buttons) do
+      for i,btn in inext,buttons do
         local x,_,y=1,unpack(btn)          
         if mx>=x and my>=y and mx<=x+btn.width and my<=y+6 then            
           over_btn=i
@@ -341,10 +345,14 @@ function menu_state(buttons,default)
 
       pal()
       
+      -- any background?
+      if(buttons.draw) buttons:draw()
+
       -- draw menu & all
-      for i,btn in pairs(buttons) do
+      for i,btn in inext,buttons do
         btn.x=lerp(btn.x,2,0.4)
-        local s,y=unpack(btn)        
+        local s,y=unpack(btn)  
+        if(type(s)=="function") s=s(btn)
         arizona_print(s,btn.x,y,i==over_btn and 1)
       end
       if(active_btn.draw) active_btn:draw()
@@ -352,24 +360,26 @@ function menu_state(buttons,default)
       -- mouse cursor
       spr(20,mx,my)
       -- hw palette
-      memcpy(0x5f10,0x8140,16)
+      memcpy(0x5f10,0x8140+hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end,
     function() reload(0, 0, 0x3100) end
 end
 
 -- main menu buttons
-local _starting
-local _main_buttons={
+local _playing
+_main_buttons={
   {"pLAY",48,cb=function()      
-    -- avoid reentrancy
-    if(_starting) return
-    _starting=true
-    music(-1,1000)
-    -- todo: fade to black
+    if(_playing) return
+    _playing=true
+    music(-1,1000)    
     do_async(function()
-      wait_async(10)
+      for i=0,15,2 do
+        hw_pal=i<<4
+        yield()
+      end
       next_state(play_state)
+      _playing=false
     end)
   end},
   {"lEADERBOARD",64,
@@ -381,7 +391,11 @@ local _main_buttons={
       -- ensure dev version is loaded first
       load("editor.p8")
     end},
-  {"cREDITS",84,
+  {"cONTROLS",84,
+    cb=function(self)
+      next_state(menu_state,_settings)
+    end},
+  {"cREDITS",94,
     cb=function(self) 
       credits_state()
     end}
@@ -413,7 +427,7 @@ function leaderboard_state()
       -- duration (seconds)
       -- timestamp yyyy,mm,dd
       local t,y,m,d=peek4(mem,4)
-      add(local_scores,scanf("$. $/$/$\t $S",i,y,m,d,t))
+      add(local_scores,scanf("$.\t$/$/$\t\t$S",i,y,m,d,t))
       mem+=16
     end    
   end
@@ -490,7 +504,7 @@ function play_state()
   -- start above floor
   local a=rnd()
   local angle,dangle={0,a-0.25+rnd(0.1),0},v_zero()
-  local tilt=0
+  local tilt,on_ground,prev_jump=0
   local velocity=v_zero()
   local origin={192*cos(a),0,192*sin(a)}
   local eye_pos=v_add(origin,split"0,24,0")
@@ -514,9 +528,14 @@ function play_state()
       end
     end
   end
+  local keys,jump_key="",_settings[5].ch==" " and "SPACE" or _settings[5].ch
+  for i=1,4 do
+    keys..=_settings[i].ch
+  end  
   local message_time,messages=0,{
     "lOOK AROUND WITH MOUSE",
-    "mOVE WITH ESDF",
+    "mOVE WITH "..keys,
+    "jUMP WITH "..jump_key,
     "bEST PLAYED WITH ♪ ON!"
   }
 
@@ -532,17 +551,24 @@ function play_state()
       end
 
       -- move
-      local dx,dz,a=0,0,angle[2]
-      if(btn(0,1)) dx=3
-      if(btn(1,1)) dx=-3
-      if(btn(2,1)) dz=3
-      if(btn(3,1)) dz=-3
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0x9004)
+      if(stat(28,@0x9002)) dx=3
+      if(stat(28,@0x9003)) dx=-3
+      if(stat(28,@0x9000)) dz=3
+      if(stat(28,@0x9001)) dz=-3
+      if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false
+      prev_jump=jump_down
 
-      dangle=v_add(dangle,{stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0x9010*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
-      velocity=v_add(velocity,{s*dz-c*dx,0,c*dz+s*dx},0.35)
+      velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)
       origin=v_add(origin,velocity)
+      if velocity[2]<0 and origin[2]<0 then
+        origin[2]=0
+        velocity[2]=0
+        on_ground=true
+      end
       eye_pos=v_add(origin,{0,24,0})
 
       -- damping      
@@ -551,9 +577,10 @@ function play_state()
       if(abs(tilt)<=0.0001) tilt=0
       velocity[1]*=0.7
       velocity[3]*=0.7
-      angle=v_add(angle,dangle,1/1024)
-      -- limit x amplitude
-      angle[1]=mid(angle[1],-0.24,0.24)
+      -- gravity
+      velocity[2]-=0.8
+      angle=v_add(angle,dangle,$0x9016/1024)
+      
       local m=make_m_from_euler(unpack(angle))        
 
       cam:track(eye_pos,m,angle,tilt)
@@ -813,6 +840,229 @@ cartdata;freds72_daggers]],exec)
   -- play musiciii
   music"0"
   
+  -- restore settings
+  local active_poll,active_btn
+  local function print_key(btn)
+    local txt=btn.ch
+    if txt==" " then
+      txt="<SPACE>"
+    end
+    if active_btn==btn then
+      txt=(time()\0.5)%2==0 and "PRESS KEY" or "           "
+    end
+    return btn.action.."["..txt.."]"
+  end
+  local function read_key(btn)
+    if(active_poll) active_poll.co=nil
+    active_btn=btn
+    active_poll=do_async(function()
+      local t=time()
+      -- wait until key press or 3s
+      while time()<t+3 do
+        local k
+        for i=0,255 do
+          if stat(28,i) then
+            k=i
+            break
+          end
+        end
+        if k then
+          -- empty key buffer (doesn't really work)
+          local gotkey
+          while stat(30) do
+            local ch=stat(31)      
+            local c=ord(ch)
+            if c>=0x20 and c<0x80 then
+              -- convert to upper case (=small font)
+              if(c>0x60 and c<0x7b) ch=chr(c-0x20)
+              btn.ch=ch
+              gotkey=true
+            end
+          end
+          if(gotkey) btn.stat=k break
+        end
+        yield()
+      end
+      active_btn=nil
+    end)
+  end
+  local function flip_bool(btn)
+    btn.value=(btn.value+1)%2
+  end
+
+  local function exit_state()
+    -- kill any key poll routine
+    if(active_poll) active_poll.co=nil
+    -- back to main menu
+    next_state(menu_state, _main_buttons)        
+  end
+
+  local dget_base=26
+  local function data_id(btn) return dget_base+2*btn.id end
+  local function load_value(btn)
+    -- don't override default values if none
+    if dget(data_id(btn))!=0 then
+      btn.value=dget(data_id(btn)+1)
+    end
+  end
+  local function save_value(btn)
+    local id=data_id(btn)
+    dset(id,1)
+    dset(id+1,btn.value)
+  end
+  local function load_key(btn)
+    local id=data_id(btn)
+    btn.ch=chr(dget(id))
+    btn.stat=dget(id+1)
+  end
+  local function save_key(btn)
+    local id=data_id(btn)
+    dset(id,ord(btn.ch))
+    dset(id+1,btn.stat)
+  end
+  -- copy settings to 0x9000  
+  local function pack_key(btn)
+    poke(0x9000+btn.id,btn.stat)
+  end
+  local function pack_settings()
+    for _,btn in inext,_settings do
+      if(btn.pack) btn:pack()
+    end
+  end
+
+  local sensitivity={25,50,75,100,125,150,200}
+
+  _settings={
+    {print_key,30,
+      action="fORWARD\t\t",
+      ch="E",
+      stat=8,
+      id=0,
+      load=load_key,
+      save=save_key,
+      cb=read_key,
+      pack=pack_key
+    },
+    {print_key,37,
+    action="bACKWARD\t\t",
+    ch="D",
+    stat=7,
+    id=1,
+    load=load_key,
+    save=save_key,
+    cb=read_key,
+    pack=pack_key
+    },
+    {print_key,44,
+    action="lEFT\t\t\t",
+    ch="S",
+    stat=22,
+    id=2,
+    load=load_key,
+    save=save_key,
+    cb=read_key,
+    pack=pack_key
+    },
+    {print_key,51,
+    action="rIGHT\t\t\t",
+    ch="F",
+    stat=9,
+    id=3,
+    load=load_key,
+    save=save_key,
+    cb=read_key,
+    pack=pack_key
+    },
+    {print_key,58,
+    action="jUMP\t\t\t",
+    ch=" ",
+    stat=44,
+    id=4,
+    load=load_key,
+    save=save_key,
+    cb=read_key,
+    pack=pack_key
+    },
+    {function(btn)
+      return "iNVERT MOUSE\t"..(btn.value==1 and "YES" or "NO")
+    end,68,
+    value=0,
+    id=5,
+    load=load_value,
+    save=save_value,
+    cb=flip_bool,
+    pack=function(btn)
+      poke4(0x9010,btn.value==1 and -1 or 1)
+    end
+    },
+    {function(btn)
+      return "sWAP BUTTONS\t"..(btn.value==1 and "YES" or "NO")
+    end,75,
+    value=0,
+    id=6,
+    load=load_value,
+    save=save_value,
+    cb=flip_bool,
+    pack=function(btn)
+      local a,b=4,5
+      if(btn.value==1) a,b=b,a
+      poke(0x9014,a,b)
+    end
+    },
+    {function(btn)
+      return "sENSITIVITY\t"..sensitivity[btn.value+1].."%"
+    end,82,
+    value=3,
+    id=7,
+    load=load_value,
+    save=save_value,
+    cb=function(btn)
+      btn.value=((btn.value+1)%#sensitivity)
+    end,
+    pack=function(btn)
+      poke4(0x9016,sensitivity[btn.value+1]/100)
+    end
+    },
+    {"aCCEPT",111,
+    cb=function()
+      -- save version
+      dset(25,1)
+      -- save bindings
+      for _,btn in inext,_settings do
+        if(btn.save) btn:save()
+      end
+      -- refresh game settings
+      pack_settings()
+      exit_state()
+    end
+    },
+    {"bACK",119,
+    cb=function() 
+      exit_state()
+    end
+    },
+    draw=function()
+      split2d([[1;24;126;24;4
+      1;25;126;25;2
+      1;109;126;109;2
+      1;108;126;108;4]],line)   
+      arizona_print("kEYBOARD & mOUSE",1,16,2)
+    end
+  }
+  -- restore previous
+  local control_version=dget(25)
+  if control_version==1 then
+    for _,btn in inext,_settings do
+      if(btn.load) btn:load()
+    end
+  end
+  pack_settings()
+
+  -- back to main menu
+  menuitem(1,"main menu",function()
+    next_state(menu_state, _main_buttons)
+  end)
+
   -- init game
   next_state(title_state)
 end
