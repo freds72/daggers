@@ -174,11 +174,11 @@ printh(s,"@clip")
 --  2222
 
 function make_player(_origin,_a)
-  local _chatter_ranges,on_ground={
+  local _chatter_ranges,on_ground,prev_jump={
     split"0x0000.0000,0x0001.0000,0x0000.0001,0x0001.0001",
     split"0x0000.0000,0x0001.0000,0x0002.0000,0x0003.0000,0x0000.0001,0x0003.0001,0x0000.0002,0x0003.0002,0x0000.0003,0x0001.0003,0x0002.0003,0x0003.0003",
     split"0x0001.0000,0x0002.0000,0x0003.0000,0x0004.0000,0x0000.0001,0x0005.0001,0x0000.0002,0x0005.0002,0x0000.0003,0x0005.0003,0x0000.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
-  }  
+  }    
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
     origin=v_add(_origin,split"0,1,0"), 
@@ -188,12 +188,13 @@ function make_player(_origin,_a)
     control=function(_ENV)
       if(dead) return
       -- move
-      local dx,dz,a,jmp=0,0,angle[2],0
-      if(btn(0,1)) dx=3
-      if(btn(1,1)) dx=-3
-      if(btn(2,1)) dz=3
-      if(btn(3,1)) dz=-3
-      if(on_ground and btnp(4)) jmp=12 on_ground=false
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0x9004)
+      if(stat(28,@0x9002)) dx=3
+      if(stat(28,@0x9003)) dx=-3
+      if(stat(28,@0x9000)) dz=3
+      if(stat(28,@0x9001)) dz=-3
+      if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false
+      prev_jump=jump_down
 
       -- straffing = faster!
 
@@ -202,7 +203,7 @@ function make_player(_origin,_a)
 
       -- double-click detector
       dblclick_ttl=max(dblclick_ttl-1)
-      if btn(5) then
+      if btn(@0x9015) then
         if fire_released then
           fire_released=false
         end
@@ -227,7 +228,7 @@ function make_player(_origin,_a)
         fire_released,fire_frames=true,0
       end
 
-      dangle=v_add(dangle,{stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0x9010*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
@@ -246,7 +247,7 @@ function make_player(_origin,_a)
       -- avoid overflow!
       fire_ttl=max(fire_ttl-1)
 
-      angle=v_add(angle,dangle,1/1024)
+      angle=v_add(angle,dangle,$0x9016/1024)
       -- limit x amplitude
       angle[1]=mid(angle[1],-0.24,0.24)
       -- check next position
@@ -403,7 +404,6 @@ function draw_grid(cam,light)
   local function project_array(array)
     -- make sure camera matrix is local
     local m1,m5,m9,m2,m6,m10,m3,m7,m11,r_scale=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11],sin(0.625+cam.angles[1]/2)
-    printh(r_scale)
     for i,obj in inext,array do
       local origin=obj.origin  
       local oy=origin[2]
