@@ -2,7 +2,7 @@
 local _bsp,_bullets,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_ents,_goo_ents={},{},{},{},{}
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
-local _fire_ttl,_shotgun_count,_shotgun_spread=3,10,0.025
+local _hw_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,3,10,0.025
 -- must be globals
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
@@ -771,7 +771,7 @@ function make_worm()
         make_blood(pos)
         make_jewel(origin,head.velocity)
         -- change sprite (no jewels)
-        touched,ent=true,_entities.worm2
+        touched,ent,hit_ttl=true,_entities.worm2,5
         sfx"56"
       end
     },_ENV["_worm_seg_template"..i] or _worm_seg_template)))
@@ -853,9 +853,26 @@ function make_jewel(_origin,vel)
     pickup=function(_ENV,spider)
       if(dead) return
       dead=true
-      -- no feedback when gobbed by spider
-      if(not spider) _total_jewels+=1 sfx"57"      
       grid_unregister(_ENV)
+      -- no feedback when gobbed by spider
+      if(spider) return
+      _total_jewels+=1 
+      sfx"57"      
+      -- avoid overlapping flashes
+      if _hw_pal==0 then
+        -- visual feedback
+        do_async(function()
+          for i=256,368,32 do
+            _hw_pal=i
+            yield()
+          end
+          -- more pleasing to the eye
+          _hw_pal=288
+          yield()
+          -- back to normal
+          _hw_pal=0
+        end)
+      end
     end,
     update=function(_ENV)
       ttl-=1
@@ -1092,7 +1109,7 @@ function play_state()
         arizona_print(s,64-print(s,0,128)/2,1,2)
       end
       -- hw palette
-      memcpy(0x5f10,0x8140,16)
+      memcpy(0x5f10,0x8140+_hw_pal,16)
 
       --[[
       palt(0,true)
@@ -1893,10 +1910,10 @@ function _update()
       if(ai) ai.co=nil
       -- note: assumes thing is already unregistered
       deli(_things,i)
-    elseif update then
+    else
       -- common timers
       if(hit_ttl) hit_ttl=max(hit_ttl-1)
-      update(_ENV)
+      if(update) update(_ENV)
     end
   end
 
