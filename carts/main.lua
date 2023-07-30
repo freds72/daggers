@@ -862,15 +862,10 @@ function make_jewel(_origin,vel)
       if _hw_pal==0 then
         -- visual feedback
         do_async(function()
-          for i=256,368,32 do
+          for i in all(split"256,288,320,288,0") do
             _hw_pal=i
             yield()
           end
-          -- more pleasing to the eye
-          _hw_pal=288
-          yield()
-          -- back to normal
-          _hw_pal=0
         end)
       end
     end,
