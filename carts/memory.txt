@@ -1,0 +1,27 @@
+----------
+daggers.p8
+----------
+0x3100-0x31ff: music - game
+0x3200-0x341f: sfx - game instruments
+0x3420-0x385f: sfx - game chatter
+0x3860-0x42ff: sfx - game miscellaneous
+
+0xf340-0xf77f: sfx - chatter damp 0
+0xf780-0xfbbf: sfx - chatter damp 1
+0xfbc0-0xffff: sfx - chatter damp 2
+
+--------
+title.p8
+--------
+0x2000-0x243f: sfx - chatter damp 0
+
+0x2800-0x2803: music - daggercollect
+0x2804-0x2913: sfx - daggercollect1-4
+
+0x3100-0x31ff: music - musiciii
+0x3200-0x42ff: sfx - musiciii
+
+0xf340-0xf77f: sfx - chatter damp 0
+0xf780-0xfbbf: sfx - chatter damp 1
+0xfbc0-0xffff: sfx - chatter damp 2
+
