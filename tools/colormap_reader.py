@@ -143,7 +143,7 @@ def sqr(x):
 def lerp(a,b,t):
   return a*(1-t) + b*t
 
-def palette_to_ramp(filename,target_color,ramp_size,ramp_mode,fixed_color=None):
+def palette_to_ramp(filename,target_color,ramp_size,ramp_mode,fixed_color=None,keep_palette=False):
   src = Image.open(filename)
   width, height = src.size
   if width*height!=16:
@@ -169,6 +169,8 @@ def palette_to_ramp(filename,target_color,ramp_size,ramp_mode,fixed_color=None):
 
   # interpolate to target
   std_pico_palette = std_rgb_palette(max_index=256)
+  if keep_palette:
+    std_pico_palette = {rgb:std_pico_palette[rgb] for rgb in palette}
   pico_to_std_palette = dict(map(reversed, std_pico_palette.items()))
   std_ycc_palette = {p8:rgb_to_ycc(rgba) for p8,rgba in pico_to_std_palette.items()}  
   
@@ -177,6 +179,7 @@ def palette_to_ramp(filename,target_color,ramp_size,ramp_mode,fixed_color=None):
     # skip first line
     for j in range(1,ramp_size):
       ratio = j/(ramp_size-1)
+      # ratio = math.pow(ratio, 0.95)
       out_row=[]
       for i in range(16):
         src_r,src_g,src_b = palette[i]
@@ -216,10 +219,11 @@ def main():
   parser.add_argument("--ramp-size", type=int, default=16, help="Ramp size (default: 16)")
   parser.add_argument("--ramp-mode", type=str, default="rgb", help="Interpolation space (default: rgb)")
   parser.add_argument("--fixed-color", type=int, default=None, help="Non interpolated color index [0-15]")
+  parser.add_argument("--keep", action='store_true', help="Non interpolated color index [0-15]")
 
   args = parser.parse_args()
   if args.ramp is not None:
-    palette_to_ramp(args.palette,args.ramp,args.ramp_size,args.ramp_mode,fixed_color=args.fixed_color)
+    palette_to_ramp(args.palette,args.ramp,args.ramp_size,args.ramp_mode,fixed_color=args.fixed_color,keep_palette=args.keep)
   else:
     print(palette_from_png(args.palette))
 

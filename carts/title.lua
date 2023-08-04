@@ -588,7 +588,13 @@ function play_state()
       cam:track(eye_pos,m,angle,tilt)
 
       -- player close to dagger?
-      distance=min(distance,v_len(origin,{0,0,0}))
+      local real_distance=v_len(origin,{0,0,0})
+      if real_distance>380 then
+        -- todo: sound cue?
+        next_state(play_state)
+        return
+      end
+      distance=min(distance,real_distance)
       if not launching and distance<16 then
         -- avoid reentrancy
         launching=true
@@ -598,7 +604,6 @@ function play_state()
         music"63"
 
         do_async(function()
-          -- todo: fade to red? black?
           for i=0,44 do
             fov=lerp(64,32,easeoutelastic(i/45))
             yield()
