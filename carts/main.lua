@@ -187,7 +187,7 @@ function make_player(_origin,_a)
       if(btn(1,1)) dx=-3
       if(btn(2,1)) dz=3
       if(btn(3,1)) dz=-3
-      if(on_ground and btnp(4)) jmp=12 on_ground=false
+      if(on_ground and btnp(4)) jmp=12 on_ground=false sfx"58"
 
       -- straffing = faster!
 
