@@ -64,7 +64,7 @@ function wait_jewels(n)
     prev=_total_jewels
     yield()
   end
-  _slow_mo=true
+  _slow_mo=0
 end 
 
 -- record number of "things" on playground and wait until free slots are available
@@ -181,9 +181,9 @@ printh(s,"@clip")
 
 function make_player(_origin,_a)
   local _chatter_ranges,on_ground,prev_jump={
-    split"0x0000.0000,0x0001.0000,0x0000.0001,0x0001.0001",
-    split"0x0000.0000,0x0001.0000,0x0002.0000,0x0003.0000,0x0000.0001,0x0003.0001,0x0000.0002,0x0003.0002,0x0000.0003,0x0001.0003,0x0002.0003,0x0003.0003",
-    split"0x0001.0000,0x0002.0000,0x0003.0000,0x0004.0000,0x0000.0001,0x0005.0001,0x0000.0002,0x0005.0002,0x0000.0003,0x0005.0003,0x0000.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
+    split"0x0000,0x0001,0x0000.0001,0x0001.0001",
+    split"0x0000,0x0001,0x0002,0x0003,0x0000.0001,0x0003.0001,0x0000.0002,0x0003.0002,0x0000.0003,0x0001.0003,0x0002.0003,0x0003.0003",
+    split"0x0001,0x0002,0x0003,0x0004,0x0000.0001,0x0005.0001,0x0000.0002,0x0005.0002,0x0000.0003,0x0005.0003,0x0000.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
   }    
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
@@ -1207,9 +1207,11 @@ wait_async;600]],exec)
     end)
 
     local function levelup_async()
-      for j=1,2 do
+      -- for i in all(split"0x91c0,0x90c0,0x8fc0,0x8ec0,0x8dc0,0x8cc0,0x8bc0,0x8ac0,0x89c0,0x88c0,0x87c0,0x86c0,0x85c0,0x84c0,0x83c0,0x82c0,0x91c0,0x90c0,0x8fc0,0x8ec0,0x8dc0,0x8cc0,0x8bc0,0x8ac0,0x89c0,0x88c0,0x87c0,0x86c0,0x85c0,0x84c0,0x83c0,0x82c0.0000") do
+      for j=1,6 do
         for i=0x91c0,0x82c0,-256 do        
           _ramp_pal=i
+          _slow_mo+=1
           yield()
         end
       end
@@ -1911,17 +1913,19 @@ function _update()
 
   _plyr:update()
   --
-  for i=#_things,1,-1 do
-    local _ENV=_things[i]
-    if dead then
-      -- kill ai coroutine (if any)
-      if(ai) ai.co=nil
-      -- note: assumes thing is already unregistered
-      deli(_things,i)
-    else
-      -- common timers
-      if(hit_ttl) hit_ttl=max(hit_ttl-1)
-      if(update) update(_ENV)
+  if not _slow_mo or (_slow_mo%2==0) then
+    for i=#_things,1,-1 do
+      local _ENV=_things[i]
+      if dead then
+        -- kill ai coroutine (if any)
+        if(ai) ai.co=nil
+        -- note: assumes thing is already unregistered
+        deli(_things,i)
+      else
+        -- common timers
+        if(hit_ttl) hit_ttl=max(hit_ttl-1)
+        if(update) update(_ENV)
+      end
     end
   end
 
