@@ -143,6 +143,69 @@ def sqr(x):
 def lerp(a,b,t):
   return a*(1-t) + b*t
 
+def animate_ramp(filename,target_color):
+  src = Image.open(filename)
+  width, height = src.size
+  if width*height!=16:
+    raise Exception("Palette image: {} invalid size: {}x{} - Palette must be max. 16 pixels".format(filename,width,height))
+  # copy to know format
+  tmp = Image.new("RGB",(width, height),0)
+  tmp.paste(src)
+
+  # convert to array of rgb integers
+  palette = []
+  
+  for i in range(16):
+    rgb = tmp.getpixel((i%width,i//width))    
+    hexa = "0x{:02x}{:02x}{:02x}".format(rgb[0],rgb[1],rgb[2])
+    if hexa not in rgb_to_pico8:
+      raise Exception(f"Unknown color: {hexa} at {(i%width,i//width)}")
+    palette.append(rgb)
+  
+  std_pico_palette = std_rgb_palette(max_index=256)
+  std_pico_palette = {rgb:std_pico_palette[rgb] for rgb in palette}
+  pico_to_std_palette = dict(map(reversed, std_pico_palette.items()))
+  rgb_to_pal = {palette[i]:i for i in range(16)}
+
+  def lerp_color(src_rgb,dst_rgb,ratio):
+    src_r,src_g,src_b = src_rgb
+    dst_r,dst_g,dst_b = dst_rgb
+    r,g,b = (lerp(src_r,dst_r,ratio),lerp(src_g,dst_g,ratio),lerp(src_b,dst_b,ratio))
+    diffs = {p8:math.sqrt(sqr(r-rgb[0]) + sqr(g-rgb[1]) + sqr(b-rgb[2])) for p8,rgb in pico_to_std_palette.items()}
+    return min(diffs, key=diffs.get)
+
+  # skip first line
+  dst_rgb = pico_to_std_palette[0]
+  for j in range(1,16):
+    ratio = j/15
+    for i in range(16):
+      src_rgb = palette[i]
+      best_p8_color = lerp_color(src_rgb, dst_rgb, ratio)
+      palette.append(pico_to_std_palette[best_p8_color])
+
+  out = []
+  gifs = []
+  dst_rgb = pico_to_std_palette[target_color]
+  for band in range(16):
+    dst = Image.new("RGB",(16,16),0)
+    for k in range(16*16):
+      k_band = k//16
+      ratio = math.pow(max(0,math.cos((band-k_band)*2*math.pi/16)),3)
+      
+      src_rgb = palette[k]
+      # dst.putpixel((k%16,k//16),(int(ratio*255), int(ratio*255), int(ratio*255)))
+      best_p8_color = lerp_color(src_rgb, dst_rgb, ratio)
+      c = best_p8_color
+      if k%16==0: c=0
+      dst.putpixel((k%16,k//16),pico_to_std_palette[c])
+      out.append(str(rgb_to_pal[pico_to_std_palette[c]]))
+    dst.save(f"animated_ramp_{band}.png",'PNG')
+    gifs.append(dst)
+
+  gifs[0].save('animated_ramp.gif',save_all=True, append_images=gifs[1:], optimize=False, duration=40, loop=0)
+  # 
+  print("[[{0}]]".format("\n".join([";".join(out[x:x+16]) for x in range(0, len(out),16)][::-1])))
+  
 def palette_to_ramp(filename,target_color,ramp_size,ramp_mode,fixed_color=None,keep_palette=False):
   src = Image.open(filename)
   width, height = src.size
@@ -223,7 +286,8 @@ def main():
 
   args = parser.parse_args()
   if args.ramp is not None:
-    palette_to_ramp(args.palette,args.ramp,args.ramp_size,args.ramp_mode,fixed_color=args.fixed_color,keep_palette=args.keep)
+    # palette_to_ramp(args.palette,args.ramp,args.ramp_size,args.ramp_mode,fixed_color=args.fixed_color,keep_palette=args.keep)
+    animate_ramp(args.palette,8)
   else:
     print(palette_from_png(args.palette))
 

@@ -2,7 +2,7 @@
 local _bsp,_bullets,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_ents,_goo_ents={},{},{},{},{}
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
-local _hw_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,3,10,0.025
+local _hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0x8000,3,10,0.025
 -- must be globals
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
@@ -52,7 +52,19 @@ end
 
 -- wait until a certain number of jewels is captured
 function wait_jewels(n)
-  while _total_jewels<n do yield() end
+  local prev=_total_jewels
+  while _total_jewels<n do
+    if _total_jewels!=prev then
+      for i in all(split"256,288,320,288,0") do
+        _hw_pal=i
+        yield()
+      end
+    end
+    -- update with current total (avoids overlapping "flash" effects)
+    prev=_total_jewels
+    yield()
+  end
+  _slow_mo=true
 end 
 
 -- record number of "things" on playground and wait until free slots are available
@@ -88,10 +100,6 @@ function with_properties(props,dst)
 end
 
 -- grid helpers
-function world_to_grid(p)
-  return (p[1]\32)>>16|(p[3]\32)
-end
-
 -- adds thing in the collision grid
 function grid_register(thing)
   local grid,_ENV=_grid,thing
@@ -186,11 +194,11 @@ function make_player(_origin,_a)
     control=function(_ENV)
       if(dead) return
       -- move
-      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0x9004)
-      if(stat(28,@0x9002)) dx=3
-      if(stat(28,@0x9003)) dx=-3
-      if(stat(28,@0x9000)) dz=3
-      if(stat(28,@0x9001)) dz=-3
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xa004)
+      if(stat(28,@0xa002)) dx=3
+      if(stat(28,@0xa003)) dx=-3
+      if(stat(28,@0xa000)) dz=3
+      if(stat(28,@0xa001)) dz=-3
       if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false
       prev_jump=jump_down
 
@@ -201,7 +209,7 @@ function make_player(_origin,_a)
 
       -- double-click detector
       dblclick_ttl=max(dblclick_ttl-1)
-      if btn(@0x9015) then
+      if btn(@0xa015) then
         if fire_released then
           fire_released=false
         end
@@ -226,7 +234,7 @@ function make_player(_origin,_a)
         fire_released,fire_frames=true,0
       end
 
-      dangle=v_add(dangle,{$0x9010*stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0xa010*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
@@ -245,7 +253,7 @@ function make_player(_origin,_a)
       -- avoid overflow!
       fire_ttl=max(fire_ttl-1)
 
-      angle=v_add(angle,dangle,$0x9016/1024)
+      angle=v_add(angle,dangle,$0xa016/1024)
       -- limit x amplitude
       angle[1]=mid(angle[1],-0.24,0.24)
       -- check next position
@@ -461,7 +469,7 @@ function draw_grid(cam)
       local light=thing.light_t and min(1,(time()-thing.light_t)/0.15) or 1
       pal1=(light*min(15,item.key<<4))\1
     end    
-    if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) palt(15,true) pal0=pal1   
+    if(pal0!=pal1) memcpy(0x5f00,_ramp_pal+(pal1<<4),16) palt(15,true) pal0=pal1   
     -- draw things
     local w0,entity,origin=item.key,thing.ent,thing.origin
     -- zangle (horizontal)
@@ -670,42 +678,42 @@ function make_squid(type)
 
   local squid_parts={
     -- type 1 (1 jewel)
-[[_squid_jewel;light_ttl,15,angle_offset,0.0,r_offset,8,y_offset,24,cost,5
-_squid_hood;light_ttl,15,angle_offset,0.3333,r_offset,8,y_offset,24
-_squid_hood;light_ttl,15,angle_offset,0.6667,r_offset,8,y_offset,24
-_squid_tentacle;light_ttl,15,angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;light_ttl,15,angle_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;light_ttl,15,angle_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;light_ttl,15,angle_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
-_squid_tentacle;light_ttl,15,angle_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;light_ttl,15,angle_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;light_ttl,15,angle_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;light_ttl,15,angle_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
-_squid_tentacle;light_ttl,15,angle_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;light_ttl,15,angle_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;light_ttl,15,angle_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;light_ttl,15,angle_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]],
+[[_squid_jewel;light_ttl,15,a_offset,0.0,r_offset,8,y_offset,24,cost,5
+_squid_hood;light_ttl,15,a_offset,0.3333,r_offset,8,y_offset,24
+_squid_hood;light_ttl,15,a_offset,0.6667,r_offset,8,y_offset,24
+_squid_tentacle;light_ttl,15,a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;light_ttl,15,a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;light_ttl,15,a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;light_ttl,15,a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;light_ttl,15,a_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;light_ttl,15,a_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;light_ttl,15,a_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;light_ttl,15,a_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;light_ttl,15,a_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;light_ttl,15,a_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;light_ttl,15,a_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;light_ttl,15,a_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]],
     -- type 2 (2 jewels)
-[[_squid_jewel;angle_offset,0.0,r_offset,8,y_offset,24
-_squid_hood;angle_offset,0.25,r_offset,8,y_offset,24
-_squid_jewel;angle_offset,0.5,r_offset,8,y_offset,24
-_squid_hood;angle_offset,0.75,r_offset,8,y_offset,24
-_squid_tentacle;angle_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;angle_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;angle_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;angle_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
-_squid_tentacle;angle_offset,0.25,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;angle_offset,0.25,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;angle_offset,0.25,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;angle_offset,0.25,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
-_squid_tentacle;angle_offset,0.5,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;angle_offset,0.5,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;angle_offset,0.5,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;angle_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
-_squid_tentacle;angle_offset,0.75,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;angle_offset,0.75,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;angle_offset,0.75,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]}
+[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24
+_squid_hood;a_offset,0.25,r_offset,8,y_offset,24
+_squid_jewel;a_offset,0.5,r_offset,8,y_offset,24
+_squid_hood;a_offset,0.75,r_offset,8,y_offset,24
+_squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;a_offset,0.25,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;a_offset,0.25,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;a_offset,0.25,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;a_offset,0.25,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;a_offset,0.5,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;a_offset,0.5,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;a_offset,0.5,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;a_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;a_offset,0.75,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;a_offset,0.75,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;a_offset,0.75,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]}
 
   split2d(squid_parts[type],function(base_template,properties)
     add(_things,inherit({
@@ -737,7 +745,7 @@ _squid_tentacle;angle_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_o
           _total_things-=cost or 0   
           sfx"39"
         end
-        zangle=_angle+angle_offset
+        zangle=_angle+a_offset
         -- store u/v angle
         local cc,ss,offset=cos(zangle),-sin(zangle),r_offset
         if is_tentacle then
@@ -858,16 +866,6 @@ function make_jewel(_origin,vel)
       if(spider) return
       _total_jewels+=1 
       sfx"57"      
-      -- avoid overlapping flashes
-      if _hw_pal==0 then
-        -- visual feedback
-        do_async(function()
-          for i in all(split"256,288,320,288,0") do
-            _hw_pal=i
-            yield()
-          end
-        end)
-      end
     end,
     update=function(_ENV)
       ttl-=1
@@ -1208,16 +1206,31 @@ make_worm
 wait_async;600]],exec) 
     end)
 
+    local function levelup_async()
+      for j=1,2 do
+        for i=0x91c0,0x82c0,-256 do        
+          _ramp_pal=i
+          yield()
+        end
+      end
+      -- restore state
+      _ramp_pal,_slow_mo=0x8000      
+    end
+
     -- progression
     do_async(function()
       -- reset values
       _fire_ttl,_shotgun_count,_shotgun_spread=3,10,0.025
       wait_jewels(10)
       _shotgun_count,_shotgun_spread=20,0.033
+      levelup_async()
+      
       wait_jewels(70)
       _fire_ttl=2
+      levelup_async()
       wait_jewels(150)
       -- 
+      levelup_async()
     end)
 
     do_async(function()
@@ -1545,7 +1558,7 @@ cartdata;freds72_daggers]],exec)
                 v0=v1
               end 
               ]]
-              mode7(verts,#verts,1)  
+              mode7(verts,#verts,_ramp_pal)  
               --[[
               local mx,my=0,0
               for _,v in inext,verts do
@@ -1633,10 +1646,11 @@ cartdata;freds72_daggers]],exec)
       -- custom think function
       think(_ENV)
 
-      -- makes the boids behavior a lot more "natural"
+      -- makes the boids behavior a lot more "natural" + saves cpu
       if rnd()>0.25 then
         -- avoid others (noted: limited to a single grid cell)
-        local idx,fx,fy,fz=world_to_grid(origin),unpack(forces)
+        -- 21 = (x\32)>>16
+        local idx,fx,fy,fz=origin[1]>>21|origin[3]\32,unpack(forces)
         for other in pairs(_grid[idx].things) do
           -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
@@ -1693,7 +1707,6 @@ cartdata;freds72_daggers]],exec)
       if oy<ground_limit then
         oy=ground_limit
         yangle+=rnd(1)
-        -- printh("touch ground")
       end
 
       origin[2]=oy

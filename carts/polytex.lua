@@ -1,4 +1,4 @@
-function mode7(p,np)
+function mode7(p,np,palette)
   local miny,maxy,mini=32000,-32000
   -- find extent
   for i=1,np do
@@ -66,7 +66,7 @@ function mode7(p,np)
     if rw>0.15 then
       local ddx=lx-rx
       local ddu,ddv,pal1=(lu-ru)/ddx,(lv-rv)/ddx,rw>0.9375 and 15 or rw\0.0625
-      if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) pal0=pal1
+      if(pal0!=pal1) memcpy(0x5f00,palette+(pal1<<4),16) pal0=pal1
       local pix=1-rx&0x0.ffff
       tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
     end
