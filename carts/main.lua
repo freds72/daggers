@@ -2,7 +2,7 @@
 local _bsp,_bullets,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_ents,_goo_ents={},{},{},{},{}
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
-local _hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0x8000,3,10,0.025
+local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x8000,3,10,0.025
 -- must be globals
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
@@ -65,7 +65,18 @@ function wait_jewels(n)
     yield()
   end
   _slow_mo=0
-end 
+end
+
+function levelup_async(t)
+  -- 30 frames at 1/8 steps
+  for j=0.125,t<<2,0.125 do
+    _ramp_pal=0x82c0+((j*j)&15)*16
+    _slow_mo+=1
+    yield()
+  end
+  -- restore state
+  _ramp_pal,_slow_mo=0x8000,0
+end
 
 -- record number of "things" on playground and wait until free slots are available
 -- note: must be called from a coroutine
@@ -80,6 +91,9 @@ function reserve_async(n)
 end
 
 -- misc helpers
+function inherit(t,env)
+  return setmetatable(t,{__index=env or _ENV})
+end
 function nop() end
 function with_properties(props,dst)
   local dst,props=dst or {},split(props)
@@ -181,9 +195,9 @@ printh(s,"@clip")
 
 function make_player(_origin,_a)
   local _chatter_ranges,on_ground,prev_jump={
-    split"0x0000,0x0001,0x0000.0001,0x0001.0001",
-    split"0x0000,0x0001,0x0002,0x0003,0x0000.0001,0x0003.0001,0x0000.0002,0x0003.0002,0x0000.0003,0x0001.0003,0x0002.0003,0x0003.0003",
-    split"0x0001,0x0002,0x0003,0x0004,0x0000.0001,0x0005.0001,0x0000.0002,0x0005.0002,0x0000.0003,0x0005.0003,0x0000.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
+    split"0x0,0x0001,0x0.0001,0x0001.0001",
+    split"0x0,0x0001,0x0002,0x0003,0x0.0001,0x0003.0001,0x0.0002,0x0003.0002,0x0.0003,0x0001.0003,0x0002.0003,0x0003.0003",
+    split"0x0001,0x0002,0x0003,0x0004,0x0.0001,0x0005.0001,0x0.0002,0x0005.0002,0x0.0003,0x0005.0003,0x0.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
   }    
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
@@ -524,10 +538,6 @@ function draw_grid(cam)
     --sspr(0,0,32,32,sx,sy,32,32,flip)
     --print(thing.zangle,sx+sw/2,sy-8,9)      
   end
-end
-
-function inherit(t,env)
-  return setmetatable(t,{__index=env or _ENV})
 end
 
 -- things
@@ -1206,33 +1216,23 @@ make_worm
 wait_async;600]],exec) 
     end)
 
-    local function levelup_async()
-      -- for i in all(split"0x91c0,0x90c0,0x8fc0,0x8ec0,0x8dc0,0x8cc0,0x8bc0,0x8ac0,0x89c0,0x88c0,0x87c0,0x86c0,0x85c0,0x84c0,0x83c0,0x82c0,0x91c0,0x90c0,0x8fc0,0x8ec0,0x8dc0,0x8cc0,0x8bc0,0x8ac0,0x89c0,0x88c0,0x87c0,0x86c0,0x85c0,0x84c0,0x83c0,0x82c0.0000") do
-      for j=1,6 do
-        for i=0x91c0,0x82c0,-256 do        
-          _ramp_pal=i
-          _slow_mo+=1
-          yield()
-        end
-      end
-      -- restore state
-      _ramp_pal,_slow_mo=0x8000      
-    end
-
     -- progression
     do_async(function()
       -- reset values
       _fire_ttl,_shotgun_count,_shotgun_spread=3,10,0.025
+      -- level 1
       wait_jewels(10)
       _shotgun_count,_shotgun_spread=20,0.033
-      levelup_async()
+      levelup_async(3)
       
+      -- level 2
       wait_jewels(70)
       _fire_ttl=2
-      levelup_async()
+      levelup_async(5)
+
+      -- level 3
       wait_jewels(150)
-      -- 
-      levelup_async()
+      levelup_async(7)
     end)
 
     do_async(function()
@@ -1492,9 +1492,9 @@ cartdata;freds72_daggers]],exec)
     -- ##6: vertex index
     -- ##7: vertex index
     -- ##8: tex coords
-    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0000.0404; -2;32.0;0;2;58;55;52;49;0x0008.0404; -3;-384.0;0;1;13;22;58;49;0x0004.0404; 3;640.0;0;1;19;16;52;55;0x0004.0404; -1;-320.0;2;1;49;52;16;13;0x0004.0404
-2; 2;0.0;0;2;1;4;7;10;0x0000.0404; -2;32.0;0;2;46;43;40;37;0x0008.0404; -3;-320.0;0;1;1;10;46;37;0x0004.0404; 3;704.0;0;1;7;4;40;43;0x0004.0404; -1;-384.0;2;1;22;1;37;58;0x0004.0404; -1;-384.0;2;1;4;19;55;40;0x0004.0404; 1;640.0;2;1;28;7;43;64;0x0004.0404; 1;640.0;2;1;10;25;61;46;0x0004.0404
-3; 2;0.0;0;2;25;28;31;34;0x0000.0404; -2;32.0;0;2;70;67;64;61;0x0008.0404; -3;-384.0;0;1;25;34;70;61;0x0004.0404; 1;704.0;2;1;70;34;31;67;0x0004.0404; 3;640.0;0;1;31;28;64;67;0x0004.0404]],function(id,...)
+    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0.0404; -2;32.0;0;2;58;55;52;49;0x0008.0404; -3;-384.0;0;1;13;22;58;49;0x0004.0404; 3;640.0;0;1;19;16;52;55;0x0004.0404; -1;-320.0;2;1;49;52;16;13;0x0004.0404
+2; 2;0.0;0;2;1;4;7;10;0x0.0404; -2;32.0;0;2;46;43;40;37;0x0008.0404; -3;-320.0;0;1;1;10;46;37;0x0004.0404; 3;704.0;0;1;7;4;40;43;0x0004.0404; -1;-384.0;2;1;22;1;37;58;0x0004.0404; -1;-384.0;2;1;4;19;55;40;0x0004.0404; 1;640.0;2;1;28;7;43;64;0x0004.0404; 1;640.0;2;1;10;25;61;46;0x0004.0404
+3; 2;0.0;0;2;25;28;31;34;0x0.0404; -2;32.0;0;2;70;67;64;61;0x0008.0404; -3;-384.0;0;1;25;34;70;61;0x0004.0404; 1;704.0;2;1;70;34;31;67;0x0004.0404; 3;640.0;0;1;31;28;64;67;0x0004.0404]],function(id,...)
       -- localize
       local planes={...}
       _bsp[id]=function(cam)        
@@ -1730,7 +1730,7 @@ _egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,obituary,aCIDIFIED
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
 _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,apply,nop,obituary,wORMED,scale,1.2
 _worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,apply,nop,obituary,wORMED,scale,0.8
-_worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64;_skull_template
+_worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10;_skull_template
 _jewel_template;ent,jewel,radius,12,zangle,rnd,ttl,300,apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED;_skull_template
 _squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,hit,nop,cost,5,obituary,nAILED;_skull_template
@@ -1824,7 +1824,7 @@ function ray_sphere_intersect(a,b,dir,len,o,r)
   ax+=t*dx
   ay+=t*dy
   az+=t*dz
-  -- return intersection point (rebased in world space)
+  -- return intersection point
   return true,t,{ax,ay,az}
 end
 
@@ -1913,7 +1913,7 @@ function _update()
 
   _plyr:update()
   --
-  if not _slow_mo or (_slow_mo%2==0) then
+  if _slow_mo%2==0 then
     for i=#_things,1,-1 do
       local _ENV=_things[i]
       if dead then
