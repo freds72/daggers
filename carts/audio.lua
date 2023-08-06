@@ -18,11 +18,13 @@ function do_chatter(chatter)
   for i = 0, 2 do
     --loop chatter sfx variants
     for j = 0, 3 do
+      local cur_sfx = stat(46 + i)
+
       if
-        --music playing
-        stat"57"
-        --chatter variant in progress
-        or stat(46 + i) == idx + j
+        --any non-chatter sfx in progress
+        cur_sfx > 24
+        --variant of this chatter idx in progress
+        or cur_sfx == idx + j
       then
         return
       end
@@ -32,6 +34,7 @@ function do_chatter(chatter)
   local offset = (idx + variant) * 68
 
   --copy dampened sfx
+  --start from 0xf120 to account for sfx idx 0-7 in offset value
   memcpy(0x3200 + offset, 0xf120 + 0x440 * dist + offset, 68)
 
   --playback random chatter variant

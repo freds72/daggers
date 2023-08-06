@@ -213,7 +213,7 @@ function make_player(_origin,_a)
       if(stat(28,@0xa003)) dx=-3
       if(stat(28,@0xa000)) dz=3
       if(stat(28,@0xa001)) dz=-3
-      if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false
+      if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false sfx"58"
       prev_jump=jump_down
 
       -- straffing = faster!
