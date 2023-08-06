@@ -572,7 +572,6 @@ function make_skull(actor,_origin)
   local thing=add(_things,inherit({
     origin=_origin,
     resolved={},
-    wobling=3+rnd"2",
     seed=7+rnd(),
     -- grid cells
     cells={}
@@ -847,10 +846,13 @@ function make_worm()
         grid_unregister(_ENV)
       end)
     end,
+    think=function(_ENV)
+      -- call parent
+      _skull_core.think(_ENV)
+      -- make body wobbles
+      forces=v_add(forces,{0,4*cos(time()/4+seed),0})
+    end,
     post_think=function(_ENV)
-      -- todo: wave based on target 'up' vector?
-      -- todo: bounce logic
-      -- origin[2]+=2*sin(t_offset+time()/3)
       add(prev,{v_clone(origin),zangle,yangle},1)
       if(#prev>20*seg_delta) deli(prev)
       for i=1,#prev,seg_delta do
@@ -1213,7 +1215,7 @@ wait_async;150
 random_spawn_angle
 set_spawn;200;64
 make_worm
-wait_async;600]],exec) 
+wait_async;600]],nop) 
     end)
 
     -- progression
@@ -1320,7 +1322,7 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
       draw=function()
         for i,local_score in ipairs(_local_scores) do
           local t,y,m,d=unpack(local_score)
-          arizona_print(scanf("$. $/$/$\t $S",i,y,m,d,t),1,23+i*7,new_best_i==i and 4)
+          arizona_print(scanf("$.\t$/$/$\t $S",i,y,m,d,t),1,23+i*7,new_best_i==i and 4)
         end
       end},
     {"oNLINE",96,16,
