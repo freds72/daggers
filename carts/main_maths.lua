@@ -19,8 +19,10 @@ end
 -- 2d vector
 function v_zero() return {0,0,0} end
 
-function v_clone(v)
-	return {v[1],v[2],v[3]}
+-- clone vector
+-- optional: y override
+function v_clone(v,y)
+	return {v[1],y or v[2],v[3]}
 end
 
 function v_scale(v,scale)

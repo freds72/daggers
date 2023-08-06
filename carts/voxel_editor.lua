@@ -384,8 +384,8 @@ function draw_grid(grid,cam,mode,layer)
                         if not v then
                             local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
                             local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
-                            
-                            local w=-0.1--fov/az
+                            -- some perspective
+                            local w=3/az
                             v={ax,ay,az,x=xcenter+scale*ax*w,y=ycenter-scale*ay*w}
                             cache[idx]=v
                         end

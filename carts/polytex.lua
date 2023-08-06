@@ -1,4 +1,4 @@
-function mode7(p,np,light)
+function mode7(p,np,palette)
   local miny,maxy,mini=32000,-32000
   -- find extent
   for i=1,np do
@@ -8,8 +8,7 @@ function mode7(p,np,light)
   end
 
   --data for left & right edges:
-  local lj,rj,ly,ry,lx,ldx,rx,rdx,lu,ldu,lv,ldv,ru,rdu,rv,rdv,lw,ldw,rw,rdw=mini,mini,miny-1,miny-1
-  local maxlight,pal0=light\0.066666
+  local lj,rj,ly,ry,lx,ldx,rx,rdx,lu,ldu,lv,ldv,ru,rdu,rv,rdv,lw,ldw,rw,rdw,pal0=mini,mini,miny-1,miny-1
   --step through scanlines.
   if(maxy>127) maxy=127
   if(miny<0) miny=-1
@@ -66,9 +65,8 @@ function mode7(p,np,light)
     -- rectfill(rx,y,lx,y,8/rw)
     if rw>0.15 then
       local ddx=lx-rx
-      local ddu,ddv=(lu-ru)/ddx,(lv-rv)/ddx
-      local pal1=rw>0.9375 and maxlight or (light*rw)\0.0625
-      if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) pal0=pal1
+      local ddu,ddv,pal1=(lu-ru)/ddx,(lv-rv)/ddx,rw>0.9375 and 15 or rw\0.0625
+      if(pal0!=pal1) memcpy(0x5f00,palette+(pal1<<4),16) pal0=pal1
       local pix=1-rx&0x0.ffff
       tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
     end
