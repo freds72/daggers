@@ -1,5 +1,5 @@
 -- global arrays
-local _bsp,_bullets,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_ents,_goo_ents={},{},{},{},{}
+local _bsp,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_ents,_goo_ents={},{},{},{}
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
 local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x8000,3,10,0.025
@@ -390,81 +390,135 @@ function make_player(_origin,_a)
   }))
 end
 
-function make_bullet(origin,zangle,yangle,spread)
+local _checked=0
+function make_bullet(_origin,_zangle,_yangle,_spread)
   -- no bullets while falling
-  if(origin[2]<4) return
+  if(_origin[2]<4) return
 
-  local zangle,yscale=0.25-zangle+(1-rnd"2")*spread,yangle+(1-rnd"2")*spread
-  local u,v,s=cos(zangle),-sin(zangle),cos(yscale)
+  local _zangle,_yscale=0.25-_zangle+(1-rnd"2")*_spread,_yangle+(1-rnd"2")*_spread
+  local _u,_v,_s=cos(_zangle),-sin(_zangle),cos(_yscale)
   -- local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
-  _bullets[#_bullets+1]={
-    origin=v_clone(origin),
+  add(_things,inherit({
+    origin=v_clone(_origin),
     -- must be a unit vector  
-    velocity={s*u,sin(yscale),s*v},
+    velocity={_s*_u,sin(_yscale),_s*_v},
     -- fixed zangle
-    zangle=zangle,
+    zangle=_zangle,
     yangle=rnd(),
     -- 2d unit vector
     -- precomputed for collision detection
     -- make sure to keep the sign of the y component!!
-    u=sgn(s)*u,
-    v=sgn(s)*v,
+    u=sgn(_s)*_u,
+    v=sgn(_s)*_v,
     shadeless=true,
     ttl=time()+0.5+rnd"0.1",
-    ent=rnd{_entities.dagger0,_entities.dagger1}
-  }
+    ent=rnd{_entities.dagger0,_entities.dagger1},
+    update=function(_ENV)
+      if ttl<time() then
+        dead=true
+      else
+        _checked+=1
+        yangle+=0.1
+        local cur_origin,new_origin,len=origin,v_add(origin,velocity,10),10
+        -- out of bounds (>1024)
+        local x,z=new_origin[1],new_origin[3]
+        if (x|z)&0xfc00==0 then
+          local y=new_origin[2]
+          if y<0 then
+            -- hit ground?
+            -- intersection with ground
+            local dy=cur_origin[2]/(cur_origin[2]-y)
+            x,z=lerp(cur_origin[1],x,dy),lerp(cur_origin[3],z,dy)
+            new_origin={x,0,z}
+            -- adjust length
+            len*=dy
+            -- no matter what - we hit the ground!
+            dead=true
+            make_blood(new_origin)
+            -- sparkles
+            for i=1,rnd"5" do
+              local a=zangle+(1-rnd"2")/8
+              local cc,ss,r=cos(a),-sin(a),2+rnd"2"
+              make_blast(_spark_ents,{x+r*cc,0,z+r*ss},{1.5*cc,0,1.5*ss}).zangle=a
+            end
+          end
+          -- collect touched grid indices
+          local hit_t,hit_thing,hit_pos=32000
+          collect_grid(cur_origin,new_origin,u,v,function(things)
+            -- todo: advanced bullets can traverse enemies
+            for thing in pairs(things) do
+              -- hitable?
+              -- avoid checking the same enemy twice
+              if not thing.dead and thing.hit and thing.checked!=_checked then
+                thing.checked=_checked
+                local hit,t,pos=ray_sphere_intersect(cur_origin,new_origin,velocity,len,thing.origin,thing.radius)
+                if hit and t<hit_t then
+                  hit_thing,hit_t,hit_pos=thing,t,pos
+                end
+              end
+            end
+          end)
+          -- apply hit on closest thing
+          if hit_thing then
+            hit_thing:hit(hit_pos)
+            dead=true
+            _total_hits+=0x0.0001
+            -- todo: allow for multiple hits
+          end
+        else
+          dead=true
+        end
+        origin=new_origin
+      end      
+    end
+  }))
 end
 
 function draw_grid(cam)
   local things,m,cx,cy,cz={},cam.m,unpack(cam.origin)
+  -- make sure camera matrix is local
+  local m1,m5,m9,m2,m6,m10,m3,m7,m11,r_scale=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11],-sin(0.625+cam.angles[1]/2)
 
   pal()
 
-  local function project_array(array)
-    -- make sure camera matrix is local
-    local m1,m5,m9,m2,m6,m10,m3,m7,m11,r_scale=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11],-sin(0.625+cam.angles[1]/2)
-    for i,obj in inext,array do
-      local origin=obj.origin  
-      local oy=origin[2]
-      -- centipede can be below ground...
-      if oy>1 then
-        local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
-        local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
-        local az4=az<<2
-        -- draw shadows (y=0)
-        if not obj.shadeless then
-          local ay=m2*x-m6*cy+m10*z
-          if az>4 and az<96 and ax<az4 and -ax<az4 and -ay<az4 and ay<az4 then
-            -- thing offset+cam offset              
-            local w=32/az
-            local a,r=atan2(az,-cy),obj.radius*w
-            local x0,y0,ry=63.5+ax*w,63.5-ay*w,-r*sin(a)
-            ovalfill(x0-r,y0+ry,x0+r,y0-ry)
-          end
-        end
-    
-        -- 
-        if not obj.no_render then
-          ax+=m5*oy
-          az+=m7*oy
-          local ay,az4=m2*x+m6*y+m10*z,az<<2
-          if az>4 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
-            local w=32/az
-            things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
-          end
-        end
-      end
-    end
-  end
   -- 
   -- render shadows (& collect)
   poke(0x5f5e, 0b11111110)
   color(1)
-  project_array(_things)
+  -- project
+  for i,obj in inext,_things do
+    local origin=obj.origin  
+    local oy=origin[2]
+    -- centipede can be below ground...
+    if oy>1 then
+      local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
+      local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
+      local az4=az<<2
+      -- draw shadows (y=0)
+      if not obj.shadeless then
+        local ay=m2*x-m6*cy+m10*z
+        if az>4 and az<96 and ax<az4 and -ax<az4 and -ay<az4 and ay<az4 then
+          -- thing offset+cam offset              
+          local w=32/az
+          local a,r=atan2(az,-cy),obj.radius*w
+          local x0,y0,ry=63.5+ax*w,63.5-ay*w,-r*sin(a)
+          ovalfill(x0-r,y0+ry,x0+r,y0-ry)
+        end
+      end
+  
+      -- 
+      if not obj.no_render then
+        ax+=m5*oy
+        az+=m7*oy
+        local ay,az4=m2*x+m6*y+m10*z,az<<2
+        if az>4 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
+          local w=32/az
+          things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
+        end
+      end
+    end
+  end
   poke(0x5f5e, 0xff)
-
-  -- collect bullets
-  project_array(_bullets)
 
   -- radix sort
   rsort(things)
@@ -1070,7 +1124,7 @@ end
 -- gameplay state
 function play_state()
   -- camera & player & reset misc values
-  _plyr,_things,_bullets,_spiders,_total_jewels,_total_bullets,_total_hits=make_player({512,24,512},0),{},{},{},0,0,0
+  _plyr,_things,_spiders,_total_jewels,_total_bullets,_total_hits=make_player({512,24,512},0),{},{},0,0,0
   
   -- spatial partitioning grid
   _grid=setmetatable({},{
@@ -1215,7 +1269,7 @@ wait_async;150
 random_spawn_angle
 set_spawn;200;64
 make_worm
-wait_async;600]],nop) 
+wait_async;600]],exec) 
     end)
 
     -- progression
@@ -1830,7 +1884,6 @@ function ray_sphere_intersect(a,b,dir,len,o,r)
   return true,t,{ax,ay,az}
 end
 
-local _checked=0
 function _update()
   -- any futures?
   for i=#_futures,1,-1 do
@@ -1843,76 +1896,7 @@ function _update()
       deli(_futures,i)
     end
   end
-
-  -- keep world running    
-  local t=time()
-  -- bullets collisions
-  for i=#_bullets,1,-1 do
-    _checked+=1
-    local b=_bullets[i]
-    if b.ttl<t then
-      deli(_bullets,i)
-    else
-      b.yangle+=0.1
-      local prev,origin,len,dead=b.origin,v_add(b.origin,b.velocity,10),10
-      -- out of bounds (>1024)
-      local x,z=origin[1],origin[3]
-      if (x|z)&0xfc00==0 then
-        local y=origin[2]
-        if y<0 then
-          -- hit ground?
-          -- intersection with ground
-          local dy=prev[2]/(prev[2]-y)
-          x,z=lerp(prev[1],x,dy),lerp(prev[3],z,dy)
-          origin={x,0,z}
-          -- adjust length
-          len*=dy
-          -- no matter what - we hit the ground!
-          dead=true
-          make_blood(origin)
-          -- sparkles
-          for i=1,rnd"5" do
-            local a=b.zangle+(1-rnd"2")/8
-            local cc,ss,r=cos(a),-sin(a),2+rnd"2"
-            make_blast(_spark_ents,{x+r*cc,0,z+r*ss},{1.5*cc,0,1.5*ss}).zangle=a
-          end
-        end
-        -- collect touched grid indices
-        local hit_t,hit_thing,hit_pos=32000
-        collect_grid(prev,origin,b.u,b.v,function(things)
-          -- todo: advanced bullets can traverse enemies
-          for thing in pairs(things) do
-            -- hitable?
-            -- avoid checking the same enemy twice
-            if not thing.dead and thing.hit and thing.checked!=_checked then
-              thing.checked=_checked
-              local hit,t,pos=ray_sphere_intersect(prev,origin,b.velocity,len,thing.origin,thing.radius)
-              if hit and t<hit_t then
-                hit_thing,hit_t,hit_pos=thing,t,pos
-              end
-            end
-          end
-        end)
-        -- apply hit on closest thing
-        if hit_thing then
-          hit_thing:hit(hit_pos)
-          dead=true
-          _total_hits+=0x0.0001
-          -- todo: allow for multiple hits
-        end
-      else
-        dead=true
-      end
-
-      if dead then
-        -- hit something?
-        deli(_bullets,i)
-      else
-        b.prev,b.origin=prev,origin
-      end
-    end
-  end
-
+  
   _plyr:update()
   --
   if _slow_mo%2==0 then
