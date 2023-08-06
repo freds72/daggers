@@ -324,8 +324,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  --dead=true
-                  --next_state(gameover_state,thing.obituary)
+                  dead=true
+                  next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -1214,7 +1214,6 @@ wait_async;90
 --;first squids wave
 random_spawn_angle
 set_spawn;200
-make_worm
 wait_async;330
 make_squid;1
 wait_async;330
