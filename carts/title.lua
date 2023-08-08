@@ -524,14 +524,14 @@ function play_state()
       local d=r2-yy*yy
       if d>=0 then
         local x=sqrt(d)
-        sspr(32-x,32+y,2*x,1,96-x,32+y)
+        sspr(96-x,y,2*x-1,1,96-x,64+y)
       end
     end
   end
   local keys,jump_key="",_settings[5].ch==" " and "SPACE" or _settings[5].ch
   for i=1,4 do
     keys..=_settings[i].ch
-  end  
+  end
   local message_time,messages=0,{
     "lOOK AROUND WITH MOUSE",
     "mOVE WITH "..keys,
