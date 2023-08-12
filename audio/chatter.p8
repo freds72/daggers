@@ -4,8 +4,9 @@ __lua__
 --devil daggers chatter
 --by ridgek
 
---run packer.p8
-load("./packer.p8")
+--!!!warning!!!
+--do not edit this cart directly
+--make chatter edits in sfx.p8!
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

@@ -4,8 +4,8 @@ __lua__
 --"this is a cover of devil daggers iii"
 --by ridgek
 
---copy music/sfx to title.p8
-cstore(0x3100, 0x3100, 0x1200, "../carts/title.p8")
+--run packer.p8
+load("./packer.p8")
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

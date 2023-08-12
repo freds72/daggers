@@ -7,8 +7,11 @@ __lua__
 --copy all sfx/music to daggers.p8
 cstore(0x3100,0x3100,0x1200,"../carts/daggers.p8")
 
---copy chatter sfx to title.p8 map rom
-cstore(0x2000,0x3420, 16 * 68, "../carts/title.p8")
+--copy chatter sfx to chatter.p8
+cstore(0x3420,0x3420, 16 * 68, "./chatter.p8")
+
+--run packer.p8
+load("./packer.p8")
 
 --sfx
 --08: chattersquid
@@ -65,80 +68,6 @@ cstore(0x2000,0x3420, 16 * 68, "../carts/title.p8")
 --36: death
 --54: killcentipede
 --60: highscore1
-
--->8
----remove unused instrument sfx
---call cstore(0x3200,0x3200,0x1100) to save
---
--- @param sfxstart {integer} start of sfx range to remove
--- @param sfxend {integer} end of sfx range to remove
-function rm_unused_instruments(sfxstart, sfxend)
-	--store removed sfx indexes
-	local removed = {}
-
-	--loop through instrument sfx
-	for i = 0, 7 do
-		--loop through
-		--all non-instrument sfx
-		for sfx_num = sfxstart or 8, sfxend or 63 do
-			local addr = 0x3200 + sfx_num * 68
-
-			--loop through all notes
-			for note_num = 0, 31 do
-				--get note from ram
-				local note = peek2(addr + note_num * 2)
-				--calculate waveform bits
-				local waveform = i << 8
-
-				if
-					--note waveform
-					--is instrument i
-					note & waveform == waveform
-					--note uses
-					--a custom instrument
-					and note & 0x8000 ~= 0
-				then
-					goto continue
-				end
-			end
-		end
-
-		sfx_reset(i)
-
-		add(removed, i)
-
-		::continue::
-	end
-
-	--print results
-	if #removed > 0 then
-		printh"removed sfx:"
-		print"removed sfx:"
-
-		for v in all(removed) do
-			printh(v)
-			print(v)
-		end
-	else
-		print"ok"
-	end
-end
-
----transpose sfx
--- @param semitones {integer} number of semitones to transpose up or down
--- @param sfxstart {integer} start of sfx range to transpose
--- @param sfxend {integer} end of sfx range to transpose
-function transpose(semitones, sfxstart, sfxend)
-	for i=0x3200 + sfxstart * 68, 0x3200 + ((sfxend + 1) * 68) - 1, 68 do
-		for j=i, i+63, 2 do
-			local byte = peek(j)
-			local pitch = 0x3f & byte
-			local newpitch = mid(0, pitch + semitones, 63)
-
-			poke(j, (0xc0 & byte) | newpitch)
-		end
-	end
-end
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
