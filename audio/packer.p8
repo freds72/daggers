@@ -356,6 +356,11 @@ paths = {
 
 payloads = {
 	{
+		id = "chatter",
+		addr = 0x3420,
+		ulen = 0x0440,
+	},
+	{
 		id = "daggercollect",
 		addr = 0x31fc,
 		ulen = 0x0224,
