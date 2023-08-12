@@ -208,11 +208,11 @@ function make_player(_origin,_a)
     control=function(_ENV)
       if(dead) return
       -- move
-      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xa004)
-      if(stat(28,@0xa002)) dx=3
-      if(stat(28,@0xa003)) dx=-3
-      if(stat(28,@0xa000)) dz=3
-      if(stat(28,@0xa001)) dz=-3
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc004)
+      if(stat(28,@0xc002)) dx=3
+      if(stat(28,@0xc003)) dx=-3
+      if(stat(28,@0xc000)) dz=3
+      if(stat(28,@0xc001)) dz=-3
       if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false sfx"58"
       prev_jump=jump_down
 
@@ -223,7 +223,7 @@ function make_player(_origin,_a)
 
       -- double-click detector
       dblclick_ttl=max(dblclick_ttl-1)
-      if btn(@0xa015) then
+      if btn(@0xc015) then
         if fire_released then
           fire_released=false
         end
@@ -248,7 +248,7 @@ function make_player(_origin,_a)
         fire_released,fire_frames=true,0
       end
 
-      dangle=v_add(dangle,{$0xa010*stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0xc010*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
@@ -267,7 +267,7 @@ function make_player(_origin,_a)
       -- avoid overflow!
       fire_ttl=max(fire_ttl-1)
 
-      angle=v_add(angle,dangle,$0xa016/1024)
+      angle=v_add(angle,dangle,$0xc016/1024)
       -- limit x amplitude
       angle[1]=mid(angle[1],-0.24,0.24)
       -- check next position
@@ -324,8 +324,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  --dead=true
+                  --next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -374,13 +374,13 @@ function make_player(_origin,_a)
       m=make_m_from_euler(unpack(angle))    
 
       -- normal fire
+      local o=v_add(origin,{0,18,0})
       if fire==1 then          
         _total_bullets+=0x0.0001
-        make_bullet(v_add(origin,{0,18,0}),angle[2],angle[1],0.02)
+        make_bullet(o,angle[2],angle[1],0.02)
       elseif fire==2 then
         -- shotgun
         _total_bullets+=_shotgun_count>>16
-        local o=v_add(origin,{0,18,0})
         for i=1,_shotgun_count do
           make_bullet(o,angle[2],angle[1],_shotgun_spread)
         end
@@ -697,11 +697,10 @@ function make_squid(type)
   -- wait for a free slot
   reserve_async(5)
 
-  local _origin,_velocity=v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16}
-  local _dx,_dz,_angle,_dead=32000,32000,0
+  local _origin,_velocity,_dx,_dz,_angle,_dead=v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
   -- spill skulls every x seconds
   local spill=do_async(function()
-    wait_async(60)  
+    wait_async(60)
     while not _plyr.dead do
       -- don't spawn while outside
       if _dx<256 and _dz<256 then
@@ -795,7 +794,10 @@ _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offse
             jewel=nil
             -- todo: handle multiple jewels
             ent=_entities.squid2
-            _dead=true
+            printh("type:.."..type)
+            if(type==1) _dead=true
+            -- "downgrade" squid!!
+            type=1
           end
         end
       end,
@@ -1058,15 +1060,17 @@ function draw_world()
   -- screen = gfx
   -- reset palette
   --memcpy(0x5f00,0x4300,16)
-  pal()
-  palt(0,false)
-  local yshift=sin(_cam.tilt)>>4
-  poke(0x5f54,0x60)
-  for i=0,127,16 do
-    sspr(i,0,16,128,i,(i-64)*yshift+0.5)
+  local yshift=sin(_cam.tilt)>>3
+  memcpy(0x92c0,0x6000,0x2000)
+  for i=0,63,4 do
+    -- 0xf000 = 0x6000-0x92c0
+    -- offset = dst -  src
+    local dst=((((i-31.5)*yshift+0.5)\1)<<6)+0xcd40
+    -- copy from y=4 to y=123 
+    for off=0x93c0+i,0xb0c0+i,64 do
+      poke4(dst+off,$off)
+    end
   end
-  -- reset
-  poke(0x5f54,0x00)
 
   -- hide trick top/bottom 8 pixel rows :)
   memset(0x6000,0,512)
@@ -1100,7 +1104,7 @@ camera;0;$]],-_hand_y),exec)
   else          
     local r=24+rnd"8"
     split2d(scanf([[poke;0x5f00;0x10
-fillp;0xa5a5.8
+fillp;0xc5a5.8
 circfill;96;96;$;8
 fillp
 circfill;96;96;$;7
@@ -1215,7 +1219,7 @@ wait_async;90
 random_spawn_angle
 set_spawn;200
 wait_async;330
-make_squid;1
+make_squid;2
 wait_async;330
 inc_spawn_angle;0.25
 set_spawn;200

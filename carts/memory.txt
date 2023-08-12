@@ -25,3 +25,11 @@ title.p8
 0xf780-0xfbbf: sfx - chatter damp 1
 0xfbc0-0xffff: sfx - chatter damp 2
 
+--------
+runtime
+--------
+0x8000-0x92c0 - palettes
+0x92c0-0xb2c0 - screen copy (for tilt effect)
+0xc000-0xc010 - keyboard stat id's
+
+0x4300-0x43ff - radix sort
