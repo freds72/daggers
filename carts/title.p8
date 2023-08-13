@@ -7,6 +7,8 @@ __lua__
 #include common.lua
 #include plain.lua
 #include assets.lua
+#include titleaudio.p8l
+#include audio_load.lua
 #include audio_render.lua
 #include polytex.lua
 #include musicii.p8l
