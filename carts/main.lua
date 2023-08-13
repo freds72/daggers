@@ -1065,10 +1065,10 @@ function draw_world()
   for i=0,63,4 do
     -- 0xf000 = 0x6000-0x92c0
     -- offset = dst -  src
-    local dst=((((i-31.5)*yshift+0.5)\1)<<6)+0xcd40
+    local off=((((i-31.5)*yshift+0.5)\1)<<6)+0xcd40
     -- copy from y=4 to y=123 
-    for off=0x93c0+i,0xb0c0+i,64 do
-      poke4(dst+off,$off)
+    for src=0x93c0+i,0xb0c0+i,64 do
+      poke4(src+off,$src)
     end
   end
 
@@ -1093,13 +1093,12 @@ function draw_world()
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
-  split2d(scanf([[poke;0x5f0f;0x1f
+  split2d(scanf([[pal
+poke;0x5f0f;0x1f
 poke;0x5f00;0x0
 clip;0;8;128;112
 camera;0;$]],-_hand_y),exec)
   if _plyr.fire_ttl==0 then
-    --pal(9,1)
-    --pal(7,5)
     sspr(72,32,64,64,72,64)
   else          
     local r=24+rnd"8"
@@ -1295,11 +1294,11 @@ wait_async;600]],exec)
     end)
 
     do_async(function()
-        -- skull 1 circle around player
+        -- skull 1+2 circle around player
         while not _plyr.dead do      
           local angle,x,y,z=time()/8,unpack(_plyr.origin)
           local r=48*cos(angle)
-          _skull1_base_template.target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
+          _skull_base_template.target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
           wait_async(10)
         end
 
@@ -1307,7 +1306,7 @@ wait_async;600]],exec)
         -- stop creating monsters
         scenario.co=nil
         while true do
-          _skull1_base_template.target={256+rnd"512",12+rnd"64",256+rnd"512"}
+          _skull_base_template.target={256+rnd"512",12+rnd"64",256+rnd"512"}
           wait_async(45+rnd"15")
         end
       end)
@@ -1796,30 +1795,13 @@ _squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_
 _squid_hood;ent,squid2,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
-_skull1_base_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_template
-_skull2_base_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED;_skull_template
+_skull_base_template;;_skull_template
+_skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
+_skull2_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5;_skull_base_template
 _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop,cost,1]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
-
-  -- scripted skulls
-  _skull1_template=_skull1_base_template
-
-  _skull2_template=inherit({
-    init=function(_ENV)
-      ai=do_async(function()
-        while true do
-          -- go opposite from where it stands!  
-          local a=atan2(origin[1]-512,-origin[3]+512)
-          a=shortest_angle(a,a+rnd"0.1")
-          local r=160+rnd"32"
-          target={512+r*cos(a),16+rnd"48",512-r*sin(a)}
-          wait_async(10+rnd"10")
-        end
-      end)
-    end
-  },_skull2_base_template)  
 
   -- run game
   next_state(play_state)
