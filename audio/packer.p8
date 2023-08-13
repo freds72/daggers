@@ -409,8 +409,7 @@ end
 printh("}\n", paths.manifest)
 
 --write payload to title
---@todo
---cstore(0x2000, 0x8000, offset, paths.output)
+cstore(0x2000, 0x8000, offset, paths.output)
 
 --print results
 msg = "payload: " .. sub(tostr(offset, true), 1, 6) .. " bytes\n\ndon't forget to\nupdate memory.txt!"

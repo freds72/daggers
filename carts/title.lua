@@ -40,7 +40,7 @@ end
 
 function px9_decomp(x0,y0,src,vget,vset)
   local isaddr = type(src) == "number"
-  local idx = isaddr and 0 or 1
+  local idx = isaddr and src or 1
 
 	local function vlist_val(l, val)
 		-- find position and move
@@ -281,9 +281,9 @@ function menu_state(buttons,default)
     -- update
     function()
       if not stat"57" then
-        --play musicii
-        print("\^!3100"..musicii)
-        music(3, 1000)
+        --play musiciii
+        audio_load"musiciii"
+        music(0, 1000)
       end
 
       mx,my=mid(mx+stat(38)/2,0,127),mid(my+stat(39)/2,0,127)
@@ -549,7 +549,7 @@ function play_state()
 
       if not stat"57" then
         --play ambient music
-        print("\^!3100"..musicii)
+        audio_load"musicii"
         music(32, 1000)
       end
 
@@ -605,7 +605,7 @@ function play_state()
         launching=true
 
         --play daggercollect
-        memcpy(0x31fc, 0x2800, 548)
+        audio_load("daggercollect", 0x31fc)
         music"63"
 
         do_async(function()
@@ -742,8 +742,8 @@ function title_state()
       if btnp()&0x30!=0 then
         launching=true
 
-        --fade out musiciii
-        music(-1, 2000)
+        --fade out music
+        music(-1, 1000)
 
         do_async(function()
           -- todo: fade to black
@@ -777,14 +777,22 @@ poke;0x5f36;0x18
 poke;0x5f2d;0x7
 cartdata;freds72_daggers]],exec)
 
+  --decompress audio payloads and save to lua ram
+  holdframe()
+
+  for _, payload in pairs(audio) do
+    px9_decomp(0, 0, payload.addr, pget, pset)
+    payload.data = ram_to_tbl(0x6000, payload.ulen)
+  end
+
   ---chatter pre-rendering
   --loop dampen levels
   for damp = 0, 2 do
     --dampened chatter bank destination address
     local addr = 0xf340 + 0x440 * damp
 
-    --copy chatter sfx bank
-    memcpy(addr, 0x2000, 0x440)
+    --dump chatter sfx bank
+    audio_load("chatter", addr)
 
     --loop chatter sfx stored in map ram
     for i = 0, 15 do
@@ -878,9 +886,10 @@ cartdata;freds72_daggers]],exec)
     end
   end)
   reload()
-
-  -- play musiciii
-  music"0"
+  
+  -- play musicii
+  audio_load"musicii"
+  music"3"
   
   -- restore settings
   local active_poll,active_btn
