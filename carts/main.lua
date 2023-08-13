@@ -307,12 +307,11 @@ function make_player(_origin,_a)
       -- check collisions
       local x,z=origin[1],origin[3]
       if not dead then   
-        local dx,dz=prev_pos[1]-x,prev_pos[3]-z
-        local a=atan2(dx,dz)
+        local vn,vl=v_normz{velocity[1],0,velocity[3]}
         -- for hand effect
-        xz_vel=dx*cos(a)+dz*sin(a)
+        xz_vel=vl
         -- 
-        collect_grid(prev_pos,origin,cos(a),-sin(a),function(grid_cell)
+        collect_grid(prev_pos,origin,vn[1],vn[3],function(grid_cell)
           -- avoid reentrancy
           if(dead) return
           for thing in pairs(grid_cell) do
@@ -1809,19 +1808,21 @@ end
 
 -- collect all grids touched by (a,b) vector
 function collect_grid(a,b,u,v,cb)
-  local mapx,mapy,dest_mapx,dest_mapy,mapdx,mapdy=a[1]\32,a[3]\32,b[1]\32,b[3]\32
+  local mapx,mapy,mapdx,mapdy=a[1]\32,a[3]\32
   -- check first cell (always)
-  cb(_grid[mapx>>16|mapy].things)
+  local dest_idx,map_idx=b[3]\32|b[1]\32>>16,mapy|mapx>>16
+  cb(_grid[map_idx].things)
   -- early exit
-  if dest_mapx==mapx and dest_mapy==mapy then    
+  if dest_idx==map_idx then    
     return
   end
+
   local ddx,ddy,distx,disty=abs(1/u),abs(1/v)
   if u<0 then
-    mapdx=-1
+    mapdx=0xffff.ffff
     distx=(a[1]/32-mapx)*ddx
   else
-    mapdx=1
+    mapdx=0x0.0001
     distx=(mapx+1-a[1]/32)*ddx
   end
   
@@ -1832,17 +1833,17 @@ function collect_grid(a,b,u,v,cb)
     mapdy=1
     disty=(mapy+1-a[3]/32)*ddy
   end
-  while dest_mapx!=mapx and dest_mapy!=mapy do
+  while dest_idx!=map_idx do
     -- printh(mapx.."/"..mapy.." -> "..dest_mapx.."/"..dest_mapy.." ["..mapdx.." "..mapdy.."]")
     if distx<disty then
       distx+=ddx
-      mapx+=mapdx
+      map_idx+=mapdx
     else
       disty+=ddy
-      mapy+=mapdy
+      map_idx+=mapdy
     end
-    cb(_grid[mapx>>16|mapy].things)
-  end  
+    cb(_grid[map_idx].things)
+  end
 end
 
 -- segment (a->b)/sphere(origin,r) intersection
