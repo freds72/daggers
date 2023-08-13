@@ -1808,7 +1808,7 @@ end
 
 -- collect all grids touched by (a,b) vector
 function collect_grid(a,b,u,v,cb)
-  local mapx,mapy,mapdx,mapdy=a[1]\32,a[3]\32
+  local mapx,mapy=a[1]\32,a[3]\32
   -- check first cell (always)
   local dest_idx,map_idx=b[3]\32|b[1]\32>>16,mapy|mapx>>16
   cb(_grid[map_idx].things)
@@ -1817,21 +1817,17 @@ function collect_grid(a,b,u,v,cb)
     return
   end
 
-  local ddx,ddy,distx,disty=abs(1/u),abs(1/v)
+  local ddx,ddy,distx,disty,mapdx,mapdy=abs(1/u),abs(1/v)
   if u<0 then
-    mapdx=0xffff.ffff
-    distx=(a[1]/32-mapx)*ddx
+    mapdx,distx=0xffff.ffff,(a[1]/32-mapx)*ddx
   else
-    mapdx=0x0.0001
-    distx=(mapx+1-a[1]/32)*ddx
+    mapdx,distx=0x0.0001,(mapx+1-a[1]/32)*ddx
   end
   
   if v<0 then
-    mapdy=-1
-    disty=(a[3]/32-mapy)*ddy
+    mapdy,disty=-1,(a[3]/32-mapy)*ddy
   else
-    mapdy=1
-    disty=(mapy+1-a[3]/32)*ddy
+    mapdy,disty=1,(mapy+1-a[3]/32)*ddy
   end
   while dest_idx!=map_idx do
     -- printh(mapx.."/"..mapy.." -> "..dest_mapx.."/"..dest_mapy.." ["..mapdx.." "..mapdy.."]")
