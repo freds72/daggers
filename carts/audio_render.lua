@@ -43,20 +43,3 @@ function sfx_volume(addr, v)
   end
 end
 
---loop dampen levels
-for damp = 0, 2 do
-  --dampened chatter bank destination address
-  local addr = 0xf340 + 0x440 * damp
-
-  --copy chatter sfx bank
-  memcpy(addr, 0x2000, 0x440)
-
-  --loop chatter sfx stored in map ram
-  for i = 0, 15 do
-    --set dampen level
-    sfx_damp(addr + i * 68, damp)
-    --atennuate volume
-    sfx_volume(addr + i * 68, damp < 2 and -damp or -3)
-  end
-end
-
