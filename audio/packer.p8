@@ -362,8 +362,8 @@ payloads = {
 	},
 	{
 		id = "daggercollect",
-		addr = 0x31fc,
-		ulen = 0x0224,
+		addr = 0x31f8,
+		ulen = 0x0448,
 	},
 	{
 		id = "musicii",

@@ -549,8 +549,8 @@ function play_state()
 
       if not stat"57" then
         --play ambient music
-        audio_load"musicii"
-        music(32, 1000)
+        audio_load("daggercollect", 0x31f8)
+        music(62, 1000)
       end
 
       -- move
@@ -605,7 +605,6 @@ function play_state()
         launching=true
 
         --play daggercollect
-        audio_load("daggercollect", 0x31fc)
         music"63"
 
         do_async(function()

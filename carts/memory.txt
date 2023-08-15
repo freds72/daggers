@@ -10,9 +10,9 @@ daggers.p8
 title.p8
 --------
 0x2000-0x240c: px9 - sfx - chatter (packer.p8)
-0x240d-0x25d4: px9 - sfx - daggercollect (packer.p8)
-0x25d5-0x2b34: px9 - sfx - musicii (packer.p8)
-0x2b35-0x37c5: px9 - sfx - musiciii (packer.p8)
+0x240d-0x26b1: px9 - sfx - daggercollect (packer.p8)
+0x26b2-0x2c06: px9 - sfx - musicii (packer.p8)
+0x2c07-0x3897: px9 - sfx - musiciii (packer.p8)
 
 --------
 runtime
