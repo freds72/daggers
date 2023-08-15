@@ -595,7 +595,7 @@ function play_state()
       -- player close to dagger?
       local real_distance=v_len(origin,{0,0,0})
       if real_distance>380 then
-        -- todo: sound cue?
+        sfx"15"
         next_state(play_state)
         return
       end
