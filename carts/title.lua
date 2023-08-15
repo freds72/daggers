@@ -39,7 +39,9 @@ end
 -- vset  write function (x,y,v)
 
 function px9_decomp(x0,y0,src,vget,vset)
-  local idx=1
+  local isaddr = type(src) == "number"
+  local idx = isaddr and 0 or 1
+
 	local function vlist_val(l, val)
 		-- find position and move
 		-- to head of the list
@@ -76,7 +78,7 @@ function px9_decomp(x0,y0,src,vget,vset)
 		if cache_bits<8 then
 			-- cache next 8 bits
 			cache_bits+=8      
-			cache+=ord(src,idx)>>cache_bits
+			cache+=(isaddr and @idx or ord(src,idx))>>cache_bits
 			idx+=1
 		end
 
