@@ -39,7 +39,9 @@ end
 -- vset  write function (x,y,v)
 
 function px9_decomp(x0,y0,src,vget,vset)
-  local idx=1
+  local isaddr = type(src) == "number"
+  local idx = isaddr and src or 1
+
 	local function vlist_val(l, val)
 		-- find position and move
 		-- to head of the list
@@ -76,7 +78,7 @@ function px9_decomp(x0,y0,src,vget,vset)
 		if cache_bits<8 then
 			-- cache next 8 bits
 			cache_bits+=8      
-			cache+=ord(src,idx)>>cache_bits
+			cache+=(isaddr and @idx or ord(src,idx))>>cache_bits
 			idx+=1
 		end
 
@@ -279,9 +281,9 @@ function menu_state(buttons,default)
     -- update
     function()
       if not stat"57" then
-        --play musicii
-        print("\^!3100"..musicii)
-        music(3, 1000)
+        --play musiciii
+        audio_load"musiciii"
+        music(0, 1000)
       end
 
       mx,my=mid(mx+stat(38)/2,0,127),mid(my+stat(39)/2,0,127)
@@ -547,8 +549,8 @@ function play_state()
 
       if not stat"57" then
         --play ambient music
-        print("\^!3100"..musicii)
-        music(32, 1000)
+        audio_load("daggercollect", 0x31f8)
+        music(62, 1000)
       end
 
       -- move
@@ -593,7 +595,7 @@ function play_state()
       -- player close to dagger?
       local real_distance=v_len(origin,{0,0,0})
       if real_distance>380 then
-        -- todo: sound cue?
+        sfx"15"
         next_state(play_state)
         return
       end
@@ -603,7 +605,6 @@ function play_state()
         launching=true
 
         --play daggercollect
-        memcpy(0x31fc, 0x2800, 548)
         music"63"
 
         do_async(function()
@@ -740,8 +741,8 @@ function title_state()
       if btnp()&0x30!=0 then
         launching=true
 
-        --fade out musiciii
-        music(-1, 2000)
+        --fade out music
+        music(-1, 1000)
 
         do_async(function()
           -- todo: fade to black
@@ -774,6 +775,32 @@ function _init()
 poke;0x5f36;0x18
 poke;0x5f2d;0x7
 cartdata;freds72_daggers]],exec)
+
+  --decompress audio payloads and save to lua ram
+  holdframe()
+
+  for _, payload in pairs(audio) do
+    px9_decomp(0, 0, payload.addr, pget, pset)
+    payload.data = ram_to_tbl(0x6000, payload.ulen)
+  end
+
+  ---chatter pre-rendering
+  --loop dampen levels
+  for damp = 0, 2 do
+    --dampened chatter bank destination address
+    local addr = 0xf340 + 0x440 * damp
+
+    --dump chatter sfx bank
+    audio_load("chatter", addr)
+
+    --loop chatter sfx stored in map ram
+    for i = 0, 15 do
+      --set dampen level
+      sfx_damp(addr + i * 68, damp)
+      --atennuate volume
+      sfx_volume(addr + i * 68, damp < 2 and -damp or -3)
+    end
+  end
 
   -- generate assets if not there
   if reload(0x6000,0x0,0x1,"pic_0.p8")==0 then
@@ -858,9 +885,10 @@ cartdata;freds72_daggers]],exec)
     end
   end)
   reload()
-
-  -- play musiciii
-  music"0"
+  
+  -- play musicii
+  audio_load"musicii"
+  music"3"
   
   -- restore settings
   local active_poll,active_btn
