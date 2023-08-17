@@ -518,7 +518,7 @@ function play_state()
   }
   local function draw_radius(r,light)
     local r2=r*r
-    memcpy(0x5f00,0x8000|(light\0.0625)*16,16)
+    memcpy(0x5f00,0x8000|(light\0.0625)<<4,16)
     for y=0,63 do
       memset(64*64+64*y+32,0,32)
       local yy=31.5-y
