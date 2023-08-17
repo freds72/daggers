@@ -600,11 +600,16 @@ function play_state()
         return
       end
       distance=min(distance,real_distance)
+      --play daggercall
+      if real_distance < 64 and stat"49" ~= 14 then
+        sfx(14, 3)
+      end
       if not launching and distance<16 then
         -- avoid reentrancy
         launching=true
 
         --play daggercollect
+        sfx"-1"
         music"63"
 
         do_async(function()
