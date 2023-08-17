@@ -7,18 +7,18 @@ audio = {
 	},
 	daggercollect = {
 		addr = 0x240d,
-		--clen = 0x02f0,
+		--clen = 0x02e7,
 		--data = nil,
 		ulen = 0x0448,
 	},
 	musicii = {
-		addr = 0x26fd,
+		addr = 0x26f4,
 		--clen = 0x0555,
 		--data = nil,
 		ulen = 0x1200,
 	},
 	musiciii = {
-		addr = 0x2c52,
+		addr = 0x2c49,
 		--clen = 0x0c91,
 		--data = nil,
 		ulen = 0x1200,
