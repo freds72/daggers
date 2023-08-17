@@ -4,6 +4,20 @@ __lua__
 --devil daggers daggercollect
 --by ridgek
 
+--sfx
+--08: daggercollect
+--09: daggercollect
+--10: daggercollect
+--11: daggercollect
+--12: ambient
+--13: ambient
+--14: daggercall
+--15: respawn
+
+--music
+--62: ambient
+--63: daggercollect
+
 --run packer.p8
 load("./packer.p8")
 
