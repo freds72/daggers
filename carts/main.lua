@@ -307,12 +307,11 @@ function make_player(_origin,_a)
       -- check collisions
       local x,z=origin[1],origin[3]
       if not dead then   
-        local dx,dz=prev_pos[1]-x,prev_pos[3]-z
-        local a=atan2(dx,dz)
+        local vn,vl=v_normz{velocity[1],0,velocity[3]}
         -- for hand effect
-        xz_vel=dx*cos(a)+dz*sin(a)
+        xz_vel=vl
         -- 
-        collect_grid(prev_pos,origin,cos(a),-sin(a),function(grid_cell)
+        collect_grid(prev_pos,origin,vn[1],vn[3],function(grid_cell)
           -- avoid reentrancy
           if(dead) return
           for thing in pairs(grid_cell) do
@@ -451,7 +450,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
               -- avoid checking the same enemy twice
               if not thing.dead and thing.hit and thing.checked!=_checked then
                 thing.checked=_checked
-                local hit,t,pos=ray_sphere_intersect(cur_origin,new_origin,velocity,len,thing.origin,thing.radius)
+                local hit,t,pos=ray_sphere_intersect(cur_origin,new_origin,velocity,len,thing.origin,thing.radius,thing.o_offset)
                 if hit and t<hit_t then
                   hit_thing,hit_t,hit_pos=thing,t,pos
                 end
@@ -573,7 +572,20 @@ function draw_grid(cam)
     local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
     --
     sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip)
-    -- if(thing.radius) circ(item.x,item.y,w0*thing.radius,9)
+    --[[
+    if thing.radius then
+      local oy=thing.o_offset
+      if oy then
+        oy+=thing.origin[2]
+        local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
+        local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
+        local w=32/az
+        circ(63.5+w*ax,63.5-w*ay,w*thing.radius,10)
+      else
+        circ(item.x,item.y,w0*thing.radius,9)
+      end
+    end
+    ]]
     --[[
     circ(item.x,item.y,(thing.radius or 1)*w0,9)
     if thing.debug_forces then
@@ -778,7 +790,7 @@ _squid_tentacle;a_offset,0.75,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_off
 _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]}
 
   split2d(squid_parts[type],function(base_template,properties)
-    add(_things,inherit({
+    add(_things,inherit(with_properties(properties,{
       light_t=time(),
       hit=function(_ENV,pos) 
         if(dead) return
@@ -792,9 +804,7 @@ _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offse
             make_jewel(origin,{u,3,v},16)
             -- avoid reentrancy
             jewel=nil
-            -- todo: handle multiple jewels
             ent=_entities.squid2
-            printh("type:.."..type)
             if(type==1) _dead=true
             -- "downgrade" squid!!
             type=1
@@ -823,7 +833,7 @@ _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offse
         origin=v_add(_origin,{offset*cc,y_offset,offset*ss})
         if(not is_tentacle) grid_register(_ENV)
       end    
-    },inherit(with_properties(properties),_ENV[base_template])))
+    }),_ENV[base_template]))
   end)
 end
 
@@ -1065,10 +1075,10 @@ function draw_world()
   for i=0,63,4 do
     -- 0xf000 = 0x6000-0x92c0
     -- offset = dst -  src
-    local dst=((((i-31.5)*yshift+0.5)\1)<<6)+0xcd40
+    local off=((((i-31.5)*yshift+0.5)\1)<<6)+0xcd40
     -- copy from y=4 to y=123 
-    for off=0x93c0+i,0xb0c0+i,64 do
-      poke4(dst+off,$off)
+    for src=0x93c0+i,0xb0c0+i,64 do
+      poke4(src+off,$src)
     end
   end
 
@@ -1093,13 +1103,12 @@ function draw_world()
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
-  split2d(scanf([[poke;0x5f0f;0x1f
+  split2d(scanf([[pal
+poke;0x5f0f;0x1f
 poke;0x5f00;0x0
 clip;0;8;128;112
 camera;0;$]],-_hand_y),exec)
   if _plyr.fire_ttl==0 then
-    --pal(9,1)
-    --pal(7,5)
     sspr(72,32,64,64,72,64)
   else          
     local r=24+rnd"8"
@@ -1295,11 +1304,11 @@ wait_async;600]],exec)
     end)
 
     do_async(function()
-        -- skull 1 circle around player
+        -- skull 1+2 circle around player
         while not _plyr.dead do      
           local angle,x,y,z=time()/8,unpack(_plyr.origin)
           local r=48*cos(angle)
-          _skull1_base_template.target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
+          _skull_base_template.target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
           wait_async(10)
         end
 
@@ -1307,7 +1316,7 @@ wait_async;600]],exec)
         -- stop creating monsters
         scenario.co=nil
         while true do
-          _skull1_base_template.target={256+rnd"512",12+rnd"64",256+rnd"512"}
+          _skull_base_template.target={256+rnd"512",12+rnd"64",256+rnd"512"}
           wait_async(45+rnd"15")
         end
       end)
@@ -1767,7 +1776,7 @@ cartdata;freds72_daggers]],exec)
       local oy=origin[2]+velocity[2]
       if oy<ground_limit then
         oy=ground_limit
-        yangle+=rnd(1)
+        --yangle+=rnd(1)
       end
 
       origin[2]=oy
@@ -1793,33 +1802,16 @@ _worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_
 _jewel_template;ent,jewel,radius,12,zangle,rnd,ttl,300,apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED;_skull_template
 _squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,hit,nop,cost,5,obituary,nAILED;_skull_template
-_squid_hood;ent,squid2,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
-_squid_jewel;jewel,1,hp,10,ent,squid1,radius,16,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1
+_squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1,o_offset,12
+_squid_jewel;jewel,1,hp,10,ent,squid1,radius,8,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1,o_offset,12
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
-_skull1_base_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_template
-_skull2_base_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED;_skull_template
+_skull_base_template;;_skull_template
+_skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
+_skull2_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5;_skull_base_template
 _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop,cost,1]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
-
-  -- scripted skulls
-  _skull1_template=_skull1_base_template
-
-  _skull2_template=inherit({
-    init=function(_ENV)
-      ai=do_async(function()
-        while true do
-          -- go opposite from where it stands!  
-          local a=atan2(origin[1]-512,-origin[3]+512)
-          a=shortest_angle(a,a+rnd"0.1")
-          local r=160+rnd"32"
-          target={512+r*cos(a),16+rnd"48",512-r*sin(a)}
-          wait_async(10+rnd"10")
-        end
-      end)
-    end
-  },_skull2_base_template)  
 
   -- run game
   next_state(play_state)
@@ -1827,49 +1819,50 @@ end
 
 -- collect all grids touched by (a,b) vector
 function collect_grid(a,b,u,v,cb)
-  local mapx,mapy,dest_mapx,dest_mapy,mapdx,mapdy=a[1]\32,a[3]\32,b[1]\32,b[3]\32
+  local mapx,mapy=a[1]\32,a[3]\32
   -- check first cell (always)
-  cb(_grid[mapx>>16|mapy].things)
+  local dest_idx,map_idx=b[3]\32|b[1]\32>>16,mapy|mapx>>16
+  cb(_grid[map_idx].things)
   -- early exit
-  if dest_mapx==mapx and dest_mapy==mapy then    
+  if dest_idx==map_idx then    
     return
   end
-  local ddx,ddy,distx,disty=abs(1/u),abs(1/v)
+
+  local ddx,ddy,distx,disty,mapdx,mapdy=abs(1/u),abs(1/v)
   if u<0 then
-    mapdx=-1
-    distx=(a[1]/32-mapx)*ddx
+    -- -1>>16
+    mapdx,distx=0xffff.ffff,(a[1]/32-mapx)*ddx
   else
-    mapdx=1
-    distx=(mapx+1-a[1]/32)*ddx
+    -- 1>>16
+    mapdx,distx=0x0.0001,(mapx+1-a[1]/32)*ddx
   end
   
   if v<0 then
-    mapdy=-1
-    disty=(a[3]/32-mapy)*ddy
+    mapdy,disty=-1,(a[3]/32-mapy)*ddy
   else
-    mapdy=1
-    disty=(mapy+1-a[3]/32)*ddy
+    mapdy,disty=1,(mapy+1-a[3]/32)*ddy
   end
-  while dest_mapx!=mapx and dest_mapy!=mapy do
+  while dest_idx!=map_idx do
     -- printh(mapx.."/"..mapy.." -> "..dest_mapx.."/"..dest_mapy.." ["..mapdx.." "..mapdy.."]")
     if distx<disty then
       distx+=ddx
-      mapx+=mapdx
+      map_idx+=mapdx
     else
       disty+=ddy
-      mapy+=mapdy
+      map_idx+=mapdy
     end
-    cb(_grid[mapx>>16|mapy].things)
-  end  
+    cb(_grid[map_idx].things)
+  end
 end
 
 -- segment (a->b)/sphere(origin,r) intersection
+-- o_offset: y offset to origin (useful for squids)
 -- returns distance to target
-function ray_sphere_intersect(a,b,dir,len,o,r)
+function ray_sphere_intersect(a,b,dir,len,o,r,o_offset)
   -- note: no need to scale down as check is done per 32x32 region
-  local dx,dy,dz,ax,ay,az=dir[1],dir[2],dir[3],a[1],a[2],a[3]
+  local dx,dy,dz,ax,ay,az,oy=dir[1],dir[2],dir[3],a[1],a[2],a[3],o[2]+(o_offset or 0)
   -- projection on ray
-  local mx,my,mz,ny=ax-o[1],ay-o[2],az-o[3],b[2]-o[2]
+  local mx,my,mz,ny=ax-o[1],ay-oy,az-o[3],b[2]-oy
   if((my<-r and ny<-r) or (my>r and ny>r)) return
   local b,c=dx*mx+dy*my+dz*mz,mx*mx+my*my+mz*mz-r*r
   if(c>0 and b>0) return

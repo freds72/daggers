@@ -520,15 +520,12 @@ function play_state()
   }
   local function draw_radius(r,light)
     local r2=r*r
-    memcpy(0x5f00,0x8000|(light\0.0625)*16,16)
-    for y=0,63 do
-      memset(64*64+64*y+32,0,32)
+    memcpy(0x5f00,0x8000|(light\0.0625)<<4,16)
+    for y=0,63 do      
       local yy=31.5-y
       local d=r2-yy*yy
-      if d>=0 then
-        local x=sqrt(d)
-        sspr(96-x,y,2*x-1,1,96-x,64+y)
-      end
+      local x=sqrt(d)
+      sspr(96-x,y,2*x-(x%1),1,96-x,64+y)
     end
   end
   local keys,jump_key="",_settings[5].ch==" " and "SPACE" or _settings[5].ch
@@ -676,14 +673,17 @@ function play_state()
         poke4(0x5f38,0x3800.0808)   
 
         -- light effect
-        poke(0x5F55,0x00)
+        poke(0x5f55,0x00)
+        palt(0,false)
+        sspr(0,32,1,1,64,64,64,64)
+        palt()
         local r=abs(cos(time()/8))
         draw_radius(32-r*r,0.5)
         r+=0.2
         draw_radius(32-r*r,0.7)
-        r+=0.6
+        r+=0.8
         draw_radius(32-r*r,0.99)
-        poke(0x5F55,0x60) 
+        poke(0x5f55,0x60) 
 
         mode7(verts,#verts,0x8000)        
       end
@@ -864,7 +864,7 @@ cartdata;freds72_daggers]],exec)
     poke(mem,b&0xf) mem+=1
     poke(mem,b>>4) mem+=1
   end
-  
+
   -- load background assets
   decompress("pic",0,0,function()
     local names={
