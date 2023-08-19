@@ -616,6 +616,11 @@ function play_state()
               fov=lerp(64,32,easeoutelastic(i/45))
               yield()
             end
+
+            repeat
+              yield()
+            until not stat"57"
+
             -- load dev version first
             load("daggers.p8")
             load("daggers_mini.p8")
