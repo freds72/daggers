@@ -32,7 +32,7 @@ local _entities={
     -- animation
     {text="bLOOD0",angles=0},
     {text="bLOOD1",angles=0},
-    {text="bLOOD2",angles=0},
+    {text="bLOOD2",angles=0x44},
     {text="dAGGER0",angles=default_angles},
     {text="dAGGER1",angles=default_angles},
     {text="dAGGER2",angles=default_angles},
@@ -70,9 +70,9 @@ local _entities={
     -- spider "top"
     {text="sPIDER1",angles=0x08,bottom="sPIDER0"},
     -- sparks
-    {text="sPARK0",angles=default_angles},
-    {text="sPARK1",angles=default_angles},
-    {text="sPARK2",angles=default_angles}
+    {text="sPARK0",angles=0},
+    {text="sPARK1",angles=0},
+    {text="sPARK2",angles=0}
 }
 local _current_entity
 

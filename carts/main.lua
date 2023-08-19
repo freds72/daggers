@@ -505,7 +505,7 @@ function draw_grid(cam)
     local origin=obj.origin  
     local oy=origin[2]
     -- centipede can be below ground...
-    if oy>1 then
+    if oy>=1 then
       local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
       local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
       local az4=az<<2
@@ -638,10 +638,7 @@ function make_particle(template,_origin,_velocity)
       -- animated?
       if(ents) ent=ents[flr(#ents*ttl/max_ttl)+1]
       -- trail
-      if trail==0 then
-        --scale*=dscale
-        --if(scale<0.1) dead=true return
-      elseif ttl%4==0 then
+      if trail and ttl%4==0 then
         -- make sure child don't spawn other entities
         -- no need to clone as origin will be renewed after update
         -- particles are affected by gravity
@@ -651,7 +648,7 @@ function make_particle(template,_origin,_velocity)
         -- if moving, apply gravity
         _velocity[2]-=0.4
         origin=v_add(origin,_velocity)        
-        if (origin[2]<2 and _velocity[2]<0) origin[2]=2 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
+        if (origin[2]<1 and _velocity[2]<0) origin[2]=1 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
       end
     end
   },template))
@@ -881,12 +878,12 @@ function make_worm()
 
   for i=1,20 do
     add(segments,add(_things,inherit({
-      hit=function(_ENV,pos)
+      hit=function(_ENV,pos,bullet)
         -- tail? (no jewels)
         if(not jewel) return
         -- avoid reentrancy
         if(touched) return
-        make_blood(pos)
+        make_blood(pos,v_add(bullet.velocity,head.velocity))
         make_jewel(origin,head.velocity)
         -- change sprite (no jewels)
         touched,ent,hit_ttl=true,_entities.worm2,5
@@ -905,7 +902,7 @@ function make_worm()
           local _ENV=deli(segments,1)
           grid_unregister(_ENV)
           dead=true
-          make_blood(origin)
+          make_blood(origin,{0,0,0})
           wait_async(3)
         end
       end)
@@ -1316,14 +1313,15 @@ wait_async;150
 random_spawn_angle
 set_spawn;200;64
 make_worm
-wait_async;600]],nop) 
+wait_async;600]],exec) 
     end)
 
+    --[[
     do_async(function()
       while true do
-        --local s=make_skull(rnd{_skull1_template,_skull2_template},{512,8+rnd(4),530})
-        make_egg({512,8+rnd(4),530},{0,0,0})
-        --s.update=nop
+        local s=make_skull(rnd{_skull1_template,_skull2_template},{512,8+rnd(4),530})
+        --make_egg({512,8+rnd(4),530},{0,0,0})
+        s.update=nop
         wait_async(3)
         for i=0,9 do
         --  make_bullet({400,10,530},0.25,0,0.01)
@@ -1333,6 +1331,7 @@ wait_async;600]],nop)
         if(s) s.dead=true
       end
     end)
+    ]]
 
     -- progression
     do_async(function()
@@ -1737,7 +1736,7 @@ cartdata;freds72_daggers]],exec)
         if blast then
           blast(pos)
         else
-          for i=1,3+rnd(2) do
+          for i=1,3+rnd"2" do
             local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
             vel[2]=rnd()
             make_particle(rnd()<gibs and _gib_template or _lgib_template,origin,v_scale(vel,2+rnd(2)))
@@ -1852,15 +1851,15 @@ cartdata;freds72_daggers]],exec)
   -- global templates
   local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,-1
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
-_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,0,ent,blood1,rebound,0,@ents,_blood_ents
-_dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,0,ent,spark1,@ents,_spark_ents,rebound,-1
+_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents
+_dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
 _skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,2,target_yangle,0,gibs,-1;_skull_core
 _egg_template;ent,egg,radius,12,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED
-_goo_gib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,0,ent,goo0,@ents,_goo_ents
+_goo_gib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,@ents,_goo_ents
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
 _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
 _worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
-_worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10;_skull_template
+_worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
 _jewel_template;ent,jewel,radius,12,zangle,0,ttl,300,@apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,@blast,make_goo;_skull_template
 _squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8;_skull_template
