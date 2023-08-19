@@ -544,12 +544,6 @@ function play_state()
     function()
       message_time+=1
 
-      if not stat"57" then
-        --play ambient music
-        audio_load("daggercollect", 0x31f8)
-        music(62, 1000)
-      end
-
       -- move
       local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc004)
       if not launching then
@@ -597,27 +591,41 @@ function play_state()
         return
       end
       distance=min(distance,real_distance)
-      --play daggercall
-      if real_distance < 64 and stat"49" ~= 14 then
-        sfx(14, 3)
-      end
-      if not launching and distance<16 then
-        -- avoid reentrancy
-        launching=true
+      if not launching then
+        --play ambient music
+        if not stat"57" then
+          audio_load("daggercollect", 0x31f8)
+          music(62, 1000)
+        end
 
-        --play daggercollect
-        sfx"-1"
-        music"63"
+        --play daggercall
+        if real_distance < 64 and stat"49" ~= 14 then
+          sfx(14, 3)
+        end
 
-        do_async(function()
-          for i=0,44 do
-            fov=lerp(64,32,easeoutelastic(i/45))
-            yield()
-          end
-          -- load dev version first
-          load("daggers.p8")
-          load("daggers_mini.p8")
-        end)
+        if distance<16 then
+          -- avoid reentrancy
+          launching=true
+
+          --play daggercollect
+          sfx"-1"
+          music"63"
+
+          do_async(function()
+            for i=0,44 do
+              fov=lerp(64,32,easeoutelastic(i/45))
+              yield()
+            end
+
+            repeat
+              yield()
+            until not stat"57"
+
+            -- load dev version first
+            load("daggers.p8")
+            load("daggers_mini.p8")
+          end)
+        end
       end
     end,
     -- draw
