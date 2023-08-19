@@ -325,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  -- dead=true
-                  -- next_state(gameover_state,thing.obituary)
+                  dead=true
+                  next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -1643,20 +1643,20 @@ cartdata;freds72_daggers]],exec)
               if nearclip!=0 then                
                 -- near clipping required?
                 local res,v0={},verts[#verts]
-                local d0=v0[3]-4
+                local d0=v0[3]-1
                 for i,v1 in inext,verts do
                   local side=d0>0
                   if(side) res[#res+1]=v0
-                  local d1=v1[3]-4
+                  local d1=v1[3]-1
                   if (d1>0)!=side then
                     -- clip!
                     local t=d0/(d0-d1)
                     local v=v_lerp(v0,v1,t)
                     -- project
                     -- z is clipped to near plane
-                    v.x=63.5+(v[1]<<3)
-                    v.y=63.5-(v[2]<<3)
-                    v.w=8 -- 32/4
+                    v.x=63.5+(v[1]<<5)
+                    v.y=63.5-(v[2]<<5)
+                    v.w=32 -- 32/1
                     v.u=lerp(v0.u,v1.u,t)
                     v.v=lerp(v0.v,v1.v,t)
                     res[#res+1]=v
@@ -1739,7 +1739,7 @@ cartdata;freds72_daggers]],exec)
           for i=1,3+rnd"2" do
             local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
             vel[2]=rnd()
-            make_particle(rnd()<gibs and _gib_template or _lgib_template,origin,v_scale(vel,2+rnd(2)))
+            make_particle(rnd()<gibs and _gib_template or _lgib_template,origin,v_scale(vel,1+rnd(2)))
           end
           local vel=vector_in_cone(0.25-bullet.zangle,0,0.01)
           make_particle(_lgib_template,pos,v_scale(vel,-0.5))
