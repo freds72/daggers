@@ -678,7 +678,7 @@ function play_state()
         sspr(0,32,1,1,64,64,64,64)
         palt()
         local r=abs(cos(time()/8))
-        draw_radius(32,0.3)
+        draw_radius(32,0.5)
         r+=2.2
         draw_radius(32-r*r,0.7)
         r+=0.2

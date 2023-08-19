@@ -325,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  -- dead=true
+                  -- next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -553,9 +553,6 @@ function draw_grid(cam)
       pal1=(light*min(15,item.key<<4))\1
     end    
     if(pal0!=pal1) memcpy(0x5f00,_ramp_pal+(pal1<<4),16) palt(15,true) pal0=pal1   
-    if thing.draw then
-      -- nop
-    else
       -- draw things
       local w0,entity,origin=item.key,thing.ent,thing.origin
       -- zangle (horizontal)
@@ -572,58 +569,57 @@ function draw_grid(cam)
       if zangles!=0 then
         local yangle,step=thing.yangle or 0,1/(zangles<<1)
         yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
-        if(yside>zangles) yside=zangles-(yside%zangles)
-      end
-      -- copy to spr
-      -- skip top+top rotation
-      local frame,sprites=entity.frames[(yangles+1)*yside+side+1],entity.sprites
-      local base,w,h=frame.base,frame.width,frame.height
-      -- cache works in 10% of cases :/
-      if prev_base!=base or prev_sprites!=sprites then
-        prev_base,prev_sprites=base,sprites
-        for i=0,(h-1)<<6,64 do
-          poke4(i,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
-          base+=4
-        end
-      end
-      w0*=(thing.scale or 1)
-      local sx,sy=item.x-w*w0/2,item.y-h*w0/2
-      local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
-      --
-      sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip)
-
-      --[[
-      if thing.radius then
-        local oy=thing.o_offset
-        if oy then
-          oy+=thing.origin[2]
-          local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
-          local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
-          local w=32/az
-          circ(63.5+w*ax,63.5-w*ay,w*thing.radius,10)
-        else
-          circ(item.x,item.y,w0*thing.radius,9)
-        end
-      end
-      ]]
-      --[[
-      circ(item.x,item.y,(thing.radius or 1)*w0,9)
-      if thing.debug_forces then
-        -- draw
-        local forces=thing.debug_forces
-        local x,y,z=origin[1]+forces[1]-cx,origin[2]+forces[2]-cy,origin[3]+forces[3]-cz
-        -- 
-        local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
-        if az>8 then
-          local ay,w=m2*x+m6*y+m10*z,64/az
-          line(item.x,item.y,63.5+ax*w,63.5-ay*w,7)
-        end
-      end
-      ]]
-
-      --sspr(0,0,32,32,sx,sy,32,32,flip)
-      --print(thing.zangle,sx+sw/2,sy-8,9)      
+      if(yside>zangles) yside=zangles-(yside%zangles)
     end
+    -- copy to spr
+    -- skip top+top rotation
+    local frame,sprites=entity.frames[(yangles+1)*yside+side+1],entity.sprites
+    local base,w,h=frame.base,frame.width,frame.height
+    -- cache works in 10% of cases :/
+    if prev_base!=base or prev_sprites!=sprites then
+      prev_base,prev_sprites=base,sprites
+      for i=0,(h-1)<<6,64 do
+        poke4(i,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
+        base+=4
+      end
+    end
+    w0*=(thing.scale or 1)
+    local sx,sy=item.x-w*w0/2,item.y-h*w0/2
+    local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
+    --
+    sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip)
+
+    --[[
+    if thing.radius then
+      local oy=thing.o_offset
+      if oy then
+        oy+=thing.origin[2]
+        local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
+        local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
+        local w=32/az
+        circ(63.5+w*ax,63.5-w*ay,w*thing.radius,10)
+      else
+        circ(item.x,item.y,w0*thing.radius,9)
+      end
+    end
+    ]]
+    --[[
+    circ(item.x,item.y,(thing.radius or 1)*w0,9)
+    if thing.debug_forces then
+      -- draw
+      local forces=thing.debug_forces
+      local x,y,z=origin[1]+forces[1]-cx,origin[2]+forces[2]-cy,origin[3]+forces[3]-cz
+      -- 
+      local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
+      if az>8 then
+        local ay,w=m2*x+m6*y+m10*z,64/az
+        line(item.x,item.y,63.5+ax*w,63.5-ay*w,7)
+      end
+    end
+    ]]
+
+    --sspr(0,0,32,32,sx,sy,32,32,flip)
+    --print(thing.zangle,sx+sw/2,sy-8,9)      
   end
 end
 
@@ -708,22 +704,20 @@ function make_spider()
       end
     end,
     update=function(_ENV)
-      collect_grid(origin,origin,nil,nil,function(things)
-        for thing in pairs(things) do
-          if thing.is_jewel and not thing.dead then
-            local dir,len=v_dir(origin,thing.origin)
-            if len<radius then
-              thing:pickup(true)
-              do_async(function()
-                wait_async(3)
-                -- spit an egg
-                local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
-                make_egg(origin,{-force*cos(angle),force*rnd(),force*sin(angle)})
-              end)
-            end
+      for thing in pairs(_grid[origin[1]>>21|origin[3]\32].things) do
+        if thing.is_jewel and not thing.dead then
+          local dir,len=v_dir(origin,thing.origin)
+          if len<radius then
+            thing:pickup(true)
+            do_async(function()
+              wait_async(3)
+              -- spit an egg
+              local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
+              make_egg(origin,{-force*cos(angle),force*rnd(),force*sin(angle)})
+            end)
           end
         end
-      end)
+      end
 
       -- todo: move to deck borders
       -- todo: rotate if HP < 50% ??
@@ -762,13 +756,6 @@ function make_squid(type)
 
   local squid=make_skull(inherit({
     ai=spill,
-    apply=function(_ENV,other,force,t)
-      if other.is_squid_core then
-        forces[1]+=t*force[1]
-        forces[3]+=t*force[3]
-      end
-      resolved[other]=true
-    end,
     think=function(_ENV)
       dead=_dead
       _angle+=0.005
@@ -892,6 +879,10 @@ function make_worm()
     },_ENV["_worm_seg_template"..i] or _worm_seg_template)))
   end
 
+  local function make_dirt(_ENV)
+    make_blood(v_add(origin,{1-rnd(),1,1-rnd()},8),{0,3*rnd(),0})
+  end
+
   head=make_skull(inherit({
     die=function(_ENV)
       sfx"-1"
@@ -949,16 +940,25 @@ function make_worm()
       _skull_core.think(_ENV)
       -- make body wobbles
       forces=v_add(forces,{0,4*cos(time()/4+seed),0})
+      -- record last y
+      prev_y=origin[2]
     end,
     post_think=function(_ENV)
-      add(prev,{v_clone(origin),zangle,yangle},1)
+      local curr_y,dirt=origin[2]
+      if sgn(curr_y)!=sgn(prev_y) then
+        make_dirt(_ENV)
+        dirt=true
+      end
+      prev_y=curr_y
+      add(prev,{v_clone(origin),zangle,yangle,dirt},1)
       if(#prev>20*seg_delta) deli(prev)
       for i=1,#prev,seg_delta do
-        local _ENV=segments[i\seg_delta+1]
+        local _ENV,dirt=segments[i\seg_delta+1]
         -- can happen when centipede is dying
         if _ENV then
-          origin,zangle,yangle=unpack(prev[i])
-          grid_register(_ENV)
+          origin,zangle,yangle,dirt=unpack(prev[i])
+          grid_register(_ENV)          
+          if(dirt) make_dirt(_ENV)
         end
       end
     end
@@ -1055,20 +1055,12 @@ function make_egg(_origin,vel)
         make_goo(origin)
         -- spiderling
         make_skull(inherit({
-            apply=function(_ENV,other,force,t)
-              if other.on_ground then
-                forces[1]+=t*force[1]
-                forces[3]+=t*force[3]
-              end
-              resolved[other]=true
-            end,
             think=function(_ENV)
               -- navigate to target (direct)
               local dir=v_dir(origin,_plyr.origin)
               forces=v_add(forces,dir,8)
             end
-          },_spiderling_template),      
-          origin)
+          },_spiderling_template),origin)
         return
       end
       -- friction
@@ -1083,8 +1075,6 @@ function make_egg(_origin,vel)
       if origin[2]<4 then
         vel[2],on_ground=0,true
       end
-      -- keep spider on ground
-      origin[2]=4
       grid_register(_ENV)     
     end
   },_egg_template)))
@@ -1201,7 +1191,7 @@ function play_state()
     function()
       draw_world()   
 
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       local s=_total_things.."/60 ⧗:".._time_penalty.."S"
       print(s,64-print(s,0,128)/2,2,7)
 
@@ -1739,7 +1729,7 @@ cartdata;freds72_daggers]],exec)
           for i=1,3+rnd"2" do
             local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
             vel[2]=rnd()
-            make_particle(rnd()<gibs and _gib_template or _lgib_template,origin,v_scale(vel,1+rnd(2)))
+            make_particle(rnd()<gibs and _gib_template or _lgib_template,origin,v_scale(vel,1+rnd"2"))
           end
           local vel=vector_in_cone(0.25-bullet.zangle,0,0.01)
           make_particle(_lgib_template,pos,v_scale(vel,-0.5))
@@ -1749,9 +1739,11 @@ cartdata;freds72_daggers]],exec)
       end
     end,
     apply=function(_ENV,other,force,t)
-      forces[1]+=t*force[1]
-      forces[2]+=t*force[2]
-      forces[3]+=t*force[3]
+      if not apply_filter or other[apply_filter] then
+        forces[1]+=t*force[1]
+        forces[2]+=t*force[2]
+        forces[3]+=t*force[3]
+      end
       resolved[other]=true
     end,
     -- default think
@@ -1861,8 +1853,8 @@ _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obitua
 _worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
 _worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
 _jewel_template;ent,jewel,radius,12,zangle,0,ttl,300,@apply,nop,is_jewel,1
-_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,@blast,make_goo;_skull_template
-_squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8;_skull_template
+_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,@blast,make_goo,apply_filter,on_ground;_skull_template
+_squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
