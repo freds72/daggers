@@ -30,8 +30,8 @@ local _entities={
     {text="sKULL",angles=default_angles},
     {text="rEAPER",angles=default_angles},
     -- animation
-    {text="bLOOD0",angles=0x44},
-    {text="bLOOD1",angles=0x44},
+    {text="bLOOD0",angles=0},
+    {text="bLOOD1",angles=0},
     {text="bLOOD2",angles=0x44},
     {text="dAGGER0",angles=default_angles},
     {text="dAGGER1",angles=default_angles},
@@ -70,9 +70,9 @@ local _entities={
     -- spider "top"
     {text="sPIDER1",angles=0x08,bottom="sPIDER0"},
     -- sparks
-    {text="sPARK0",angles=default_angles},
-    {text="sPARK1",angles=default_angles},
-    {text="sPARK2",angles=default_angles}
+    {text="sPARK0",angles=0},
+    {text="sPARK1",angles=0},
+    {text="sPARK2",angles=0}
 }
 local _current_entity
 
@@ -385,7 +385,7 @@ function draw_grid(grid,cam,mode,layer)
                             local x,y,z,code=vert[1]+ox,vert[2]+oy,vert[3]+oz,0
                             local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
                             -- some perspective
-                            local w=3/az
+                            local w=mode and -0.1 or 3/az
                             v={ax,ay,az,x=xcenter+scale*ax*w,y=ycenter-scale*ay*w}
                             cache[idx]=v
                         end
@@ -466,7 +466,7 @@ function make_voxel_editor()
 	local yangle,zangle=-0.25,0---0.125,0
 	local dyangle,dzangle=0,0
     local offsetx,offsety=0,0
-    local rotation_mode
+    local rotation_mode,ghost_dirty
     local layer={3,3,3}
     local cam=make_cam(63.5,63.5+6,64,2)
     local quads={
@@ -637,13 +637,14 @@ function make_voxel_editor()
             -- selection
             if not rotation_mode then
                 -- previous mode?
-                if prev_mode or prev_layer!=major_layer then
+                if ghost_dirty or prev_mode or prev_layer!=major_layer then
                     -- capture 
                     holdframe()
                     cls()
                     draw_grid(_grid,cam,3,layer[majori])
                     -- copy to memory
                     memcpy(0x8000,0x6000,64*128)
+                    ghost_dirty=nil
                 end
 
                 local offset=layer[majori]
@@ -721,6 +722,7 @@ function make_voxel_editor()
         end,
         load=function(self,msg)            
             _grid={}
+            ghost_dirty=true
             undo_stack={}  
             if msg.data then         
                 _grid=grid_fromstr(msg.data)

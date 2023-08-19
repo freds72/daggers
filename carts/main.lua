@@ -1,5 +1,5 @@
 -- global arrays
-local _bsp,_things,_futures,_spiders,_plyr,_cam,_grid,_entities,_blood_ents,_goo_ents={},{},{},{}
+local _bsp,_things,_futures,_spiders,_plyr,_cam,_grid,_entities={},{},{},{}
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
 local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x8000,3,10,0.025
@@ -99,7 +99,9 @@ function with_properties(props,dst)
   local dst,props=dst or {},split(props)
   for i=1,#props,2 do
     local k,v=props[i],props[i+1]
-    if v=="nop" then v=nop
+    -- deference
+    if k[1]=="@" then
+      k,v=sub(k,2,-1),_ENV[v]
     elseif k=="ent" then 
       v=_entities[v] 
     else
@@ -199,11 +201,10 @@ function make_player(_origin,_a)
     split"0x0,0x0001,0x0002,0x0003,0x0.0001,0x0003.0001,0x0.0002,0x0003.0002,0x0.0003,0x0001.0003,0x0002.0003,0x0003.0003",
     split"0x0001,0x0002,0x0003,0x0004,0x0.0001,0x0005.0001,0x0.0002,0x0005.0002,0x0.0003,0x0005.0003,0x0.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
   }    
-  return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
+  return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,eye_pos,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
     origin=v_add(_origin,split"0,1,0"), 
     angle={0,_a,0},
-    eye_pos=v_add(_origin,split"0,25,0"), 
     m=make_m_from_euler(angle),
     control=function(_ENV)
       if(dead) return
@@ -256,7 +257,8 @@ function make_player(_origin,_a)
     update=function(_ENV)
       -- damping      
       dangle=v_scale(dangle,0.6)
-      tilt*=0.6
+      -- very slow damping back to normal
+      tilt*=0.82
       if(abs(tilt)<=0.0001) tilt=0
       velocity[1]*=0.7
       --velocity[2]*=0.9
@@ -302,7 +304,7 @@ function make_player(_origin,_a)
           origin,velocity={x,y,z},new_vel
       end
 
-      eye_pos=v_add(origin,{0,24,0})
+      eye_pos=v_add(origin,{0,12,0})
 
       -- check collisions
       local x,z=origin[1],origin[3]
@@ -323,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  --dead=true
-                  --next_state(gameover_state,thing.obituary)
+                  -- dead=true
+                  -- next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -373,7 +375,7 @@ function make_player(_origin,_a)
       m=make_m_from_euler(unpack(angle))    
 
       -- normal fire
-      local o=v_add(origin,{0,18,0})
+      local o=v_add(origin,{0,8,0})
       if fire==1 then          
         _total_bullets+=0x0.0001
         make_bullet(o,angle[2],angle[1],0.02)
@@ -390,25 +392,30 @@ function make_player(_origin,_a)
 end
 
 local _checked=0
+function vector_in_cone(zangle,yangle,spread)
+  local zangle,yangle=0.25-zangle+(1-rnd"2")*spread,yangle+(1-rnd"2")*spread
+  local u,v,s=cos(zangle),-sin(zangle),cos(yangle)
+  return {s*u,sin(yangle),s*v},u,v,sgn(s),zangle,yangle
+end
+
 function make_bullet(_origin,_zangle,_yangle,_spread)
   -- no bullets while falling
-  if(_origin[2]<4) return
+  if(_origin[2]<2) return
 
-  local _zangle,_yscale=0.25-_zangle+(1-rnd"2")*_spread,_yangle+(1-rnd"2")*_spread
-  local _u,_v,_s=cos(_zangle),-sin(_zangle),cos(_yscale)
+  local _velocity,_u,_v,_s,_zangle=vector_in_cone(_zangle,_yangle,_spread)
   -- local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
   add(_things,inherit({
     origin=v_clone(_origin),
     -- must be a unit vector  
-    velocity={_s*_u,sin(_yscale),_s*_v},
+    velocity=_velocity,
     -- fixed zangle
     zangle=_zangle,
     yangle=rnd(),
     -- 2d unit vector
     -- precomputed for collision detection
     -- make sure to keep the sign of the y component!!
-    u=sgn(_s)*_u,
-    v=sgn(_s)*_v,
+    u=_s*_u,
+    v=_s*_v,
     shadeless=true,
     ttl=time()+0.5+rnd"0.1",
     ent=rnd{_entities.dagger0,_entities.dagger1},
@@ -418,54 +425,63 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
       else
         _checked+=1
         yangle+=0.1
-        local cur_origin,new_origin,len=origin,v_add(origin,velocity,10),10
-        -- out of bounds (>1024)
-        local x,z=new_origin[1],new_origin[3]
-        if (x|z)&0xfc00==0 then
-          local y=new_origin[2]
-          if y<0 then
-            -- hit ground?
-            -- intersection with ground
-            local dy=cur_origin[2]/(cur_origin[2]-y)
-            x,z=lerp(cur_origin[1],x,dy),lerp(cur_origin[3],z,dy)
-            new_origin={x,0,z}
-            -- adjust length
-            len*=dy
-            -- no matter what - we hit the ground!
-            dead=true
-            make_blood(new_origin)
-            -- sparkles
-            for i=1,rnd"5" do
-              local a=zangle+(1-rnd"2")/8
-              local cc,ss,r=cos(a),-sin(a),2+rnd"2"
-              make_blast(_spark_ents,{x+r*cc,0,z+r*ss},{1.5*cc,0,1.5*ss}).zangle=a
-            end
-          end
-          -- collect touched grid indices
-          local hit_t,hit_thing,hit_pos=32000
-          collect_grid(cur_origin,new_origin,u,v,function(things)
-            -- todo: advanced bullets can traverse enemies
-            for thing in pairs(things) do
-              -- hitable?
-              -- avoid checking the same enemy twice
-              if not thing.dead and thing.hit and thing.checked!=_checked then
-                thing.checked=_checked
-                local hit,t,pos=ray_sphere_intersect(cur_origin,new_origin,velocity,len,thing.origin,thing.radius,thing.o_offset)
-                if hit and t<hit_t then
-                  hit_thing,hit_t,hit_pos=thing,t,pos
-                end
-              end
-            end
-          end)
-          -- apply hit on closest thing
-          if hit_thing then
-            hit_thing:hit(hit_pos)
-            dead=true
-            _total_hits+=0x0.0001
-            -- todo: allow for multiple hits
-          end
-        else
+        local cur_origin,new_origin,len,hit_t,hit_thing,hit_pos=origin,v_add(origin,velocity,10),10,32000
+        local x,y,z=unpack(new_origin)
+        if y<0 then
+          -- hit ground?
+          -- intersection with ground
+          local dy=cur_origin[2]/(cur_origin[2]-y)
+          x,y,z=lerp(cur_origin[1],x,dy),0,lerp(cur_origin[3],z,dy)
+          new_origin={x,0,z}
+          -- adjust length
+          len*=dy
+          -- no matter what - we hit the ground!
           dead=true
+          -- sparkles
+          for i=1,rnd"5" do
+            local vel,u,v=vector_in_cone(0.25-zangle,yangle,0.03)
+            make_particle(_dagger_hit_template,new_origin,v_scale(vel,1+rnd()))
+          end
+        end
+        -- collect touched grid indices
+        collect_grid(cur_origin,new_origin,u,v,function(things)
+          -- todo: advanced bullets can traverse enemies
+          for thing in pairs(things) do
+            -- hitable?
+            -- avoid checking the same enemy twice
+            if not thing.dead and thing.hit and thing.checked!=_checked then
+              thing.checked=_checked
+              -- segment (a->b)/sphere(origin,r) intersection
+              -- o_offset: y offset to origin (useful for squids)
+              -- returns distance to target
+              -- note: no need to scale down as check is done per 32x32 region
+              local o=thing.origin
+              local r,dx,dy,dz,ax,ay,az,oy=thing.radius,velocity[1],velocity[2],velocity[3],cur_origin[1],cur_origin[2],cur_origin[3],o[2]+(thing.o_offset or 0)
+              -- projection on ray
+              local mx,my,mz,ny=ax-o[1],ay-oy,az-o[3],y-oy
+              if((my<-r and ny<-r) or (my>r and ny>r)) goto continue
+              local b,c=dx*mx+dy*my+dz*mz,mx*mx+my*my+mz*mz-r*r
+              if(c>0 and b>0)  goto continue
+              local disc=b*b-c
+              if(disc<0)  goto continue
+              local t=-b-sqrt(disc)
+              -- far away?
+              if(t>len)  goto continue
+              -- inside radius?
+              if(t<0) t=rnd(len)
+              if t<hit_t then
+                hit_thing,hit_t,hit_pos=thing,t,{ax+t*dx,ay+t*dy,az+t*dz}
+              end
+::continue::
+            end            
+          end
+        end)
+        -- apply hit on closest thing
+        if hit_thing then
+          hit_thing:hit(hit_pos,_ENV)
+          dead=true
+          _total_hits+=0x0.0001
+          -- todo: allow for multiple hits
         end
         origin=new_origin
       end      
@@ -489,7 +505,7 @@ function draw_grid(cam)
     local origin=obj.origin  
     local oy=origin[2]
     -- centipede can be below ground...
-    if oy>1 then
+    if oy>=1 then
       local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
       local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
       local az4=az<<2
@@ -537,22 +553,22 @@ function draw_grid(cam)
       pal1=(light*min(15,item.key<<4))\1
     end    
     if(pal0!=pal1) memcpy(0x5f00,_ramp_pal+(pal1<<4),16) palt(15,true) pal0=pal1   
-    -- draw things
-    local w0,entity,origin=item.key,thing.ent,thing.origin
-    -- zangle (horizontal)
-    local dx,dz,yangles,side,flip=cx-origin[1],cz-origin[3],entity.yangles,0
-    local zangle=atan2(dx,-dz)
-    if yangles!=0 then
-      local step=1/(yangles<<1)
-      side=((zangle-thing.zangle+0.5+step/2)&0x0.ffff)\step
-      if(side>yangles) side=yangles-(side%yangles) flip=true
-    end
+      -- draw things
+      local w0,entity,origin=item.key,thing.ent,thing.origin
+      -- zangle (horizontal)
+      local dx,dz,yangles,side,flip=cx-origin[1],cz-origin[3],entity.yangles,0
+      local zangle=atan2(dx,-dz)
+      if yangles!=0 then
+        local step=1/(yangles<<1)
+        side=((zangle-thing.zangle+0.5+step/2)&0x0.ffff)\step
+        if(side>yangles) side=yangles-(side%yangles) flip=true
+      end
 
-    -- up/down angle
-    local zangles,yside=entity.zangles,0
-    if zangles!=0 then
-      local yangle,step=thing.yangle or 0,1/(zangles<<1)
-      yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
+      -- up/down angle
+      local zangles,yside=entity.zangles,0
+      if zangles!=0 then
+        local yangle,step=thing.yangle or 0,1/(zangles<<1)
+        yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
       if(yside>zangles) yside=zangles-(yside%zangles)
     end
     -- copy to spr
@@ -572,6 +588,7 @@ function draw_grid(cam)
     local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
     --
     sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip)
+
     --[[
     if thing.radius then
       local oy=thing.o_offset
@@ -606,34 +623,46 @@ function draw_grid(cam)
   end
 end
 
--- things
-function make_blast(_ents,_origin,_velocity)  
+-- particle thingy
+function make_particle(template,_origin,_velocity)  
+  local max_ttl=15+rnd"12"
   return add(_things,inherit({
-    -- sprite id
-    ent=_ents[1],
     origin=_origin,
-    zangle=rnd(),
     update=function(_ENV)
       ttl+=1
-      if(ttl>15) dead=true return
-      ent=_ents[min(ttl\5+1,#_ents)]
-      if(_velocity) origin=v_add(origin,_velocity) origin[2]=2
+      if(ttl>max_ttl) dead=true return
+      -- animated?
+      if(ents) ent=ents[flr(#ents*ttl/max_ttl)+1]
+      -- trail
+      if trail and ttl%4==0 then
+        -- make sure child don't spawn other entities
+        -- no need to clone as origin will be renewed after update
+        -- particles are affected by gravity
+        make_particle(_ENV[trail],v_clone(origin),{0,0,0})
+      end
+      if _velocity then
+        -- if moving, apply gravity
+        _velocity[2]-=0.4
+        origin=v_add(origin,_velocity)        
+        if (origin[2]<1 and _velocity[2]<0) origin[2]=1 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
+      end
     end
-  },_blast_template))
+  },template))
 end
 
-function make_blood(_origin)
-  make_blast(_blood_ents,_origin)
+function make_blood(origin,velocity)
+  make_particle(_gib_template,origin,velocity)
 end
 
 function make_goo(_origin)
-  return make_blast(_goo_ents,_origin)
+  return make_particle(_goo_gib_template,_origin)
 end
 
 -- base class for:
--- skull I II III
+-- skull I III
 -- centipede
 -- spiderling
+-- egg
 function make_skull(actor,_origin)
   local thing=add(_things,inherit({
     origin=_origin,
@@ -676,22 +705,20 @@ function make_spider()
       end
     end,
     update=function(_ENV)
-      collect_grid(origin,origin,nil,nil,function(things)
-        for thing in pairs(things) do
-          if thing.is_jewel and not thing.dead then
-            local dir,len=v_dir(origin,thing.origin)
-            if len<radius then
-              thing:pickup(true)
-              do_async(function()
-                wait_async(3)
-                -- spit an egg
-                local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
-                make_egg(origin,{-force*cos(angle),force*rnd(),force*sin(angle)})
-              end)
-            end
+      for thing in pairs(_grid[origin[1]>>21|origin[3]\32].things) do
+        if thing.is_jewel and not thing.dead then
+          local dir,len=v_dir(origin,thing.origin)
+          if len<radius then
+            thing:pickup(true)
+            do_async(function()
+              wait_async(3)
+              -- spit an egg
+              local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
+              make_egg(origin,{-force*cos(angle),force*rnd(),force*sin(angle)})
+            end)
           end
         end
-      end)
+      end
 
       -- todo: move to deck borders
       -- todo: rotate if HP < 50% ??
@@ -730,13 +757,6 @@ function make_squid(type)
 
   local squid=make_skull(inherit({
     ai=spill,
-    apply=function(_ENV,other,force,t)
-      if other.is_squid_core then
-        forces[1]+=t*force[1]
-        forces[3]+=t*force[3]
-      end
-      resolved[other]=true
-    end,
     think=function(_ENV)
       dead=_dead
       _angle+=0.005
@@ -792,13 +812,13 @@ _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offse
   split2d(squid_parts[type],function(base_template,properties)
     add(_things,inherit(with_properties(properties,{
       light_t=time(),
-      hit=function(_ENV,pos) 
+      hit=function(_ENV,pos,bullet) 
         if(dead) return
         if jewel then
           hp-=1
           hit_ttl=5
           -- feedback
-          make_blood(pos)
+          make_particle(_lgib_template,pos,{u,-3*bullet.velocity[2],v})
           sfx"56"
           if hp<=0 then
             make_jewel(origin,{u,3,v},16)
@@ -846,18 +866,22 @@ function make_worm()
 
   for i=1,20 do
     add(segments,add(_things,inherit({
-      hit=function(_ENV,pos)
+      hit=function(_ENV,pos,bullet)
         -- tail? (no jewels)
         if(not jewel) return
         -- avoid reentrancy
         if(touched) return
-        make_blood(pos)
+        make_blood(pos,v_add(bullet.velocity,head.velocity))
         make_jewel(origin,head.velocity)
         -- change sprite (no jewels)
         touched,ent,hit_ttl=true,_entities.worm2,5
         sfx"56"
       end
     },_ENV["_worm_seg_template"..i] or _worm_seg_template)))
+  end
+
+  local function make_dirt(_ENV)
+    make_blood(v_add(origin,{1-rnd(),1,1-rnd()},8),{0,3*rnd(),0})
   end
 
   head=make_skull(inherit({
@@ -870,7 +894,7 @@ function make_worm()
           local _ENV=deli(segments,1)
           grid_unregister(_ENV)
           dead=true
-          make_blood(origin)
+          make_blood(origin,{0,0,0})
           wait_async(3)
         end
       end)
@@ -917,25 +941,35 @@ function make_worm()
       _skull_core.think(_ENV)
       -- make body wobbles
       forces=v_add(forces,{0,4*cos(time()/4+seed),0})
+      -- record last y
+      prev_y=origin[2]
     end,
     post_think=function(_ENV)
-      add(prev,{v_clone(origin),zangle,yangle},1)
+      local curr_y,dirt=origin[2]
+      if sgn(curr_y)!=sgn(prev_y) then
+        make_dirt(_ENV)
+        dirt=true
+      end
+      prev_y=curr_y
+      add(prev,{v_clone(origin),zangle,yangle,dirt},1)
       if(#prev>20*seg_delta) deli(prev)
       for i=1,#prev,seg_delta do
-        local _ENV=segments[i\seg_delta+1]
+        local _ENV,dirt=segments[i\seg_delta+1]
         -- can happen when centipede is dying
         if _ENV then
-          origin,zangle,yangle=unpack(prev[i])
-          grid_register(_ENV)
+          origin,zangle,yangle,dirt=unpack(prev[i])
+          grid_register(_ENV)          
+          if(dirt) make_dirt(_ENV)
         end
       end
     end
   },_worm_head_template),_origin)
 end
 
-function make_jewel(_origin,vel)
+function make_jewel(_origin,_velocity)
   add(_things,inherit({    
     origin=v_clone(_origin),
+    velocity=v_clone(_velocity),
     pickup=function(_ENV,spider)
       if(dead) return
       dead=true
@@ -957,11 +991,11 @@ function make_jewel(_origin,vel)
       end
       -- friction
       if on_ground then
-        vel[1]*=0.9
-        vel[3]*=0.9
+        velocity[1]*=0.9
+        velocity[3]*=0.9
       end
       -- gravity
-      vel[2]-=0.8
+      velocity[2]-=0.8
 
       -- pulled by player or spiders?
       local force,min_dist,min_dir,min_other=_plyr.attract_power,32000,{0,0,0},_plyr
@@ -975,18 +1009,18 @@ function make_jewel(_origin,vel)
         if(min_dist==32000) min_dir,min_dist=v_dir(origin,min_other.origin)
         -- boost repulsive force
         if(force<0) force*=8
-        vel=v_add(vel,min_dir,3*force/mid(min_dist,1,5))
+        velocity=v_add(velocity,min_dir,3*force/mid(min_dist,1,5))
         -- limit x/z velocity
-        local vn,vl=v_normz(vel)
-        vel[1]*=3/vl
-        vel[3]*=3/vl
+        local vn,vl=v_normz(velocity)
+        velocity[1]*=3/vl
+        velocity[3]*=3/vl
       end
-      origin=v_add(origin,vel)
+      origin=v_add(origin,velocity)
       on_ground=nil
       -- on ground?
       if origin[2]<8 then
         origin[2]=8
-        vel[2]=0
+        velocity[2]=0
         on_ground=true
       end
       grid_register(_ENV)
@@ -994,26 +1028,18 @@ function make_jewel(_origin,vel)
   },_jewel_template))
 end
 
-function make_egg(_origin,vel)
+function make_egg(_origin,_velocity)
   -- spider spawn time
   local ttl=300+rnd"10"
-  -- todo: falling support
-  grid_register(add(_things,inherit({
-    origin=v_clone(_origin),
-    hit=function(_ENV)
-      -- avoid reentrancy
-      if(dead) return
-      hp-=1
-      if hp<=0 then
-        dead=true
-        grid_unregister(_ENV)
-        make_goo(origin)
-      else
-        hit_ttl=5
-      end
+  make_skull(inherit({
+    think=function(_ENV)
+      -- gravity
+      _velocity[2]-=0.8
+      forces=v_add(forces,_velocity,8)
+      _velocity[1]=0
+      _velocity[3]=0
     end,
-    update=function(_ENV)
-      if(dead) return
+    post_think=function(_ENV)
       ttl-=1
       if ttl<0 then
         dead=true
@@ -1022,40 +1048,22 @@ function make_egg(_origin,vel)
         make_goo(origin)
         -- spiderling
         make_skull(inherit({
-            blast=make_goo,
-            apply=function(_ENV,other,force,t)
-              if other.on_ground then
-                forces[1]+=t*force[1]
-                forces[3]+=t*force[3]
-              end
-              resolved[other]=true
-            end,
-            think=function(_ENV)
-              -- navigate to target (direct)
-              local dir=v_dir(origin,_plyr.origin)
-              forces=v_add(forces,dir,8)
+          think=function(_ENV)
+            -- navigate to target (direct)
+            local dir=v_dir(origin,_plyr.origin)
+            forces=v_add(forces,dir,8)
+            -- ensure spiderlings don't walk on air!
+            local avoid,avoid_dist=v_dir(origin,{512,0,512})
+            if avoid_dist>96 then
+              forces=v_add(forces,avoid,8*avoid_dist/96)
             end
-          },_spiderling_template),      
-          origin)
+            forces[2]=0
+          end
+        },_spiderling_template),origin)
         return
       end
-      -- friction
-      if on_ground then
-        vel[1]*=0.9
-        vel[3]*=0.9
-      end
-      -- gravity
-      vel[2]-=0.8 
-      origin,on_ground=v_add(origin,vel)
-      -- on ground?
-      if origin[2]<4 then
-        vel[2],on_ground=0,true
-      end
-      -- keep spider on ground
-      origin[2]=4
-      grid_register(_ENV)     
     end
-  },_egg_template)))
+  },_egg_template),_origin)
 end
 
 -- draw game world
@@ -1223,7 +1231,7 @@ function play_state()
       local scenario=do_async(function()
         local script=split2d([[
 --;wait player
-wait_async;90
+wait_async;15
 --;first squids wave
 random_spawn_angle
 set_spawn;200
@@ -1283,7 +1291,24 @@ set_spawn;200;64
 make_worm
 wait_async;600]],exec) 
     end)
-
+    
+    --[[
+    do_async(function()
+      while true do
+        --local s=make_skull(rnd{_skull1_template,_skull2_template},{512,8+rnd(4),530})
+        make_egg({512,24,530},{8*cos(time()/4),0,8*sin(time()/4)})
+        --s.update=nop
+        wait_async(3)
+        for i=0,9 do
+        --  make_bullet({400,10,530},0.25,0,0.01)
+          wait_async(2)
+        end
+        wait_async(60)
+        if(s) s.dead=true
+      end
+    end)
+    ]]
+    
     -- progression
     do_async(function()
       -- reset values
@@ -1308,7 +1333,7 @@ wait_async;600]],exec)
         while not _plyr.dead do      
           local angle,x,y,z=time()/8,unpack(_plyr.origin)
           local r=48*cos(angle)
-          _skull_base_template.target={x+r*cos(angle),y+24+rnd"8",z+r*sin(angle)}
+          _skull_base_template.target={x+r*cos(angle),y+8+rnd"4",z+r*sin(angle)}
           wait_async(10)
         end
 
@@ -1325,7 +1350,7 @@ end
 
 function gameover_state(obituary)  
   -- remove time spent "waiting"!!
-  local hw_pal,play_time,origin,target,selected_tab,clicked=0,time()-_start_time-_time_penalty,_plyr.eye_pos,v_add(_plyr.origin,{0,8,0})
+  local hw_pal,play_time,origin,target,selected_tab,clicked=0,time()-_start_time-_time_penalty,_plyr.eye_pos,v_add(_plyr.origin,{0,4,0})
   -- check if new playtime enters leaderboard?
   -- + handle sorting
   local new_best_i=#_local_scores+1
@@ -1594,20 +1619,20 @@ cartdata;freds72_daggers]],exec)
               if nearclip!=0 then                
                 -- near clipping required?
                 local res,v0={},verts[#verts]
-                local d0=v0[3]-4
+                local d0=v0[3]-1
                 for i,v1 in inext,verts do
                   local side=d0>0
                   if(side) res[#res+1]=v0
-                  local d1=v1[3]-4
+                  local d1=v1[3]-1
                   if (d1>0)!=side then
                     -- clip!
                     local t=d0/(d0-d1)
                     local v=v_lerp(v0,v1,t)
                     -- project
                     -- z is clipped to near plane
-                    v.x=63.5+(v[1]<<3)
-                    v.y=63.5-(v[2]<<3)
-                    v.w=8 -- 32/4
+                    v.x=63.5+(v[1]<<5)
+                    v.y=63.5-(v[2]<<5)
+                    v.w=32 -- 32/1
                     v.u=lerp(v0.u,v1.u,t)
                     v.v=lerp(v0.v,v1.v,t)
                     res[#res+1]=v
@@ -1649,9 +1674,9 @@ cartdata;freds72_daggers]],exec)
   _entities=decompress("pic",0,0,unpack_entities)
   reload()
 
+  -- must be globals
   -- predefined entries (avoids constant gc)
   _blood_ents,_goo_ents,_spark_ents={
-    _entities.blood0,
     _entities.blood1,
     _entities.blood2
   },{
@@ -1659,13 +1684,12 @@ cartdata;freds72_daggers]],exec)
     _entities.goo1,
     _entities.goo2
   },{
-    _entities.spark0,
     _entities.spark1,
     _entities.spark2
   }
 
   _skull_core=inherit({
-    hit=function(_ENV)
+    hit=function(_ENV,pos,bullet)
       -- avoid reentrancy
       if(dead) return
       hp-=1
@@ -1685,16 +1709,27 @@ cartdata;freds72_daggers]],exec)
         end 
         grid_unregister(_ENV)  
         -- custom explosion?
-        -- keep this way until: https://www.lexaloffle.com/bbs/?tid=53289 is fixed
-        ;(blast or make_blood)(origin)
+        if blast then
+          blast(pos)
+        else
+          for i=1,3+rnd"2" do
+            local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
+            vel[2]=rnd()
+            make_particle(rnd()<gibs and _gib_template or _lgib_template,origin,v_scale(vel,1+rnd"2"))
+          end
+          local vel=vector_in_cone(0.25-bullet.zangle,0,0.01)
+          make_particle(_lgib_template,pos,v_scale(vel,-0.5))
+        end
       else
         hit_ttl=5
       end
     end,
     apply=function(_ENV,other,force,t)
-      forces[1]+=t*force[1]
-      forces[2]+=t*force[2]
-      forces[3]+=t*force[3]
+      if not apply_filter or other[apply_filter] then
+        forces[1]+=t*force[1]
+        forces[2]+=t*force[2]
+        forces[3]+=t*force[3]
+      end
       resolved[other]=true
     end,
     -- default think
@@ -1709,7 +1744,6 @@ cartdata;freds72_daggers]],exec)
       yangle-=mid(forces[2]/(2*seed),-0.25,0.25)      
     end,
     update=function(_ENV)
-      local old_vel=velocity
       -- some friction
       velocity=v_scale(velocity,0.8)
 
@@ -1737,38 +1771,23 @@ cartdata;freds72_daggers]],exec)
             resolved[other]=true
           end
         end
-        -- make sure grounded entities keept on ground
-        -- todo: useless??
-        forces={fx,on_ground and 0 or fy,fz}
+        forces={fx,fy,fz}
 
         -- 
         velocity=v_add(velocity,forces,1/16)      
       end
 
       -- fixed velocity (on x/z)
-      local vx,vz=velocity[1],velocity[3]
-      local a=atan2(vx,vz)
-      local vlen=vx*cos(a)+vz*sin(a)
-      velocity[1]*=min_velocity/vlen
-      velocity[3]*=min_velocity/vlen      
+      if min_velocity>0 then
+        local vx,vz=velocity[1],velocity[3]
+        local a=atan2(vx,vz)
+        local vlen=vx*cos(a)+vz*sin(a)
+        velocity[1]*=min_velocity/vlen
+        velocity[3]*=min_velocity/vlen      
+      end
 
       -- align direction and sprite direction
       local target_angle=atan2(-velocity[1],velocity[3])
-      --[[
-      if abs(target_angle-shortest)>0.125/2 then
-        -- relative change
-        shortest=mid(shortest-target_angle,-0.125/2,0.125/2)
-        -- preserve length
-        local x,z=vel[1],vel[3]
-        local len=sqrt(x*x+z*z)
-        x,z=old_vel[1],old_vel[3]
-        local old_len=sqrt(x*x+z*z)
-        x/=old_len
-        z/=old_len
-        vel[1],vel[3]=len*(x*cos(shortest)+z*sin(shortest)),len*(-x*sin(shortest)+z*cos(shortest))
-        shortest+=target_angle
-      end
-      ]]
       zangle=lerp(shortest_angle(target_angle,zangle),target_angle,0.2)
       
       -- move & clamp
@@ -1792,23 +1811,27 @@ cartdata;freds72_daggers]],exec)
   })
 
   -- global templates
-  local templates=[[_blast_template;zangle,rnd,yangle,0,ttl,0,shadeless,1
-_skull_template;zangle,rnd,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,4,target_yangle,0;_skull_core
-_egg_template;ent,egg,radius,12,hp,2,zangle,0,apply,nop,obituary,aCIDIFIED
-_worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
-_worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,apply,nop,obituary,wORMED,scale,1.2
-_worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,apply,nop,obituary,wORMED,scale,0.8
-_worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10;_skull_template
-_jewel_template;ent,jewel,radius,12,zangle,rnd,ttl,300,apply,nop,is_jewel,1
-_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED;_skull_template
-_squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,hit,nop,cost,5,obituary,nAILED;_skull_template
-_squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1,o_offset,12
-_squid_jewel;jewel,1,hp,10,ent,squid1,radius,8,origin,v_zero,zangle,0,apply,nop,obituary,nAILED,shadeless,1,o_offset,12
+  local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,-1
+_lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
+_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents
+_dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
+_skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,2,target_yangle,0,gibs,-1;_skull_core
+_egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,@blast,make_goo,obituary,aCIDIFIED,min_velocity,-1;_skull_template
+_goo_gib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,@ents,_goo_ents
+_worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
+_worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
+_worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
+_worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
+_jewel_template;ent,jewel,radius,12,zangle,0,ttl,300,@apply,nop,is_jewel,1
+_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,@blast,make_goo,apply_filter,on_ground;_skull_template
+_squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
+_squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
+_squid_jewel;jewel,1,hp,10,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
 _squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
-_skull2_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5;_skull_base_template
-_spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,apply,nop,cost,1]]
+_skull2_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
+_spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
@@ -1853,31 +1876,6 @@ function collect_grid(a,b,u,v,cb)
     end
     cb(_grid[map_idx].things)
   end
-end
-
--- segment (a->b)/sphere(origin,r) intersection
--- o_offset: y offset to origin (useful for squids)
--- returns distance to target
-function ray_sphere_intersect(a,b,dir,len,o,r,o_offset)
-  -- note: no need to scale down as check is done per 32x32 region
-  local dx,dy,dz,ax,ay,az,oy=dir[1],dir[2],dir[3],a[1],a[2],a[3],o[2]+(o_offset or 0)
-  -- projection on ray
-  local mx,my,mz,ny=ax-o[1],ay-oy,az-o[3],b[2]-oy
-  if((my<-r and ny<-r) or (my>r and ny>r)) return
-  local b,c=dx*mx+dy*my+dz*mz,mx*mx+my*my+mz*mz-r*r
-  if(c>0 and b>0) return
-  local disc=b*b-c
-  if(disc<0) return
-  local t=-b-sqrt(disc)
-  -- far away?
-  if(t>len) return
-  -- inside radius?
-  if(t<0) t=rnd(len)
-  ax+=t*dx
-  ay+=t*dy
-  az+=t*dz
-  -- return intersection point
-  return true,t,{ax,ay,az}
 end
 
 function _update()
