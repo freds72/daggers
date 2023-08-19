@@ -662,6 +662,7 @@ end
 -- skull I III
 -- centipede
 -- spiderling
+-- egg
 function make_skull(actor,_origin)
   local thing=add(_things,inherit({
     origin=_origin,
@@ -1027,26 +1028,18 @@ function make_jewel(_origin,_velocity)
   },_jewel_template))
 end
 
-function make_egg(_origin,vel)
+function make_egg(_origin,_velocity)
   -- spider spawn time
   local ttl=300+rnd"10"
-  -- todo: falling support
-  grid_register(add(_things,inherit({
-    origin=v_clone(_origin),
-    hit=function(_ENV)
-      -- avoid reentrancy
-      if(dead) return
-      hp-=1
-      if hp<=0 then
-        dead=true
-        grid_unregister(_ENV)
-        make_goo(origin)
-      else
-        hit_ttl=5
-      end
+  make_skull(inherit({
+    think=function(_ENV)
+      -- gravity
+      _velocity[2]-=0.8
+      forces=v_add(forces,_velocity,8)
+      _velocity[1]=0
+      _velocity[3]=0
     end,
-    update=function(_ENV)
-      if(dead) return
+    post_think=function(_ENV)
       ttl-=1
       if ttl<0 then
         dead=true
@@ -1055,29 +1048,22 @@ function make_egg(_origin,vel)
         make_goo(origin)
         -- spiderling
         make_skull(inherit({
-            think=function(_ENV)
-              -- navigate to target (direct)
-              local dir=v_dir(origin,_plyr.origin)
-              forces=v_add(forces,dir,8)
+          think=function(_ENV)
+            -- navigate to target (direct)
+            local dir=v_dir(origin,_plyr.origin)
+            forces=v_add(forces,dir,8)
+            -- ensure spiderlings don't walk on air!
+            local avoid,avoid_dist=v_dir(origin,{512,0,512})
+            if avoid_dist>96 then
+              forces=v_add(forces,avoid,8*avoid_dist/96)
             end
-          },_spiderling_template),origin)
+            forces[2]=0
+          end
+        },_spiderling_template),origin)
         return
       end
-      -- friction
-      if on_ground then
-        vel[1]*=0.9
-        vel[3]*=0.9
-      end
-      -- gravity
-      vel[2]-=0.8 
-      origin,on_ground=v_add(origin,vel)
-      -- on ground?
-      if origin[2]<4 then
-        vel[2],on_ground=0,true
-      end
-      grid_register(_ENV)     
     end
-  },_egg_template)))
+  },_egg_template),_origin)
 end
 
 -- draw game world
@@ -1305,13 +1291,13 @@ set_spawn;200;64
 make_worm
 wait_async;600]],exec) 
     end)
-
+    
     --[[
     do_async(function()
       while true do
-        local s=make_skull(rnd{_skull1_template,_skull2_template},{512,8+rnd(4),530})
-        --make_egg({512,8+rnd(4),530},{0,0,0})
-        s.update=nop
+        --local s=make_skull(rnd{_skull1_template,_skull2_template},{512,8+rnd(4),530})
+        make_egg({512,24,530},{8*cos(time()/4),0,8*sin(time()/4)})
+        --s.update=nop
         wait_async(3)
         for i=0,9 do
         --  make_bullet({400,10,530},0.25,0,0.01)
@@ -1322,7 +1308,7 @@ wait_async;600]],exec)
       end
     end)
     ]]
-
+    
     -- progression
     do_async(function()
       -- reset values
@@ -1758,7 +1744,6 @@ cartdata;freds72_daggers]],exec)
       yangle-=mid(forces[2]/(2*seed),-0.25,0.25)      
     end,
     update=function(_ENV)
-      local old_vel=velocity
       -- some friction
       velocity=v_scale(velocity,0.8)
 
@@ -1786,38 +1771,23 @@ cartdata;freds72_daggers]],exec)
             resolved[other]=true
           end
         end
-        -- make sure grounded entities keept on ground
-        -- todo: useless??
-        forces={fx,on_ground and 0 or fy,fz}
+        forces={fx,fy,fz}
 
         -- 
         velocity=v_add(velocity,forces,1/16)      
       end
 
       -- fixed velocity (on x/z)
-      local vx,vz=velocity[1],velocity[3]
-      local a=atan2(vx,vz)
-      local vlen=vx*cos(a)+vz*sin(a)
-      velocity[1]*=min_velocity/vlen
-      velocity[3]*=min_velocity/vlen      
+      if min_velocity>0 then
+        local vx,vz=velocity[1],velocity[3]
+        local a=atan2(vx,vz)
+        local vlen=vx*cos(a)+vz*sin(a)
+        velocity[1]*=min_velocity/vlen
+        velocity[3]*=min_velocity/vlen      
+      end
 
       -- align direction and sprite direction
       local target_angle=atan2(-velocity[1],velocity[3])
-      --[[
-      if abs(target_angle-shortest)>0.125/2 then
-        -- relative change
-        shortest=mid(shortest-target_angle,-0.125/2,0.125/2)
-        -- preserve length
-        local x,z=vel[1],vel[3]
-        local len=sqrt(x*x+z*z)
-        x,z=old_vel[1],old_vel[3]
-        local old_len=sqrt(x*x+z*z)
-        x/=old_len
-        z/=old_len
-        vel[1],vel[3]=len*(x*cos(shortest)+z*sin(shortest)),len*(-x*sin(shortest)+z*cos(shortest))
-        shortest+=target_angle
-      end
-      ]]
       zangle=lerp(shortest_angle(target_angle,zangle),target_angle,0.2)
       
       -- move & clamp
@@ -1846,7 +1816,7 @@ _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,
 _gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
 _skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,2,target_yangle,0,gibs,-1;_skull_core
-_egg_template;ent,egg,radius,12,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED
+_egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,@blast,make_goo,obituary,aCIDIFIED,min_velocity,-1;_skull_template
 _goo_gib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,@ents,_goo_ents
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
 _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
