@@ -19,7 +19,6 @@ function mode7(p,np,palette)
       lj+=1
       if (lj>np) lj=1
       local v1=p[lj]
-      -- make sure w gets enough precision
       local y0,y1,w1=v0.y,v1.y,v1.w
       local dy=y1-y0
       ly=y1&-1

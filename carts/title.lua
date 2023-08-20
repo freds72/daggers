@@ -873,6 +873,13 @@ cartdata;freds72_daggers]],exec)
     poke(mem,b>>4) mem+=1
   end
 
+  -- copy tiles to high mem (for shadows/splash)
+  mem=0xc010
+  for i=0,32*64-1,64 do
+    memcpy(mem,i+32,32) mem+=32
+    memcpy(mem,i+32,32) mem+=32
+  end
+
   -- load background assets
   decompress("pic",0,0,function()
     local names={

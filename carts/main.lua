@@ -325,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  --dead=true
+                  --next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -506,26 +506,10 @@ function draw_grid(cam)
     local oy=origin[2]
     -- centipede can be below ground...
     if oy>=1 then
-      local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
-      local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
-      local az4=az<<2
-      -- draw shadows (y=0)
-      if not obj.shadeless then
-        local ay=m2*x-m6*cy+m10*z
-        if az>4 and az<96 and ax<az4 and -ax<az4 and -ay<az4 and ay<az4 then
-          -- thing offset+cam offset              
-          local w=32/az
-          local a,r=atan2(az,-cy),obj.radius*w
-          local x0,y0,ry=63.5+ax*w,63.5-ay*w,-r*sin(a)
-          ovalfill(x0-r,y0+ry,x0+r,y0-ry)
-        end
-      end
-  
-      -- 
       if not obj.no_render then
-        ax+=m5*oy
-        az+=m7*oy
-        local ay,az4=m2*x+m6*y+m10*z,az<<2
+        local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
+        local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
+        local az4=az<<2
         if az>4 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
           local w=32/az
           things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
@@ -1219,6 +1203,9 @@ function play_state()
       local x0,y0=world_to_map(_flying_target)
       spr(23,x0-2,y0-2)
       ]]
+
+      --_map_display(1)
+      --spr(0,0,0,16,16)
     end,
     -- init
     function()
@@ -1289,9 +1276,9 @@ wait_async;150
 random_spawn_angle
 set_spawn;200;64
 make_worm
-wait_async;600]],exec) 
+wait_async;600]],nop) 
     end)
-    
+
     --[[
     do_async(function()
       while true do
@@ -1308,6 +1295,12 @@ wait_async;600]],exec)
       end
     end)
     ]]
+    for i=-4,5 do
+      for j=-4,5 do
+        local s=make_skull(_skull1_template,{512+i*16,12+rnd(4),512+j*16})
+        s.update=nop
+      end
+    end
     
     -- progression
     do_async(function()
@@ -1506,10 +1499,20 @@ function _init()
   -- enable lock
   -- increase tline precision
   -- cartdata
+  -- copy tiles to spritesheet 1
+  -- todo: put back tline precision
   split2d([[poke;0x5f58;0x81
-poke;0x5f36;0x18
+poke;0x5f36;9
 poke;0x5f2d;0x7
-tline;17
+poke;0x5f54;0x60
+poke;0x5f55;0x00
+memcpy;0x0;0x6000;0x2000
+_map_display;1
+memcpy;0;0xc010;2048
+memcpy;2048;0xc010;2048
+memcpy;4096;0xc010;2048
+memcpy;6144;0xc010;2048
+_map_display;0
 cartdata;freds72_daggers]],exec)
 
   -- local score version
@@ -1585,16 +1588,17 @@ cartdata;freds72_daggers]],exec)
     -- ##6: vertex index
     -- ##7: vertex index
     -- ##8: tex coords
-    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0.0404; -2;32.0;0;2;58;55;52;49;0x0008.0404; -3;-384.0;0;1;13;22;58;49;0x0004.0404; 3;640.0;0;1;19;16;52;55;0x0004.0404; -1;-320.0;2;1;49;52;16;13;0x0004.0404
-2; 2;0.0;0;2;1;4;7;10;0x0.0404; -2;32.0;0;2;46;43;40;37;0x0008.0404; -3;-320.0;0;1;1;10;46;37;0x0004.0404; 3;704.0;0;1;7;4;40;43;0x0004.0404; -1;-384.0;2;1;22;1;37;58;0x0004.0404; -1;-384.0;2;1;4;19;55;40;0x0004.0404; 1;640.0;2;1;28;7;43;64;0x0004.0404; 1;640.0;2;1;10;25;61;46;0x0004.0404
-3; 2;0.0;0;2;25;28;31;34;0x0.0404; -2;32.0;0;2;70;67;64;61;0x0008.0404; -3;-384.0;0;1;25;34;70;61;0x0004.0404; 1;704.0;2;1;70;34;31;67;0x0004.0404; 3;640.0;0;1;31;28;64;67;0x0004.0404]],function(id,...)
+    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0000.1010;1; -2;32.0;0;2;58;55;52;49;0x0014.0404;0; -3;-384.0;0;1;13;22;58;49;0x0010.0404;0; 3;640.0;0;1;19;16;52;55;0x0010.0404;0; -1;-320.0;2;1;49;52;16;13;0x0010.0404;0
+2; 2;0.0;0;2;1;4;7;10;0x0000.1010;1; -2;32.0;0;2;46;43;40;37;0x0014.0404;0; -3;-320.0;0;1;1;10;46;37;0x0010.0404;0; 3;704.0;0;1;7;4;40;43;0x0010.0404;0; -1;-384.0;2;1;22;1;37;58;0x0010.0404;0; -1;-384.0;2;1;4;19;55;40;0x0010.0404;0; 1;640.0;2;1;28;7;43;64;0x0010.0404;0; 1;640.0;2;1;10;25;61;46;0x0010.0404;0
+3; 2;0.0;0;2;25;28;31;34;0x0000.1010;1; -2;32.0;0;2;70;67;64;61;0x0014.0404;0; -3;-384.0;0;1;25;34;70;61;0x0010.0404;0; 1;704.0;2;1;70;34;31;67;0x0010.0404;0; 3;640.0;0;1;31;28;64;67;0x0010.0404;0
+]],function(id,...)
       -- localize
       local planes={...}
       _bsp[id]=function(cam)        
         local m,origin,cx,cy,cz=cam.m,cam.origin,unpack(cam.origin)
         local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
         -- all brush planes
-        for i=1,#planes,9 do
+        for i=1,#planes,10 do
           -- visible?
           local dir=planes[i]
           if sgn(dir)*origin[abs(dir)]>planes[i+1] then              
@@ -1609,7 +1613,7 @@ cartdata;freds72_daggers]],exec)
               if(0.5*ax>az) code|=8
               
               local w=32/az 
-              verts[j]={ax,ay,az,u=_vertices[vi+uindex],v=_vertices[vi+vindex],x=63.5+ax*w,y=63.5-ay*w,w=w}
+              verts[j]={ax,ay,az,u=(_vertices[vi+uindex]-320)*0x0.0aaa,v=(_vertices[vi+vindex]-320)*0x0.0aaa,x=63.5+ax*w,y=63.5-ay*w,w=w}
               
               outcode&=code
               nearclip+=code&2
@@ -1644,6 +1648,7 @@ cartdata;freds72_daggers]],exec)
     
               -- texture
               poke4(0x5f38,planes[i+8])
+              _map_display(planes[i+9])
               --[[
               color(1)
               local v0=verts[#verts]
@@ -1665,6 +1670,7 @@ cartdata;freds72_daggers]],exec)
             end
           end
         end
+        _map_display(0)
       end
     end)
   -- attach world draw as a named BSP node
