@@ -492,18 +492,16 @@ end
 function draw_grid(cam)
   local things,m,cx,cy,cz={},cam.m,unpack(cam.origin)
   -- make sure camera matrix is local
-  local m1,m5,m9,m2,m6,m10,m3,m7,m11,r_scale=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11],-sin(0.625+cam.angles[1]/2)
+  local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
-  pal()
-
-  -- 
-  -- render shadows (& collect)
-  poke(0x5f5e, 0b11111110)
-  color(1)
   -- project
   for i,obj in inext,_things do
     local origin=obj.origin  
     local oy=origin[2]
+    if not obj.shadeless then
+      local sx,sy=(origin[1]-320)/3,(origin[3]-320)/3        
+      -- circfill(sx,sy,obj.radius/3,1)
+    end
     -- centipede can be below ground...
     if oy>=1 then
       if not obj.no_render then
@@ -517,7 +515,7 @@ function draw_grid(cam)
       end
     end
   end
-  poke(0x5f5e, 0xff)
+
 
   -- radix sort
   rsort(things)
@@ -628,7 +626,15 @@ function make_particle(template,_origin,_velocity)
         -- if moving, apply gravity
         _velocity[2]-=0.4
         origin=v_add(origin,_velocity)        
-        if (origin[2]<1 and _velocity[2]<0) origin[2]=1 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
+        if origin[2]<1 and _velocity[2]<0 then
+          origin[2]=1 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
+          -- write on playground
+          if stain and rebound==0 then
+            -- convert coords into map space
+            local sx,sy=(origin[1]-320)/3,(origin[3]-320)/3        
+            pset(sx,sy,stain)
+          end
+        end
       end
     end
   },template))
@@ -1276,7 +1282,7 @@ wait_async;150
 random_spawn_angle
 set_spawn;200;64
 make_worm
-wait_async;600]],nop) 
+wait_async;600]],exec) 
     end)
 
     --[[
@@ -1294,14 +1300,13 @@ wait_async;600]],nop)
         if(s) s.dead=true
       end
     end)
-    ]]
     for i=-4,5 do
       for j=-4,5 do
         local s=make_skull(_skull1_template,{512+i*16,12+rnd(4),512+j*16})
         s.update=nop
       end
     end
-    
+    ]]    
     -- progression
     do_async(function()
       -- reset values
@@ -1499,13 +1504,13 @@ function _init()
   -- enable lock
   -- increase tline precision
   -- cartdata
+  -- use "screen" as spritesheet source
   -- copy tiles to spritesheet 1
   -- todo: put back tline precision
   split2d([[poke;0x5f58;0x81
 poke;0x5f36;9
 poke;0x5f2d;0x7
-poke;0x5f54;0x60
-poke;0x5f55;0x00
+poke;0x5f54;0x60;0x00
 memcpy;0x0;0x6000;0x2000
 _map_display;1
 memcpy;0;0xc010;2048
@@ -1819,7 +1824,7 @@ cartdata;freds72_daggers]],exec)
   -- global templates
   local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,-1
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
-_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents
+_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents,stain,8
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
 _skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,4,target_yangle,0,gibs,-1;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,@blast,make_goo,obituary,aCIDIFIED,min_velocity,-1;_skull_template
@@ -1899,7 +1904,12 @@ function _update()
   
   _plyr:update()
   --
-  if _slow_mo%2==0 then    
+  if _slow_mo%2==0 then
+    -- draw on tiles setup
+    split2d([[poke;0x5f54;0x00;0x60
+_map_display;1
+poke;0x5f54;0x00
+poke;0x5f5e;0b11111110]],exec)  
     -- physic must run *before* general updates
     for _,_ENV in inext,_things do
       if(physic) physic(_ENV)
@@ -1917,6 +1927,10 @@ function _update()
         if(update) update(_ENV)
       end
     end
+    -- revert
+    split2d([[poke;0x5f5e;0xff
+poke;0x5f54;0x60;0x00
+_map_display;0]],exec)
   end
 
   _update_state()
