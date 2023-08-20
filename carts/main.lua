@@ -1134,6 +1134,14 @@ end
 
 -- gameplay state
 function play_state()
+  -- clean up stains!
+  split2d([[_map_display;1
+memcpy;0;0xc010;2048
+memcpy;2048;0xc010;2048
+memcpy;4096;0xc010;2048
+memcpy;6144;0xc010;2048
+_map_display;0]],exec)
+
   -- camera & player & reset misc values
   _plyr,_things,_spiders,_total_jewels,_total_bullets,_total_hits=make_player({512,24,512},0),{},{},0,0,0
   
