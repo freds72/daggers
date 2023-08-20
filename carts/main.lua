@@ -304,7 +304,7 @@ function make_player(_origin,_a)
           origin,velocity={x,y,z},new_vel
       end
 
-      eye_pos=v_add(origin,{0,12,0})
+      eye_pos=v_add(origin,{0,18,0})
 
       -- check collisions
       local x,z=origin[1],origin[3]
@@ -325,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  -- dead=true
-                  -- next_state(gameover_state,thing.obituary)
+                  dead=true
+                  next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -419,7 +419,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
     shadeless=true,
     ttl=time()+0.5+rnd"0.1",
     ent=rnd{_entities.dagger0,_entities.dagger1},
-    update=function(_ENV)
+    physic=function(_ENV)
       if ttl<time() then
         dead=true
       else
@@ -714,7 +714,7 @@ function make_spider()
               wait_async(3)
               -- spit an egg
               local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
-              make_egg(origin,{-force*cos(angle),force*rnd(),force*sin(angle)})
+              make_egg(v_clone(origin),{-force*cos(angle),force*rnd(),force*sin(angle)})
             end)
           end
         end
@@ -1333,7 +1333,7 @@ wait_async;600]],exec)
         while not _plyr.dead do      
           local angle,x,y,z=time()/8,unpack(_plyr.origin)
           local r=48*cos(angle)
-          _skull_base_template.target={x+r*cos(angle),y+8+rnd"4",z+r*sin(angle)}
+          _skull_base_template.target={x+r*cos(angle),y+10+rnd"4",z+r*sin(angle)}
           wait_async(10)
         end
 
@@ -1815,7 +1815,7 @@ cartdata;freds72_daggers]],exec)
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
 _gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
-_skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,2,target_yangle,0,gibs,-1;_skull_core
+_skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,4,target_yangle,0,gibs,-1;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,@blast,make_goo,obituary,aCIDIFIED,min_velocity,-1;_skull_template
 _goo_gib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,@ents,_goo_ents
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
@@ -1893,7 +1893,11 @@ function _update()
   
   _plyr:update()
   --
-  if _slow_mo%2==0 then
+  if _slow_mo%2==0 then    
+    -- physic must run *before* general updates
+    for _,_ENV in inext,_things do
+      if(physic) physic(_ENV)
+    end
     for i=#_things,1,-1 do
       local _ENV=_things[i]
       if dead then
