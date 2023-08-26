@@ -205,7 +205,15 @@ def animate_ramp(filename,target_color):
   gifs[0].save('animated_ramp.gif',save_all=True, append_images=gifs[1:], optimize=False, duration=40, loop=0)
   # 
   print("[[{0}]]".format("\n".join([";".join(out[x:x+16]) for x in range(0, len(out),16)][::-1])))
-  
+
+def rgb_distance(e1, e2):
+  rmean = ( e1[0] + e2[0] ) / 2
+  r = e1[0] - e2[0]
+  g = e1[1] - e2[1]
+  b = e1[2] - e2[2]
+  # return math.sqrt((2+rmean/256)*r*r + 4*g*g + (2+(255-rmean)/256)*b*b)
+  return sqr(r) + sqr(g) + sqr(b)
+
 def palette_to_ramp(filename,target_color,ramp_size,ramp_mode,fixed_color=None,keep_palette=False):
   src = Image.open(filename)
   width, height = src.size
@@ -246,8 +254,9 @@ def palette_to_ramp(filename,target_color,ramp_size,ramp_mode,fixed_color=None,k
       out_row=[]
       for i in range(16):
         src_r,src_g,src_b = palette[i]
-        r,g,b = (lerp(src_r,dst_r,ratio),lerp(src_g,dst_g,ratio),lerp(src_b,dst_b,ratio))
-        diffs = {p8:math.sqrt(sqr(r-rgb[0]) + sqr(g-rgb[1]) + sqr(b-rgb[2])) for p8,rgb in pico_to_std_palette.items()}
+        r,g,b = (lerp(src_r,dst_r,ratio),lerp(src_g,dst_g,ratio),lerp(src_b,dst_b,ratio))         
+        diffs = {p8:math.sqrt(sqr((r-rgb[0])) + sqr((g-rgb[1])) + sqr((b-rgb[2]))) for p8,rgb in pico_to_std_palette.items()}
+        # diffs = {p8:rgb_distance((r,b,g),rgb) for p8,rgb in pico_to_std_palette.items()}
         best_p8_color = min(diffs, key=diffs.get)
         # replace palette color by p8 hardware color
         out_row.append(best_p8_color)
@@ -286,8 +295,8 @@ def main():
 
   args = parser.parse_args()
   if args.ramp is not None:
-    # palette_to_ramp(args.palette,args.ramp,args.ramp_size,args.ramp_mode,fixed_color=args.fixed_color,keep_palette=args.keep)
-    animate_ramp(args.palette,8)
+    palette_to_ramp(args.palette,args.ramp,args.ramp_size,args.ramp_mode,fixed_color=args.fixed_color,keep_palette=args.keep)
+    # animate_ramp(args.palette,args.ramp)
   else:
     print(palette_from_png(args.palette))
 

@@ -494,13 +494,22 @@ function draw_grid(cam)
   -- make sure camera matrix is local
   local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
+  -- clear shadows
+  _map_display(1)
+  poke(0x5f54,0x00,0x60)
+  poke(0x5f5e,0b00001000)
+	rectfill(0,0,127,127,0)
+	
+	-- draw shadows
+  poke(0x5f5e,0b10001000)
+
   -- project
   for i,obj in inext,_things do
     local origin=obj.origin  
     local oy=origin[2]
     if not obj.shadeless then
       local sx,sy=(origin[1]-320)/3,(origin[3]-320)/3        
-      -- circfill(sx,sy,obj.radius/3,1)
+      circfill(sx,sy,obj.radius/3,8)
     end
     -- centipede can be below ground...
     if oy>=1 then
@@ -515,7 +524,9 @@ function draw_grid(cam)
       end
     end
   end
-
+  poke(0x5f5e,0xff)
+  poke(0x5f54,0x60,0x00)
+  _map_display(0)
 
   -- radix sort
   rsort(things)
@@ -633,6 +644,7 @@ function make_particle(template,_origin,_velocity)
             -- convert coords into map space
             local sx,sy=(origin[1]-320)/3,(origin[3]-320)/3        
             pset(sx,sy,stain)
+            dead=true
           end
         end
       end
@@ -1059,7 +1071,7 @@ end
 -- draw game world
 local _hand_y=0
 function draw_world()
-  cls()
+  cls(8)
 
   -- draw mini bsp
   _bsp[0](_cam)
@@ -1081,8 +1093,8 @@ function draw_world()
   end
 
   -- hide trick top/bottom 8 pixel rows :)
-  memset(0x6000,0,512)
-  memset(0x7e00,0,512)
+  memset(0x6000,0x88,512)
+  memset(0x7e00,0x88,512)
 
   --[[
   local stats={
@@ -1236,6 +1248,7 @@ wait_async;15
 --;first squids wave
 random_spawn_angle
 set_spawn;200
+make_worm
 wait_async;330
 make_squid;2
 wait_async;330
@@ -1314,7 +1327,7 @@ wait_async;600]],exec)
         s.update=nop
       end
     end
-    ]]    
+    ]]        
     -- progression
     do_async(function()
       -- reset values
@@ -1832,7 +1845,7 @@ cartdata;freds72_daggers]],exec)
   -- global templates
   local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,-1
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
-_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents,stain,8
+_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents,stain,5
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
 _skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,4,target_yangle,0,gibs,-1;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,@blast,make_goo,obituary,aCIDIFIED,min_velocity,-1;_skull_template
@@ -1914,10 +1927,9 @@ function _update()
   --
   if _slow_mo%2==0 then
     -- draw on tiles setup
-    split2d([[poke;0x5f54;0x00;0x60
-_map_display;1
-poke;0x5f54;0x00
-poke;0x5f5e;0b11111110]],exec)  
+    split2d([[_map_display;1
+poke;0x5f54;0x00;0x60
+poke;0x5f5e;0b11110111]],exec)  
     -- physic must run *before* general updates
     for _,_ENV in inext,_things do
       if(physic) physic(_ENV)
