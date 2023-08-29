@@ -5,38 +5,41 @@ import math
 
 # RGB to pico8 color index
 rgb_to_pico8={
-  "0x000000":0,
-  "0x1d2b53":1,
-  "0x7e2553":2,
-  "0x008751":3,
-  "0xab5236":4,
-  "0x5f574f":5,
-  "0xc2c3c7":6,
-  "0xfff1e8":7,
-  "0xff004d":8,
-  "0xffa300":9,
-  "0xffec27":10,
-  "0x00e436":11,
-  "0x29adff":12,
-  "0x83769c":13,
-  "0xff77a8":14,
-  "0xffccaa":15,
-  "0x291814":128,
-  "0x111d35":129,
-  "0x422136":130,
-  "0x125359":131,
-  "0x742f29":132,
-  "0x49333b":133,
-  "0xa28879":134,
-  "0xf3ef7d":135,
-  "0xbe1250":136,
-  "0xff6c24":137,
-  "0xa8e72e":138,
-  "0x00b543":139,
-  "0x065ab5":140,
-  "0x754665":141,
-  "0xff6e59":142,
-  "0xff9d81":143}
+  0x000000:0,
+  0x1d2b53:1,
+  0x7e2553:2,
+  0x008751:3,
+  0xab5236:4,
+  0x5f574f:5,
+  0xc2c3c7:6,
+  0xfff1e8:7,
+  0xff004d:8,
+  0xffa300:9,
+  0xffec27:10,
+  0x00e436:11,
+  0x29adff:12,
+  0x83769c:13,
+  0xff77a8:14,
+  0xffccaa:15,
+  0x291814:128,
+  0x111d35:129,
+  0x422136:130,
+  0x125359:131,
+  0x742f29:132,
+  0x49333b:133,
+  0xa28879:134,
+  0xf3ef7d:135,
+  0xbe1250:136,
+  0xff6c24:137,
+  0xa8e72e:138,
+  0x00b543:139,
+  0x065ab5:140,
+  0x754665:141,
+  0xff6e59:142,
+  0xff9d81:143}
+
+rgb_to_pico8 = {((rgb&0xff0000)//65536,(rgb&0xff00)//256,rgb&0xff):v for rgb,v in rgb_to_pico8.items()}
+pico8_to_rgb = {v:k for k,v in rgb_to_pico8.items()}
 
 # map rgb colors to label fake hexa codes
 rgb_to_label={
@@ -83,53 +86,136 @@ def std_rgb_palette(max_index=16):
 def label_palette():
   return rgb_to_label
 
-# palette from a 16x1 image
-def palette_from_png(filename):
-  src = Image.open(filename)
-  width, height = src.size
-  if width*height!=16:
-    raise Exception("Palette image: {} invalid size: {}x{} - Palette must be max. 16 pixels".format(filename,width,height))
-  # copy to know format
-  dst = Image.new("RGB",(width, height),0)
-  dst.paste(src)
-  # convert to array of rgb integers
-  palette = []
-  for i in range(16):
-    rgb = dst.getpixel((i%width,i//width))      
-    palette.append(rgb_to_pico8["0x{:02x}{:02x}{:02x}".format(rgb[0],rgb[1],rgb[2])])
-  return palette
+class RGBColorSpace():
+  # stores a list of rgb colors
+  def __init__(self, colors, all_colors = None):
+    self.colors = colors
+    self.all_colors = all_colors or colors
 
-# helper class to check or build a new palette
-class AutoPalette:  
+  # returns distance between 2 colors
+  def distance(self,a,b):
+    r = a[0] - b[0]
+    g = a[1] - b[1]
+    b = a[2] - b[2]
+    return sqr(r) + sqr(g) + sqr(b)
+
+  def best_match(self,src_idx,dst_idx,ratio):
+    src_r,src_g,src_b = self.colors[src_idx]
+    dst_r,dst_g,dst_b = self.all_colors[dst_idx]
+
+    r,g,b = (lerp(src_r,dst_r,ratio),lerp(src_g,dst_g,ratio),lerp(src_b,dst_b,ratio))         
+    diffs = {i:math.sqrt(sqr((r-rgb[0])) + sqr((g-rgb[1])) + sqr((b-rgb[2]))) for i,rgb in enumerate(self.all_colors)}
+    # diffs = {p8:rgb_distance((r,b,g),rgb) for p8,rgb in pico_to_std_palette.items()}
+    return min(diffs, key=diffs.get)
+
+# Helper class to handle palette conversions
+class Palette:  
   # palette: an array of (r,g,b,a) tuples
-  def __init__(self, palette=None):
-    self.auto = palette is None
-    self.palette = palette or []
+  def __init__(self, filename):
+    self.alt = {}
+    self.alt_rgb = {}
+    src = Image.open(filename)
+    width, height = src.size
+    if width*height!=16:
+      raise Exception("Palette image: {} invalid size: {}x{} - Palette must be max. 16 pixels".format(filename,width,height))
+    # copy to know format
+    dst = Image.new("RGB",(width, height),0)
+    dst.paste(src)
+    # convert to map of hw index values
+    self.hw = bytearray()
+    self.rgb = []
+    for i in range(16):
+      rgb = dst.getpixel((i%width,i//width))      
+      hw_idx = rgb_to_pico8.get(rgb,-1)
+      if hw_idx==-1:
+        raise Exception(f"Unknown RGB: {rgb} in palette at: {(i%width,i//width)}")
+      self.rgb.append(rgb)
+      self.hw.append(hw_idx)
 
-  def register(self, rgba):
-    # invalid color (drop alpha)?
-    if "0x{0[0]:02x}{0[1]:02x}{0[2]:02x}".format(rgba) not in rgb_to_pico8:
-      raise Exception("Invalid color: {} in image".format(rgba))
-    # returns a 0-15 value for image encoding
-    if rgba in self.palette: return self.palette.index(rgba)
-    # not found and auto-palette
-    if self.auto:
-      # already full?
-      count = len(self.palette)
-      if count==16:
-        raise Exception("Image uses too many colors (16+). New color: {} not allowed".format(rgba))
-      self.palette.append(rgba)
-      return count
-    raise Exception("Color: {} not in palette".format(rgba))
+  def pal(self):
+    return self.hw
 
-  # returns a list of hardware colors matching the palette
-  # label indicates if color coding should be using 'fake' hexa or standard
-  def pal(self, label=False):
-    encoding = rgb_to_pico8
-    if label:
-      encoding = rgb_to_label
-    return list(map(encoding.get,map("0x{0[0]:02x}{0[1]:02x}{0[2]:02x}".format,self.palette)))
+  # generate color ramp to given color HW code (HW space)
+  def screen_fade(self,target_color,ramp_size=16,color_space=RGBColorSpace):
+    all_colors = list(rgb_to_pico8.keys())
+    color_finder = color_space(self.rgb, all_colors)
 
+    out = bytearray()
+    # first line is current color set
+    out += self.hw
+
+    # convert to rgb
+    target_rgb = pico8_to_rgb[target_color]
+    target_rgb_idx = all_colors.index(target_rgb)
+
+    # skip first line    
+    for j in range(1,ramp_size):
+      ratio = j/(ramp_size-1)
+      for i in range(16):
+        best_color = color_finder.best_match(i, target_rgb_idx, ratio)
+        # replace actual color by p8 hardware color
+        out.append(rgb_to_pico8[all_colors[best_color]])
+    return out
+  
+  # load an alternate (logical) palette from file
+  def register(self,name,filename):
+    src = Image.open(filename)
+    width, height = src.size
+    if width*height!=16:
+      raise Exception("Palette image: {} invalid size: {}x{} - Palette must be max. 16 pixels".format(filename,width,height))
+    # copy to known format
+    dst = Image.new("RGB",(width, height),0)
+    dst.paste(src)
+    # find hw colors
+    palette = []
+    for i in range(16):
+      rgb = dst.getpixel((i%width,i//width))
+      if rgb not in self.rgb:
+        raise Exception(f"Color: {rgb} at {(i%width,i//width)} not registered in palette")
+      palette.append(self.hw[self.rgb.index(rgb)])
+    self.alt[name] = palette
+
+  # create a color ramp using palette colors (logical space)
+  def fade_to(self,target_color,palette=None,ramp_size=16,color_space=RGBColorSpace):  
+    # create a rgb palette  
+    palette = self.alt.get(palette, self.hw)
+    if target_color not in self.hw:
+      raise Exception(f"Target color: {target_color} has not match in HW palette.")
+    target_index = self.hw.index(target_color)
+    color_finder = color_space([pico8_to_rgb[hw] for hw in palette], self.rgb)
+
+    out=bytearray()
+    for j in range(0,ramp_size):
+      ratio = j/ramp_size
+      for i in range(16):
+        best_color = color_finder.best_match(i, target_index, ratio)
+        # color index is in "self.rgb" space
+        out.append(best_color)
+    return out    
+
+  def animate(self,target_color,palette=None,color_space=RGBColorSpace):
+    if target_color not in self.hw:
+      raise Exception(f"Target color: {target_color} has not match in HW palette.")
+
+    # generate the fade to black "base" ramp
+    ramp = self.fade_to(0,palette=palette,color_space=color_space)
+
+    # create a rgb palette  
+    ramp_colors = [self.rgb[i] for i in ramp]
+    target_index = self.hw.index(target_color)
+    color_finder = color_space(ramp_colors, self.rgb)
+
+    out = bytearray()
+    for band in range(16):
+      for k in range(16*16):
+        k_band = k//16
+        ratio = math.pow(max(0,math.cos((band-k_band)*2*math.pi/16)),3)
+        
+        # dst.putpixel((k%16,k//16),(int(ratio*255), int(ratio*255), int(ratio*255)))
+        best_color = color_finder.best_match(k, target_index, ratio)
+        out.append(best_color)
+    return out
+  
 def rgb_to_ycc(rgb):
   r,g,b = rgb
   y = 0.299 * r           + 0.587    * g + 0.114    * b
@@ -206,99 +292,59 @@ def animate_ramp(filename,target_color):
   # 
   print("[[{0}]]".format("\n".join([";".join(out[x:x+16]) for x in range(0, len(out),16)][::-1])))
 
-def rgb_distance(e1, e2):
-  rmean = ( e1[0] + e2[0] ) / 2
-  r = e1[0] - e2[0]
-  g = e1[1] - e2[1]
-  b = e1[2] - e2[2]
-  # return math.sqrt((2+rmean/256)*r*r + 4*g*g + (2+(255-rmean)/256)*b*b)
-  return sqr(r) + sqr(g) + sqr(b)
-
-def palette_to_ramp(filename,target_color,ramp_size,ramp_mode,fixed_color=None,keep_palette=False):
-  src = Image.open(filename)
-  width, height = src.size
-  if width*height!=16:
-    raise Exception("Palette image: {} invalid size: {}x{} - Palette must be max. 16 pixels".format(filename,width,height))
-  # copy to know format
-  tmp = Image.new("RGB",(width, height),0)
-  tmp.paste(src)
-  dst = Image.new("RGB",(16, ramp_size),0)
-  # convert to array of rgb integers
-  palette = []
-  out=[]
-  out_row=[]
-  for i in range(16):
-    rgb = tmp.getpixel((i%width,i//width))    
-    hexa = "0x{:02x}{:02x}{:02x}".format(rgb[0],rgb[1],rgb[2])
-    if hexa not in rgb_to_pico8:
-      raise Exception(f"Unknown color: {hexa} at {(i%width,i//width)}")
-    # fill first row
-    dst.putpixel((i,0),rgb)
-    palette.append(rgb)
-    out_row.append(rgb_to_pico8[hexa])
-  out.append(";".join(map(str,out_row)))
-
-  # interpolate to target
-  std_pico_palette = std_rgb_palette(max_index=256)
-  if keep_palette:
-    std_pico_palette = {rgb:std_pico_palette[rgb] for rgb in palette}
-  pico_to_std_palette = dict(map(reversed, std_pico_palette.items()))
-  std_ycc_palette = {p8:rgb_to_ycc(rgba) for p8,rgba in pico_to_std_palette.items()}  
-  
-  if ramp_mode=="rgb":
-    dst_r,dst_g,dst_b = pico_to_std_palette[target_color]
-    # skip first line
-    for j in range(1,ramp_size):
-      ratio = j/(ramp_size-1)
-      # ratio = math.pow(ratio, 0.95)
-      out_row=[]
-      for i in range(16):
-        src_r,src_g,src_b = palette[i]
-        r,g,b = (lerp(src_r,dst_r,ratio),lerp(src_g,dst_g,ratio),lerp(src_b,dst_b,ratio))         
-        diffs = {p8:math.sqrt(sqr((r-rgb[0])) + sqr((g-rgb[1])) + sqr((b-rgb[2]))) for p8,rgb in pico_to_std_palette.items()}
-        # diffs = {p8:rgb_distance((r,b,g),rgb) for p8,rgb in pico_to_std_palette.items()}
-        best_p8_color = min(diffs, key=diffs.get)
-        # replace palette color by p8 hardware color
-        out_row.append(best_p8_color)
-        dst.putpixel((i,j),pico_to_std_palette[best_p8_color])      
-      out.append(";".join(map(str,out_row)))
-  elif ramp_mode=="ycc":
-    dst_y,dst_cb,dst_cr = rgb_to_ycc(pico_to_std_palette[target_color])
-    # skip first line
-    for j in range(1,ramp_size):
-      ratio = j/(ramp_size-1)
-      out_row=[]
-      for i in range(16):
-        # move to YCC space
-        src_y,src_cb,src_cr = rgb_to_ycc(palette[i])
-        y,cb,cr = (lerp(src_y,dst_y,ratio),lerp(src_cb,dst_cb,ratio),lerp(src_cr,dst_cr,ratio))
-        diffs = {p8:math.sqrt(1.4*sqr(y-ycc[0]) + .8*sqr(cb-ycc[1]) + .8*sqr(cr-ycc[2])) for p8,ycc in std_ycc_palette.items()}
-        best_p8_color = min(diffs, key=diffs.get)
-        # replace palette color by p8 hardware color
-        out_row.append(best_p8_color)
-        dst.putpixel((i,j),pico_to_std_palette[best_p8_color])  
-      out.append(";".join(map(str,out_row)))
-  else:
-    raise Exception(f"Uknown interpolation mode: {ramp_mode}")
-  
-  print("[[{0}]]".format("\n".join(out)))
-  dst.save(f"ramp_{target_color}_{ramp_mode}.png",'PNG')
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument("--palette", required=True, type=str, help="path to palette image")
-  parser.add_argument("--ramp", type=int, help="Target color (PICO hw index)")
-  parser.add_argument("--ramp-size", type=int, default=16, help="Ramp size (default: 16)")
+  parser.add_argument("--palette", required=True, type=str, help="path to palette image (physical colors)")
+  parser.add_argument("--shadow-palette", required=True, type=str, help="path to palette image to be for ground shading (logical colors)")
+  parser.add_argument("--upgrade-color", type=int, help="clear color (default 10 - green)")
+  parser.add_argument("--clear-color", type=int, help="clear color index (default 8 - black)")
+  parser.add_argument("--blink-color", type=int, help="hit color index (default 11 - orange)")
   parser.add_argument("--ramp-mode", type=str, default="rgb", help="Interpolation space (default: rgb)")
-  parser.add_argument("--fixed-color", type=int, default=None, help="Non interpolated color index [0-15]")
-  parser.add_argument("--keep", action='store_true', help="Non interpolated color index [0-15]")
 
   args = parser.parse_args()
-  if args.ramp is not None:
-    palette_to_ramp(args.palette,args.ramp,args.ramp_size,args.ramp_mode,fixed_color=args.fixed_color,keep_palette=args.keep)
-    # animate_ramp(args.palette,args.ramp)
-  else:
-    print(palette_from_png(args.palette))
+  
+  # colormaps
+  # fade to black - hw colors
+  # fade to black - normal  - logical colors
+  # fade to black - shadows - logical colors
+  # fade to white - logical colors (8 levels)
+  # upgrade ramps - logical colors (16 ramps)
+
+  tmp = Image.new("RGB",(16, 16*16*2+16*3+8),0)
+
+  out = bytearray()  
+  palette = Palette(args.palette)
+  def draw_palette(data,y):
+    for i,idx in enumerate(data):
+      rgb = pico8_to_rgb[palette.pal()[idx]]
+      tmp.putpixel((i%16,(i//16 + y)),rgb)
+    return len(out)//16
+
+  palette.register("shadows", args.shadow_palette)
+  out = palette.screen_fade(args.clear_color)
+  y_offset = 0
+  for i,hw in enumerate(out):
+    rgb = pico8_to_rgb[hw]
+    tmp.putpixel((i%16,i//16),rgb)
+  y_offset += len(out)//16
+
+  out = palette.fade_to(args.clear_color)
+  y_offset += draw_palette(out, y_offset)
+
+  out = palette.fade_to(args.clear_color,palette="shadows")
+  y_offset += draw_palette(out, y_offset)
+
+  out = palette.fade_to(args.blink_color,ramp_size=8)
+  y_offset += draw_palette(out, y_offset)
+  
+  out = palette.animate(args.upgrade_color)
+  y_offset += draw_palette(out, y_offset)
+
+  out = palette.animate(args.upgrade_color, palette="shadows")
+  y_offset += draw_palette(out, y_offset)
+
+  tmp.save("all_ramps.png",'PNG')
 
 if __name__ == '__main__':
   main()

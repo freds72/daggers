@@ -67,8 +67,6 @@ function mode7(p,np,palette)
       local ddu,ddv,pal1=(lu-ru)/ddx,(lv-rv)/ddx,rw>0.9375 and 15 or rw\0.0625
       if(pal0!=pal1) memcpy(0x5f00,palette+(pal1<<4),16) pal0=pal1
       local pix=1-rx&0x0.ffff
-      pal(10,9)
-      pal(11,9)
       tline(rx,y,lx\1-1,y,(ru+pix*ddu)/rw,(rv+pix*ddv)/rw,ddu/rw,ddv/rw)
     end
 

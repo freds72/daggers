@@ -1929,7 +1929,7 @@ function _update()
     -- draw on tiles setup
     split2d([[_map_display;1
 poke;0x5f54;0x00;0x60
-poke;0x5f5e;0b11110111]],exec)  
+poke;0x5f5e;0b11110110]],exec)  
     -- physic must run *before* general updates
     for _,_ENV in inext,_things do
       if(physic) physic(_ENV)
