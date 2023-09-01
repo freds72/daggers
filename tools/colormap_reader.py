@@ -2,6 +2,7 @@ from dotdict import dotdict
 from PIL import Image, ImageFilter
 import argparse
 import math
+from python2pico import cstore,run_cart
 
 # RGB to pico8 color index
 rgb_to_pico8={
@@ -186,7 +187,7 @@ class Palette:
 
     out=bytearray()
     for j in range(0,ramp_size):
-      ratio = j/ramp_size
+      ratio = 1-j/(ramp_size-1)
       for i in range(16):
         best_color = color_finder.best_match(i, target_index, ratio)
         # color index is in "self.rgb" space
@@ -292,6 +293,15 @@ def animate_ramp(filename,target_color):
   # 
   print("[[{0}]]".format("\n".join([";".join(out[x:x+16]) for x in range(0, len(out),16)][::-1])))
 
+def squeeze(data):
+  bytes = bytearray()
+  for i in range(0,len(data),2):
+    low = data[i]
+    hi = data[i+1]
+    assert(low<16)
+    assert(hi<16)
+    bytes.append(low|hi<<4)
+  return bytes
 
 def main():
   parser = argparse.ArgumentParser()
@@ -301,6 +311,7 @@ def main():
   parser.add_argument("--clear-color", type=int, help="clear color index (default 8 - black)")
   parser.add_argument("--blink-color", type=int, help="hit color index (default 11 - orange)")
   parser.add_argument("--ramp-mode", type=str, default="rgb", help="Interpolation space (default: rgb)")
+  parser.add_argument("--export", type=str, help="Export image only")
 
   args = parser.parse_args()
   
@@ -315,37 +326,34 @@ def main():
 
   out = bytearray()  
   palette = Palette(args.palette)
-  def draw_palette(data,y):
+  global yoffset
+  yoffset = 0
+  def with_export_to_img(data,pal=lambda i: palette.pal()[i]):
+    global yoffset
     for i,idx in enumerate(data):
-      rgb = pico8_to_rgb[palette.pal()[idx]]
-      tmp.putpixel((i%16,(i//16 + y)),rgb)
-    return len(out)//16
+      rgb = pico8_to_rgb[pal(idx)]
+      tmp.putpixel((i%16,(i//16 + yoffset)),rgb)
+    yoffset += len(data)//16
+    return data
 
   palette.register("shadows", args.shadow_palette)
-  out = palette.screen_fade(args.clear_color)
-  y_offset = 0
-  for i,hw in enumerate(out):
-    rgb = pico8_to_rgb[hw]
-    tmp.putpixel((i%16,i//16),rgb)
-  y_offset += len(out)//16
+  out = with_export_to_img(palette.screen_fade(args.clear_color),pal=lambda i:i)
+  # hit palette
+  out += squeeze(with_export_to_img(palette.fade_to(args.blink_color,ramp_size=8)))
+  # full palette fading + level up
+  out += squeeze(with_export_to_img(palette.fade_to(args.clear_color)))
+  out += squeeze(with_export_to_img(palette.animate(args.upgrade_color)))
+  # ground palette (light/dark) + level up
+  out += squeeze(with_export_to_img(palette.fade_to(args.clear_color,palette="shadows")))
+  out += squeeze(with_export_to_img(palette.animate(args.upgrade_color, palette="shadows")))
 
-  out = palette.fade_to(args.clear_color)
-  y_offset += draw_palette(out, y_offset)
+  if args.export:
+    tmp.save(args.export,"PNG")
+  else:
+    cstore(out,"D:\\pico-8_0.2.5","..\\carts","title",0x0)
+    run_cart("D:\\pico-8_0.2.5","..\\carts","title_assets",len(out))
 
-  out = palette.fade_to(args.clear_color,palette="shadows")
-  y_offset += draw_palette(out, y_offset)
-
-  out = palette.fade_to(args.blink_color,ramp_size=8)
-  y_offset += draw_palette(out, y_offset)
-  
-  out = palette.animate(args.upgrade_color)
-  y_offset += draw_palette(out, y_offset)
-
-  out = palette.animate(args.upgrade_color, palette="shadows")
-  y_offset += draw_palette(out, y_offset)
-
-  tmp.save("all_ramps.png",'PNG')
-
+    
 if __name__ == '__main__':
   main()
 

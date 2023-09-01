@@ -2,7 +2,7 @@
 local _bsp,_things,_futures,_spiders,_plyr,_cam,_grid,_entities={},{},{},{}
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
-local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x8000,3,10,0.025
+local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x8180,3,10,0.025
 -- must be globals
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
@@ -70,12 +70,12 @@ end
 function levelup_async(t)
   -- 30 frames at 1/8 steps
   for j=0.125,t<<2,0.125 do
-    _ramp_pal=0x82c0+((j*j)&15)*16
+    _ramp_pal=0x8280+((j*j)&15)*16
     _slow_mo+=1
     yield()
   end
   -- restore state
-  _ramp_pal,_slow_mo=0x8000,0
+  _ramp_pal,_slow_mo=0x8180,0
 end
 
 -- record number of "things" on playground and wait until free slots are available
@@ -209,11 +209,11 @@ function make_player(_origin,_a)
     control=function(_ENV)
       if(dead) return
       -- move
-      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc004)
-      if(stat(28,@0xc002)) dx=3
-      if(stat(28,@0xc003)) dx=-3
-      if(stat(28,@0xc000)) dz=3
-      if(stat(28,@0xc001)) dz=-3
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc404)
+      if(stat(28,@0xc402)) dx=3
+      if(stat(28,@0xc403)) dx=-3
+      if(stat(28,@0xc400)) dz=3
+      if(stat(28,@0xc401)) dz=-3
       if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false sfx"58"
       prev_jump=jump_down
 
@@ -224,7 +224,7 @@ function make_player(_origin,_a)
 
       -- double-click detector
       dblclick_ttl=max(dblclick_ttl-1)
-      if btn(@0xc015) then
+      if btn(@0xc415) then
         if fire_released then
           fire_released=false
         end
@@ -249,7 +249,7 @@ function make_player(_origin,_a)
         fire_released,fire_frames=true,0
       end
 
-      dangle=v_add(dangle,{$0xc010*stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
@@ -269,7 +269,7 @@ function make_player(_origin,_a)
       -- avoid overflow!
       fire_ttl=max(fire_ttl-1)
 
-      angle=v_add(angle,dangle,$0xc016/1024)
+      angle=v_add(angle,dangle,$0xc416/1024)
       -- limit x amplitude
       angle[1]=mid(angle[1],-0.24,0.24)
       -- check next position
@@ -495,13 +495,12 @@ function draw_grid(cam)
   local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
   -- clear shadows
-  _map_display(1)
-  poke(0x5f54,0x00,0x60)
-  poke(0x5f5e,0b00001000)
-	rectfill(0,0,127,127,0)
-	
 	-- draw shadows
-  poke(0x5f5e,0b10001000)
+  split2d([[_map_display;1
+poke;0x5f54;0x00;0x60
+poke;0x5f5e;0b00001000
+rectfill;0;0;127;127;0
+poke;0x5f5e;0b10001000]],exec)
 
   -- project
   for i,obj in inext,_things do
@@ -524,16 +523,16 @@ function draw_grid(cam)
       end
     end
   end
-  poke(0x5f5e,0xff)
-  poke(0x5f54,0x60,0x00)
-  _map_display(0)
+  -- default transparency
+  split2d([[poke;0x5f5e;0xff
+poke;0x5f54;0x60;0x00
+_map_display;0
+poke;0x5f0f;0x1f
+palt;0;0x00]],exec)
 
   -- radix sort
   rsort(things)
 
-  -- default transparency
-  palt(15,true)
-  palt(0,false)
   -- render in order
   local prev_base,prev_sprites,pal0
   for _,item in inext,things do
@@ -1079,15 +1078,15 @@ function draw_world()
   -- tilt!
   -- screen = gfx
   -- reset palette
-  --memcpy(0x5f00,0x4300,16)
+  
   local yshift=sin(_cam.tilt)>>3
-  memcpy(0x92c0,0x6000,0x2000)
+  memcpy(0xa380,0x6000,0x2000)
   for i=0,63,4 do
-    -- 0xf000 = 0x6000-0x92c0
+    -- 0xbc80 = 0x6000-0xa380
     -- offset = dst -  src
-    local off=((((i-31.5)*yshift+0.5)\1)<<6)+0xcd40
+    local off=((((i-31.5)*yshift+0.5)\1)<<6)+0xbc80
     -- copy from y=4 to y=123 
-    for src=0x93c0+i,0xb0c0+i,64 do
+    for src=0xa480+i,0xc240+i,64 do
       poke4(src+off,$src)
     end
   end
@@ -1148,10 +1147,10 @@ end
 function play_state()
   -- clean up stains!
   split2d([[_map_display;1
-memcpy;0;0xc010;2048
-memcpy;2048;0xc010;2048
-memcpy;4096;0xc010;2048
-memcpy;6144;0xc010;2048
+memcpy;0;0xc500;2048
+memcpy;2048;0xc500;2048
+memcpy;4096;0xc500;2048
+memcpy;6144;0xc500;2048
 _map_display;0]],exec)
 
   -- camera & player & reset misc values
@@ -1198,8 +1197,9 @@ _map_display;0]],exec)
         s..="S"
         arizona_print(s,64-print(s,0,128)/2,1,2)
       end
+
       -- hw palette
-      memcpy(0x5f10,0x8140+_hw_pal,16)
+      memcpy(0x5f10,0x8000+_hw_pal,16)
 
       --[[
       palt(0,true)
@@ -1248,7 +1248,6 @@ wait_async;15
 --;first squids wave
 random_spawn_angle
 set_spawn;200
-make_worm
 wait_async;330
 make_squid;2
 wait_async;330
@@ -1512,7 +1511,7 @@ arizona_print;hIGHSCORES;1;8]],exec)
         spr(20,mx,my)
       end
       -- hw palette
-      memcpy(0x5f10,0x8140+hw_pal,16)
+      memcpy(0x5f10,0x8000+hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end
 end
@@ -1534,10 +1533,10 @@ poke;0x5f2d;0x7
 poke;0x5f54;0x60;0x00
 memcpy;0x0;0x6000;0x2000
 _map_display;1
-memcpy;0;0xc010;2048
-memcpy;2048;0xc010;2048
-memcpy;4096;0xc010;2048
-memcpy;6144;0xc010;2048
+memcpy;0;0xc500;2048
+memcpy;2048;0xc500;2048
+memcpy;4096;0xc500;2048
+memcpy;6144;0xc500;2048
 _map_display;0
 cartdata;freds72_daggers]],exec)
 
@@ -1684,7 +1683,7 @@ cartdata;freds72_daggers]],exec)
                 v0=v1
               end 
               ]]
-              mode7(verts,#verts,_ramp_pal)  
+              mode7(verts,#verts,_ramp_pal+0x1100)  
               --[[
               local mx,my=0,0
               for _,v in inext,verts do

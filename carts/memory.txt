@@ -17,11 +17,17 @@ title.p8
 --------
 runtime
 --------
-0x8000-0x92c0 - palettes
-0x92c0-0xb2c0 - screen copy (for tilt effect)
-0xc000-0xc010 - keyboard stat id's
-0xc010-0xc810 - playground tiles
+0x8000-0x80ff - HW palette + screen fading
+0x8100-       - blink palette
+0x8180-       - fade to black (normal)
+0x8280-       - level up palettes (normal)
+0x9280-       - fade to black (floor)
+0x9380-       - level up palettes (floor)
 
+0xa380-       - screen copy (for tilt effect)
+0xc400-0xc40a - keyboard stat id's
+0xc500-0xd500 - playground tiles
+ 
 0x4300-0x43ff - radix sort
 
 0xf340-0xf77f: sfx - chatter damp 0 (title.lua)

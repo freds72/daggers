@@ -205,7 +205,7 @@ function draw_things(things,cam,fov,lightshift)
   for _,item in inext,cache do        
     local thing=item.thing
     local pal1=min(15,(lightshift*item.key)<<4)\1
-    if(pal0!=pal1) memcpy(0x5f00,0x8000|pal1<<4,16) palt(15,true) pal0=pal1   
+    if(pal0!=pal1) memcpy(0x5f00,0x8180+(pal1<<4),16) palt(15,true) pal0=pal1   
     -- draw things
     local w0,entity,origin=item.key,thing.ent,thing.origin
     -- zangle (horizontal)
@@ -276,6 +276,7 @@ function menu_state(buttons,default)
       
       origin=_origin
     end},{__index=_ENV})
+
 
   return
     -- update
@@ -360,12 +361,21 @@ function menu_state(buttons,default)
       if(active_btn.draw) active_btn:draw()
 
       -- mouse cursor
-      spr(20,mx,my)
+      spr(5,mx,my)
       -- hw palette
-      memcpy(0x5f10,0x8140+hw_pal,16)
+      memcpy(0x5f10,0x8000+hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end,
-    function() reload(0, 0, 0x3100) end
+    function() 
+      reload(0, 0, 0x3100) 
+      px9_decomp(0,0,0x1240,sget,sset)
+      -- copy tiles to high mem (for shadows/splash)
+      local mem=0xc500
+      for i=0,32*64-1,64 do
+        memcpy(mem,i+32,32) mem+=32
+        memcpy(mem,i+32,32) mem+=32
+      end
+    end
 end
 
 -- main menu buttons
@@ -443,10 +453,10 @@ function leaderboard_state()
       next_state(menu_state, _main_buttons)
     end,
     draw=function()
-      split2d([[1;24;126;24;4
-      1;25;126;25;2
-      1;109;126;109;2
-      1;108;126;108;4]],line)   
+      split2d([[1;24;126;24;1
+      1;25;126;25;0
+      1;109;126;109;0
+      1;108;126;108;1]],line)   
       arizona_print("lOCAL hIGHSCORES",1,16,2)
       delay_print(function(s,x,i)
         arizona_print(s,x,23+i*7)
@@ -465,10 +475,10 @@ function credits_state()
       next_state(menu_state, _main_buttons)
     end,
     draw=function()
-      split2d([[1;24;126;24;4
-      1;25;126;25;2
-      1;109;126;109;2
-      1;108;126;108;4]],line)   
+      split2d([[1;24;126;24;1
+      1;25;126;25;0
+      1;109;126;109;0
+      1;108;126;108;1]],line)   
       arizona_print("cREDITS",1,16,2)
       delay_print(function(s,x,i)
         arizona_print(s,x,23+i*7)
@@ -502,7 +512,12 @@ function play_state()
       
       origin=_origin
     end},{__index=_ENV})
-
+  -- set map
+  for i=0,7 do
+    for j=0,7 do
+      mset(i,j+56,136+i+j*16)
+    end
+  end
   -- start above floor
   local a=rnd()
   local angle,dangle={0,a-0.25+rnd(0.1),0},v_zero()
@@ -520,7 +535,7 @@ function play_state()
   }
   local function draw_radius(r,light)
     local r2=r*r
-    memcpy(0x5f00,0x8000|(light\0.0625)<<4,16)
+    memcpy(0x5f00,0x9280+((light\0.0625)<<4),16)
     for y=0,63 do      
       local yy=31.5-y
       local d=r2-yy*yy
@@ -545,17 +560,17 @@ function play_state()
       message_time+=1
 
       -- move
-      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc004)
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc404)
       if not launching then
-        if(stat(28,@0xc002)) dx=3
-        if(stat(28,@0xc003)) dx=-3
-        if(stat(28,@0xc000)) dz=3
-        if(stat(28,@0xc001)) dz=-3
+        if(stat(28,@0xc402)) dx=3
+        if(stat(28,@0xc403)) dx=-3
+        if(stat(28,@0xc400)) dz=3
+        if(stat(28,@0xc401)) dz=-3
         if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false
       end
       prev_jump=jump_down
 
-      dangle=v_add(dangle,{$0xc010*stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)
@@ -575,7 +590,7 @@ function play_state()
       velocity[3]*=0.7
       -- gravity
       velocity[2]-=0.8
-      angle=v_add(angle,dangle,$0xc016/1024)
+      angle=v_add(angle,dangle,$0xc416/1024)
       -- limit x amplitude
       angle[1]=mid(angle[1],-0.24,0.24)
 
@@ -693,7 +708,7 @@ function play_state()
         draw_radius(32-r*r,0.99)
         poke(0x5f55,0x60) 
 
-        mode7(verts,#verts,0x8000)        
+        mode7(verts,#verts,0x9280)        
       end
 
       if not launching then
@@ -736,7 +751,7 @@ function play_state()
       end
 
       --pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
-      memcpy(0x5f10,0x8140,16)
+      memcpy(0x5f10,0x8000,16)
     end
 end
 
@@ -820,64 +835,23 @@ cartdata;freds72_daggers]],exec)
     load("editor.p8","","generate")
   end
 
-  -- capture gradient
-  local mem=0x8000
-  for i=15,0,-1 do
-    for j=0,15 do
-      poke(mem,sget(i+32,j+16))
-      mem+=1
-    end
-  end
+  -- HW palette + fade to black
+  local src,dst=0x0,0x8000
+  poke(dst,peek(src,16*16))
+  dst+=0x100
+  src+=0x100
+
   -- hit palette
-  for i=0,3 do
-    for j=0,15 do
-      poke(mem,sget(31-i,j+16))
-      mem+=1
+  -- fade pal + ring pal (normal)
+  -- fade pal + ring pal (floor)
+  for j=1,552 do
+    -- explode byte into 2
+    for i=0,7 do
+      local b=@src
+      poke(dst,b&0xf) dst+=1
+      poke(dst,b>>4) dst+=1        
+      src+=1
     end
-  end
-  -- fade to black + HW palette
-  local function unpack_pal(...)
-    poke(mem,...) mem+=16 
-  end
-  split2d([[128;133;5;134;8;2;138;139;0;130;137;15;3;131;129;10
-128;133;5;134;8;2;138;139;0;130;137;15;3;131;129;10
-128;130;5;134;8;2;138;139;0;130;137;15;3;131;129;10
-128;130;133;5;8;2;138;3;0;130;137;134;3;131;129;138
-128;130;133;5;8;130;138;3;0;128;137;134;131;131;129;138
-128;130;133;5;2;130;5;3;0;128;2;134;131;129;129;138
-128;128;133;5;2;130;5;3;0;128;2;134;131;129;129;138
-128;128;130;5;2;130;5;131;0;128;2;5;129;129;129;5
-0;128;128;133;2;130;5;131;0;128;133;5;129;129;0;5
-0;128;128;133;130;128;133;129;0;128;133;5;129;129;0;5
-0;128;128;130;130;128;133;129;0;128;130;133;129;129;0;133
-0;128;128;128;128;128;128;129;0;0;128;133;129;129;0;128
-0;0;128;128;128;128;128;0;0;0;128;128;0;0;0;128
-0;0;0;128;128;0;128;0;0;0;128;128;0;0;0;128
-0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0
-0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0]],unpack_pal)
-
-  -- white flash
-  split2d([[128;133;5;134;7;8;138;135;0;128;1;131;6;136;3;137
-133;5;5;134;7;8;138;135;128;133;5;131;6;136;3;137
-5;5;134;134;7;8;135;135;133;5;5;5;6;134;3;137
-134;134;134;6;7;134;135;135;5;134;134;134;6;134;134;135
-134;134;6;6;7;6;135;7;134;134;134;6;7;6;6;135
-6;6;6;6;7;6;135;7;6;6;6;6;7;6;6;135
-6;6;7;7;7;7;7;7;6;6;6;6;7;7;6;7
-7;7;7;7;7;7;7;7;7;7;7;7;7;7;7;7]],unpack_pal)  
-
-  -- upgrade color "ring"
-  for i=0,16*16*8-1 do
-    local b=@(i+0x1000)
-    poke(mem,b&0xf) mem+=1
-    poke(mem,b>>4) mem+=1
-  end
-
-  -- copy tiles to high mem (for shadows/splash)
-  mem=0xc010
-  for i=0,32*64-1,64 do
-    memcpy(mem,i+32,32) mem+=32
-    memcpy(mem,i+32,32) mem+=32
   end
 
   -- load background assets
@@ -905,11 +879,11 @@ cartdata;freds72_daggers]],exec)
     end
   end)
   reload()
-  
+
   -- play musicii
   audio_load"musicii"
   music"3"
-  
+
   -- restore settings
   local active_poll,active_btn
   local function print_key(btn)
@@ -990,9 +964,9 @@ cartdata;freds72_daggers]],exec)
     dset(id,ord(btn.ch))
     dset(id+1,btn.stat)
   end
-  -- copy settings to 0xc000  
+  -- copy settings to 0xc400  
   local function pack_key(btn)
-    poke(0xc000+btn.id,btn.stat)
+    poke(0xc400+btn.id,btn.stat)
   end
   local function pack_settings()
     for _,btn in inext,_settings do
@@ -1062,7 +1036,7 @@ cartdata;freds72_daggers]],exec)
     save=save_value,
     cb=flip_bool,
     pack=function(btn)
-      poke4(0xc010,btn.value==1 and -1 or 1)
+      poke4(0xc410,btn.value==1 and -1 or 1)
     end
     },
     {function(btn)
@@ -1076,7 +1050,7 @@ cartdata;freds72_daggers]],exec)
     pack=function(btn)
       local a,b=4,5
       if(btn.value==1) a,b=b,a
-      poke(0xc014,a,b)
+      poke(0xc414,a,b)
     end
     },
     {function(btn)
@@ -1090,7 +1064,7 @@ cartdata;freds72_daggers]],exec)
       btn.value=((btn.value+1)%#sensitivity)
     end,
     pack=function(btn)
-      poke4(0xc016,sensitivity[btn.value+1]/100)
+      poke4(0xc416,sensitivity[btn.value+1]/100)
     end
     },
     {"aCCEPT",111,
@@ -1112,10 +1086,10 @@ cartdata;freds72_daggers]],exec)
     end
     },
     draw=function()
-      split2d([[1;24;126;24;4
-      1;25;126;25;2
-      1;109;126;109;2
-      1;108;126;108;4]],line)   
+      split2d([[1;24;126;24;1
+      1;25;126;25;0
+      1;109;126;109;0
+      1;108;126;108;1]],line)   
       arizona_print("kEYBOARD & mOUSE",1,16,2)
     end
   }

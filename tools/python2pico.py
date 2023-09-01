@@ -2,12 +2,6 @@ import os
 import subprocess
 from subprocess import Popen, PIPE
 import re
-import tempfile
-import random
-import math
-import socket
-import shutil
-from tqdm import tqdm
 
 def call(args):
     proc = Popen(args, stdout=PIPE, stderr=PIPE)
@@ -175,46 +169,36 @@ cstore(0, 0, 0x4300, "{}")
     
     os.unlink(cart_path)
 
-def to_multicart(s,pico_path,carts_path,cart_name,boot_code=None,label=None):
-  cart_id = 0
-  cart_data = ""
-  for b in tqdm(s, desc="Generating carts", unit="bytes"):
-    cart_data += b
-    # full cart?
-    if len(cart_data)==2*0x4300:
-        to_cart(cart_data, pico_path, carts_path, cart_name, cart_id, cart_code=cart_id==0 and boot_code, label=cart_id==0 and label)
-        cart_id += 1
-        cart_data = ""
-  # remaining data?
-  if len(cart_data)!=0:
-    to_cart(cart_data, pico_path, carts_path, cart_name, cart_id, cart_code=cart_id==0 and boot_code, label=cart_id==0 and label)
-  return cart_id
+def cstore(data,pico_path,carts_path,dest_cart,dest_addr):
+    cart_data = "__gfx__\n"
+    s = bytes(data).hex()
+    tmp=s[:2*0x2000]
+    # swap bytes
+    gfx_data = ""
+    for i in range(0,len(tmp),2):
+        gfx_data = gfx_data + tmp[i+1:i+2] + tmp[i:i+1]
+    cart_data += re.sub("(.{128})", "\\1\n", gfx_data, 0, re.DOTALL)
 
-def pack_release(modname, pico_path, carts_path, all_carts, release, mode="bin"):
-    all_carts = list(["{}_{}.p8".format(modname,id) for id in all_carts])
+    cart_path = os.path.join(carts_path,f"{dest_cart}_tmp.p8")
+    with open(cart_path, "w") as f:
+        f.write("""\
+pico-8 cartridge // http://www.pico-8.com
+version 29
+__lua__
+-- data cart
+-- @freds72
 
-    # entry point
-    main_cart = all_carts.pop(0)
-
-    #
-    option = ""
-    if mode == "html":
-        option = "-p fps"
-    cmd = " ".join([os.path.join(pico_path,"pico8"),main_cart,"-export","\"{}_{}.{} {} {}\"".format(modname, release, mode,option," ".join(all_carts))])
-    print(cmd)
-    subprocess.run(cmd, cwd=os.path.join(carts_path), check=True)
-
-    #if mode=="html":
-    #    # update html plate
-    #    html = ""
-    #    with open(os.path.join(carts_path, "fps.html"), "r", encoding='utf-8') as f:
-    #        html = f.read()
-    #        html = html..replace("##game_label##","{}({})".format(modname, release)).replace("##js_file##","{}_{}.js".format(modname, release))
-    #    # ovewrite default plate
-    #    with open(os.path.join(carts_path, "{}_{}.html".format(modname, release)), "w", encoding='utf-8') as f:
-    #        f.write(html)
+cstore(0x{:02x}, 0, {}, "{}.p8")
+{}
+""".format(dest_addr, len(data), dest_cart, cart_data))
+    # run cart
+    subprocess.run([os.path.join(pico_path,"pico8"),"-x",os.path.abspath(cart_path)], stdout=PIPE, stderr=PIPE, check=True)
     
+    os.unlink(cart_path)
 
+def run_cart(pico_path,carts_path,cart_name,param):
+    cart_path = os.path.join(carts_path,f"{cart_name}.p8")
+    subprocess.run([os.path.join(pico_path,"pico8"),"-x",os.path.abspath(cart_path),"-p","{param}"], stdout=PIPE, stderr=PIPE, check=True)
 
 # read infile and write minified version to outfile
 def minify_file(infile, outfile):
