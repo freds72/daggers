@@ -334,7 +334,7 @@ function menu_state(buttons,default)
     end,  
     function()
       -- background
-      cls(8)  
+      cls()  
       pal()
       local r0=16-abs(2*cos(time()/4))+0x0.0001
       fillp(0xc5a5)
@@ -645,7 +645,7 @@ function play_state()
     end,
     -- draw
     function()
-      cls(8)
+      cls()
       local m,cx,cy,cz=cam.m,unpack(cam.origin)
       local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
       local verts,outcode,nearclip={},0xffff,0  
@@ -697,7 +697,7 @@ function play_state()
 
         -- light effect
         for i=0,63 do
-          memset(0x1000+32+i*64,0x88,32)
+          memset(0x1000+32+i*64,0,32)
         end
         poke(0x5f55,0x00)
         local r=abs(cos(time()/8))
@@ -738,8 +738,8 @@ function play_state()
       poke(0x5f54,0x00)
 
       -- hide trick top/bottom 8 pixel rows :)
-      memset(0x6000,0x88,512)
-      memset(0x7e00,0x88,512)
+      memset(0x6000,0,512)
+      memset(0x7e00,0,512)
 
       --[[
       local s="HUM...cURSED?"

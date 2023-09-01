@@ -508,7 +508,7 @@ poke;0x5f5e;0b10001000]],exec)
     local oy=origin[2]
     if not obj.shadeless then
       local sx,sy=(origin[1]-320)/3,(origin[3]-320)/3        
-      circfill(sx,sy,obj.radius/3,8)
+      circfill(sx,sy,obj.radius/3,4)
     end
     -- centipede can be below ground...
     if oy>=1 then
@@ -1070,7 +1070,7 @@ end
 -- draw game world
 local _hand_y=0
 function draw_world()
-  cls(8)
+  cls()
 
   -- draw mini bsp
   _bsp[0](_cam)
@@ -1092,8 +1092,8 @@ function draw_world()
   end
 
   -- hide trick top/bottom 8 pixel rows :)
-  memset(0x6000,0x88,512)
-  memset(0x7e00,0x88,512)
+  memset(0x6000,0,512)
+  memset(0x7e00,0,512)
 
   --[[
   local stats={
@@ -1326,7 +1326,7 @@ wait_async;600]],exec)
         s.update=nop
       end
     end
-    ]]        
+    ]]       
     -- progression
     do_async(function()
       -- reset values
@@ -1708,8 +1708,7 @@ cartdata;freds72_daggers]],exec)
   -- must be globals
   -- predefined entries (avoids constant gc)
   _blood_ents,_goo_ents,_spark_ents={
-    _entities.blood1,
-    _entities.blood2
+    _entities.blood1
   },{
     _entities.goo0,
     _entities.goo1,
