@@ -137,7 +137,7 @@ class Palette:
     return self.hw
 
   # generate color ramp to given color HW code (HW space)
-  def screen_fade(self,target_color,ramp_size=16,color_space=RGBColorSpace):
+  def screen_fade(self,target_color,ramp_size=16,color_space=RGBColorSpace,scale=1,exclude=[]):
     all_colors = list(rgb_to_pico8.keys())
     color_finder = color_space(self.rgb, all_colors)
 
@@ -151,9 +151,12 @@ class Palette:
 
     # skip first line    
     for j in range(1,ramp_size):
-      ratio = j/(ramp_size-1)
+      ratio = scale * (j/(ramp_size-1))
       for i in range(16):
-        best_color = color_finder.best_match(i, target_rgb_idx, ratio)
+        if self.hw[i] in exclude:
+          best_color = i
+        else:
+          best_color = color_finder.best_match(i, target_rgb_idx, ratio)
         # replace actual color by p8 hardware color
         out.append(rgb_to_pico8[all_colors[best_color]])
     return out
@@ -177,7 +180,7 @@ class Palette:
     self.alt[name] = palette
 
   # create a color ramp using palette colors (logical space)
-  def fade_to(self,target_color,palette=None,ramp_size=16,color_space=RGBColorSpace):  
+  def fade_to(self,target_color,palette=None,ramp_size=16,color_space=RGBColorSpace,scale=1,flip=False):  
     # create a rgb palette  
     palette = self.alt.get(palette, self.hw)
     if target_color not in self.hw:
@@ -185,9 +188,11 @@ class Palette:
     target_index = self.hw.index(target_color)
     color_finder = color_space([pico8_to_rgb[hw] for hw in palette], self.rgb)
 
+    range_lo,range_hi = 1,0
+    if flip: range_lo,range_hi = 0,1
     out=bytearray()
-    for j in range(0,ramp_size):
-      ratio = 1-j/(ramp_size-1)
+    for j in range(ramp_size):
+      ratio = scale * lerp(range_lo,range_hi,j/(ramp_size-1))
       for i in range(16):
         best_color = color_finder.best_match(i, target_index, ratio)
         # color index is in "self.rgb" space
@@ -308,8 +313,9 @@ def main():
   parser.add_argument("--palette", required=True, type=str, help="path to palette image (physical colors)")
   parser.add_argument("--shadow-palette", required=True, type=str, help="path to palette image to be for ground shading (logical colors)")
   parser.add_argument("--upgrade-color", type=int, help="clear color (default 10 - green)")
-  parser.add_argument("--clear-color", type=int, help="clear color index (default 8 - black)")
-  parser.add_argument("--blink-color", type=int, help="hit color index (default 11 - orange)")
+  parser.add_argument("--clear-color", type=int, default=0, help="clear color index (default 0 - black)")
+  parser.add_argument("--blink-color", type=int, help="hit color index")
+  parser.add_argument("--jewel-color", type=int, help="jewel grab color index")
   parser.add_argument("--ramp-mode", type=str, default="rgb", help="Interpolation space (default: rgb)")
   parser.add_argument("--export", type=str, help="Export image only")
 
@@ -337,9 +343,10 @@ def main():
     return data
 
   palette.register("shadows", args.shadow_palette)
-  out = with_export_to_img(palette.screen_fade(args.clear_color),pal=lambda i:i)
+  out = with_export_to_img(palette.screen_fade(args.clear_color,ramp_size=12),pal=lambda i:i)
+  out += with_export_to_img(palette.screen_fade(args.jewel_color,ramp_size=4,scale=0.8,exclude=[args.clear_color]),pal=lambda i:i)
   # hit palette
-  out += squeeze(with_export_to_img(palette.fade_to(args.blink_color,ramp_size=8)))
+  out += squeeze(with_export_to_img(palette.fade_to(args.blink_color,ramp_size=8,scale=0.75,flip=True)))
   # full palette fading + level up
   out += squeeze(with_export_to_img(palette.fade_to(args.clear_color)))
   out += squeeze(with_export_to_img(palette.animate(args.upgrade_color)))

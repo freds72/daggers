@@ -17,8 +17,8 @@ title.p8
 --------
 runtime
 --------
-0x8000-0x80ff - HW palette + screen fading
-0x8100-       - blink palette
+0x8000-0x80ff - HW palette + screen fading (12 levels) + screen white (4 levels)
+0x8100-       - hit palette
 0x8180-       - fade to black (normal)
 0x8280-       - level up palettes (normal)
 0x9280-       - fade to black (floor)

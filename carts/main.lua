@@ -55,7 +55,7 @@ function wait_jewels(n)
   local prev=_total_jewels
   while _total_jewels<n do
     if _total_jewels!=prev then
-      for i in all(split"256,288,320,288,0") do
+      for i in all(split"208,224,240,224,208,0") do
         _hw_pal=i
         yield()
       end
@@ -507,7 +507,7 @@ poke;0x5f5e;0b10001000]],exec)
     local origin=obj.origin  
     local oy=origin[2]
     if not obj.shadeless then
-      local sx,sy=(origin[1]-320)/3,(origin[3]-320)/3        
+      local sx,sy=origin[1]/3-0x6a.aaaa,origin[3]/3-0x6a.aaaa
       circfill(sx,sy,obj.radius/3,4)
     end
     -- centipede can be below ground...
@@ -539,7 +539,7 @@ palt;0;0x00]],exec)
     local thing=item.thing
     local hit_ttl,pal1=thing.hit_ttl
     if hit_ttl and hit_ttl>0 then
-      pal1=15+hit_ttl
+      pal1=min(2*hit_ttl,8)-8
     else
       local light=thing.light_t and min(1,(time()-thing.light_t)/0.15) or 1
       pal1=(light*min(15,item.key<<4))\1
@@ -640,9 +640,12 @@ function make_particle(template,_origin,_velocity)
           origin[2]=1 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
           -- write on playground
           if stain and rebound==0 then
+            -- don't drop blood each time
+            if rnd()>0.5 then
             -- convert coords into map space
-            local sx,sy=(origin[1]-320)/3,(origin[3]-320)/3        
-            pset(sx,sy,stain)
+            local sx,sy=origin[1]/3-0x6a.aaaa,origin[3]/3-0x6a.aaaa
+              pset(sx,sy,stain)
+            end
             dead=true
           end
         end
@@ -1320,6 +1323,7 @@ wait_async;600]],exec)
         if(s) s.dead=true
       end
     end)
+    
     for i=-4,5 do
       for j=-4,5 do
         local s=make_skull(_skull1_template,{512+i*16,12+rnd(4),512+j*16})
@@ -1845,7 +1849,7 @@ cartdata;freds72_daggers]],exec)
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
 _gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents,stain,5
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
-_skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,4,target_yangle,0,gibs,-1;_skull_core
+_skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,@blast,make_goo,obituary,aCIDIFIED,min_velocity,-1;_skull_template
 _goo_gib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,@ents,_goo_ents
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1

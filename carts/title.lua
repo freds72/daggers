@@ -386,7 +386,8 @@ _main_buttons={
     _playing=true
     music(-1,1000)    
     do_async(function()
-      for i=0,15,2 do
+      -- fade to black
+      for i=0,11 do
         hw_pal=i<<4
         yield()
       end
@@ -535,7 +536,7 @@ function play_state()
   }
   local function draw_radius(r,light)
     local r2=r*r
-    memcpy(0x5f00,0x9280+((light\0.0625)<<4),16)
+    memcpy(0x5f00,0x8180+((light\0.0625)<<4),16)
     for y=0,63 do      
       local yy=31.5-y
       local d=r2-yy*yy
@@ -697,7 +698,7 @@ function play_state()
 
         -- light effect
         for i=0,63 do
-          memset(0x1000+32+i*64,0,32)
+          memset(0x1000+32+i*64,0x88,32)
         end
         poke(0x5f55,0x00)
         local r=abs(cos(time()/8))
