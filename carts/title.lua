@@ -859,8 +859,8 @@ cartdata;freds72_daggers]],exec)
   decompress("pic",0,0,function()
     local names={
       [1]="skull",
-      [7]="dagger",
-      [8]="break"
+      [8]="dagger",
+      [9]="break"
     }
     -- drop array size
     for i=1,mpeek2() do

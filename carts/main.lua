@@ -654,12 +654,12 @@ function make_particle(template,_origin,_velocity)
   },template))
 end
 
-function make_blood(origin,velocity)
-  make_particle(_gib_template,origin,velocity)
+function make_blood(...)
+  make_particle(_gib_template,...)
 end
 
-function make_goo(_origin)
-  return make_particle(_goo_gib_template,_origin)
+function make_goo(...)
+  return make_particle(_goo_template,...)
 end
 
 -- base class for:
@@ -1049,7 +1049,10 @@ function make_egg(_origin,_velocity)
         dead=true
         sfx(51)
         grid_unregister(_ENV)
-        make_goo(origin)
+        for i=1,2+rnd"2" do
+          local a=rnd()
+          make_goo(origin,{cos(a),rnd(5),sin(a)})
+        end
         -- spiderling
         make_skull(inherit({
           think=function(_ENV)
@@ -1326,11 +1329,12 @@ wait_async;600]],exec)
     
     for i=-4,5 do
       for j=-4,5 do
-        local s=make_skull(_skull1_template,{512+i*16,12+rnd(4),512+j*16})
-        s.update=nop
+        -- local s=make_skull(_skull1_template,{512+i*16,12+rnd(4),512+j*16})
+        local s=make_egg({512+i*16,12+rnd(4),512+j*16},v_zero())
+        -- s.update=nop
       end
     end
-    ]]       
+    ]]
     -- progression
     do_async(function()
       -- reset values
@@ -1711,13 +1715,7 @@ cartdata;freds72_daggers]],exec)
 
   -- must be globals
   -- predefined entries (avoids constant gc)
-  _blood_ents,_goo_ents,_spark_ents={
-    _entities.blood1
-  },{
-    _entities.goo0,
-    _entities.goo1,
-    _entities.goo2
-  },{
+  _spark_ents={
     _entities.spark1,
     _entities.spark2
   }
@@ -1742,18 +1740,14 @@ cartdata;freds72_daggers]],exec)
           make_jewel(origin,velocity)
         end 
         grid_unregister(_ENV)  
-        -- custom explosion?
-        if blast then
-          blast(pos)
-        else
-          for i=1,3+rnd"2" do
-            local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
-            vel[2]=rnd()
-            make_particle(rnd()<gibs and _gib_template or _lgib_template,origin,v_scale(vel,1+rnd"2"))
-          end
-          local vel=vector_in_cone(0.25-bullet.zangle,0,0.01)
-          make_particle(_lgib_template,pos,v_scale(vel,-0.5))
+        for i=1,3+rnd"2" do
+          local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
+          vel[2]=rnd()
+          -- custom explosion?
+          make_particle(rnd()<gibs and gib or lgib,origin,v_scale(vel,1+rnd"2"))
         end
+        local vel=vector_in_cone(0.25-bullet.zangle,0,0.01)
+        make_particle(lgib,pos,v_scale(vel,-0.5))
       else
         hit_ttl=5
       end
@@ -1847,17 +1841,18 @@ cartdata;freds72_daggers]],exec)
   -- global templates
   local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,-1
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
-_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents,stain,5
+_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,stain,5
+_goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
+_goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0,rebound,-1
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
-_skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1;_skull_core
-_egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,@blast,make_goo,obituary,aCIDIFIED,min_velocity,-1;_skull_template
-_goo_gib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,@ents,_goo_ents
+_skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template;_skull_core
+_egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
 _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
 _worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
 _worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
 _jewel_template;ent,jewel,radius,12,zangle,0,ttl,300,@apply,nop,is_jewel,1
-_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,@blast,make_goo,apply_filter,on_ground;_skull_template
+_spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template;_skull_template
 _squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
