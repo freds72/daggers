@@ -2,7 +2,7 @@
 -- to validate archive presence
 local _magic_number=0x8764.1359
 
-local _hw_palette={128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0}
+local _hw_palette={[0]=0,128,130,133,5,134,137,7,136,8,138,139,3,131,129,135}
 -- editor state
 _editor_state={
     -- to be used to lookup in palette
@@ -32,10 +32,10 @@ local _entities={
     -- animation
     {text="bLOOD0",angles=0},
     {text="bLOOD1",angles=0},
-    {text="bLOOD2",angles=0x44},
+    {text="bLOOD2",angles=0},
     {text="dAGGER0",angles=default_angles},
     {text="dAGGER1",angles=default_angles},
-    {text="dAGGER2",angles=default_angles},
+    {text="dAGGER2",angles=0x08},
     -- resting hand
     {text="hAND0",angles=0,no_export=true},
     {text="hAND1",angles=0x08,no_export=true},
@@ -58,7 +58,7 @@ local _entities={
     {text="wORM2",angles=default_angles},
     -- squid tentacles
     {text="tENTACLE0",angles=default_angles},
-    {text="tENTACLE1",angles=default_angles},
+    {text="tENTACLE1",angles=default_angles,no_export=true},
     -- squid base
     {text="sQUID0",angles=0x08,no_export=true},
     -- no jewel face

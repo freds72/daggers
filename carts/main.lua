@@ -2,7 +2,7 @@
 local _bsp,_things,_futures,_spiders,_plyr,_cam,_grid,_entities={},{},{},{}
 -- stats
 local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
-local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x8000,3,10,0.025
+local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x8180,3,10,0.025
 -- must be globals
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
@@ -55,7 +55,7 @@ function wait_jewels(n)
   local prev=_total_jewels
   while _total_jewels<n do
     if _total_jewels!=prev then
-      for i in all(split"256,288,320,288,0") do
+      for i in all(split"208,224,240,224,208,0") do
         _hw_pal=i
         yield()
       end
@@ -70,12 +70,12 @@ end
 function levelup_async(t)
   -- 30 frames at 1/8 steps
   for j=0.125,t<<2,0.125 do
-    _ramp_pal=0x82c0+((j*j)&15)*16
+    _ramp_pal=0x8280+((j*j)&15)*16
     _slow_mo+=1
     yield()
   end
   -- restore state
-  _ramp_pal,_slow_mo=0x8000,0
+  _ramp_pal,_slow_mo=0x8180,0
 end
 
 -- record number of "things" on playground and wait until free slots are available
@@ -209,11 +209,11 @@ function make_player(_origin,_a)
     control=function(_ENV)
       if(dead) return
       -- move
-      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc004)
-      if(stat(28,@0xc002)) dx=3
-      if(stat(28,@0xc003)) dx=-3
-      if(stat(28,@0xc000)) dz=3
-      if(stat(28,@0xc001)) dz=-3
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc404)
+      if(stat(28,@0xc402)) dx=3
+      if(stat(28,@0xc403)) dx=-3
+      if(stat(28,@0xc400)) dz=3
+      if(stat(28,@0xc401)) dz=-3
       if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false sfx"58"
       prev_jump=jump_down
 
@@ -224,7 +224,7 @@ function make_player(_origin,_a)
 
       -- double-click detector
       dblclick_ttl=max(dblclick_ttl-1)
-      if btn(@0xc015) then
+      if btn(@0xc415) then
         if fire_released then
           fire_released=false
         end
@@ -249,7 +249,7 @@ function make_player(_origin,_a)
         fire_released,fire_frames=true,0
       end
 
-      dangle=v_add(dangle,{$0xc010*stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
@@ -269,7 +269,7 @@ function make_player(_origin,_a)
       -- avoid overflow!
       fire_ttl=max(fire_ttl-1)
 
-      angle=v_add(angle,dangle,$0xc016/1024)
+      angle=v_add(angle,dangle,$0xc416/1024)
       -- limit x amplitude
       angle[1]=mid(angle[1],-0.24,0.24)
       -- check next position
@@ -325,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  --dead=true
+                  --next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -492,40 +492,30 @@ end
 function draw_grid(cam)
   local things,m,cx,cy,cz={},cam.m,unpack(cam.origin)
   -- make sure camera matrix is local
-  local m1,m5,m9,m2,m6,m10,m3,m7,m11,r_scale=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11],-sin(0.625+cam.angles[1]/2)
+  local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
-  pal()
+  -- clear shadows
+	-- draw shadows
+  split2d([[_map_display;1
+poke;0x5f54;0x00;0x60
+poke;0x5f5e;0b00001000
+rectfill;0;0;127;127;0
+poke;0x5f5e;0b10001000]],exec)
 
-  -- 
-  -- render shadows (& collect)
-  poke(0x5f5e, 0b11111110)
-  color(1)
   -- project
   for i,obj in inext,_things do
     local origin=obj.origin  
     local oy=origin[2]
+    if not obj.shadeless then
+      local sx,sy=origin[1]/3-0x6a.aaaa,origin[3]/3-0x6a.aaaa
+      circfill(sx,sy,obj.radius/3,4)
+    end
     -- centipede can be below ground...
     if oy>=1 then
-      local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
-      local ax,az=m1*x-m5*cy+m9*z,m3*x-m7*cy+m11*z
-      local az4=az<<2
-      -- draw shadows (y=0)
-      if not obj.shadeless then
-        local ay=m2*x-m6*cy+m10*z
-        if az>4 and az<96 and ax<az4 and -ax<az4 and -ay<az4 and ay<az4 then
-          -- thing offset+cam offset              
-          local w=32/az
-          local a,r=atan2(az,-cy),obj.radius*w
-          local x0,y0,ry=63.5+ax*w,63.5-ay*w,-r*sin(a)
-          ovalfill(x0-r,y0+ry,x0+r,y0-ry)
-        end
-      end
-  
-      -- 
       if not obj.no_render then
-        ax+=m5*oy
-        az+=m7*oy
-        local ay,az4=m2*x+m6*y+m10*z,az<<2
+        local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
+        local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
+        local az4=az<<2
         if az>4 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
           local w=32/az
           things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
@@ -533,21 +523,23 @@ function draw_grid(cam)
       end
     end
   end
-  poke(0x5f5e, 0xff)
+  -- default transparency
+  split2d([[poke;0x5f5e;0xff
+poke;0x5f54;0x60;0x00
+_map_display;0
+poke;0x5f0f;0x1f
+palt;0;0x00]],exec)
 
   -- radix sort
   rsort(things)
 
-  -- default transparency
-  palt(15,true)
-  palt(0,false)
   -- render in order
   local prev_base,prev_sprites,pal0
   for _,item in inext,things do
     local thing=item.thing
     local hit_ttl,pal1=thing.hit_ttl
     if hit_ttl and hit_ttl>0 then
-      pal1=15+hit_ttl
+      pal1=min(2*hit_ttl,8)-8
     else
       local light=thing.light_t and min(1,(time()-thing.light_t)/0.15) or 1
       pal1=(light*min(15,item.key<<4))\1
@@ -644,18 +636,30 @@ function make_particle(template,_origin,_velocity)
         -- if moving, apply gravity
         _velocity[2]-=0.4
         origin=v_add(origin,_velocity)        
-        if (origin[2]<1 and _velocity[2]<0) origin[2]=1 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
+        if origin[2]<1 and _velocity[2]<0 then
+          origin[2]=1 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
+          -- write on playground
+          if stain and rebound==0 then
+            -- don't drop blood each time
+            if rnd()>0.5 then
+            -- convert coords into map space
+            local sx,sy=origin[1]/3-0x6a.aaaa,origin[3]/3-0x6a.aaaa
+              pset(sx,sy,stain)
+            end
+            dead=true
+          end
+        end
       end
     end
   },template))
 end
 
-function make_blood(origin,velocity)
-  make_particle(_gib_template,origin,velocity)
+function make_blood(...)
+  make_particle(_gib_template,...)
 end
 
-function make_goo(_origin)
-  return make_particle(_goo_gib_template,_origin)
+function make_goo(...)
+  return make_particle(_goo_template,...)
 end
 
 -- base class for:
@@ -1045,7 +1049,10 @@ function make_egg(_origin,_velocity)
         dead=true
         sfx(51)
         grid_unregister(_ENV)
-        make_goo(origin)
+        for i=1,2+rnd"2" do
+          local a=rnd()
+          make_goo(origin,{cos(a),rnd(5),sin(a)})
+        end
         -- spiderling
         make_skull(inherit({
           think=function(_ENV)
@@ -1077,15 +1084,15 @@ function draw_world()
   -- tilt!
   -- screen = gfx
   -- reset palette
-  --memcpy(0x5f00,0x4300,16)
+  
   local yshift=sin(_cam.tilt)>>3
-  memcpy(0x92c0,0x6000,0x2000)
+  memcpy(0xa380,0x6000,0x2000)
   for i=0,63,4 do
-    -- 0xf000 = 0x6000-0x92c0
+    -- 0xbc80 = 0x6000-0xa380
     -- offset = dst -  src
-    local off=((((i-31.5)*yshift+0.5)\1)<<6)+0xcd40
+    local off=((((i-31.5)*yshift+0.5)\1)<<6)+0xbc80
     -- copy from y=4 to y=123 
-    for src=0x93c0+i,0xb0c0+i,64 do
+    for src=0xa480+i,0xc240+i,64 do
       poke4(src+off,$src)
     end
   end
@@ -1144,6 +1151,14 @@ end
 
 -- gameplay state
 function play_state()
+  -- clean up stains!
+  split2d([[_map_display;1
+memcpy;0;0xc500;2048
+memcpy;2048;0xc500;2048
+memcpy;4096;0xc500;2048
+memcpy;6144;0xc500;2048
+_map_display;0]],exec)
+
   -- camera & player & reset misc values
   _plyr,_things,_spiders,_total_jewels,_total_bullets,_total_hits=make_player({512,24,512},0),{},{},0,0,0
   
@@ -1188,8 +1203,9 @@ function play_state()
         s..="S"
         arizona_print(s,64-print(s,0,128)/2,1,2)
       end
+
       -- hw palette
-      memcpy(0x5f10,0x8140+_hw_pal,16)
+      memcpy(0x5f10,0x8000+_hw_pal,16)
 
       --[[
       palt(0,true)
@@ -1219,6 +1235,9 @@ function play_state()
       local x0,y0=world_to_map(_flying_target)
       spr(23,x0-2,y0-2)
       ]]
+
+      --_map_display(1)
+      --spr(0,0,0,16,16)
     end,
     -- init
     function()
@@ -1291,7 +1310,7 @@ set_spawn;200;64
 make_worm
 wait_async;600]],exec) 
     end)
-    
+
     --[[
     do_async(function()
       while true do
@@ -1307,8 +1326,15 @@ wait_async;600]],exec)
         if(s) s.dead=true
       end
     end)
-    ]]
     
+    for i=-4,5 do
+      for j=-4,5 do
+        -- local s=make_skull(_skull1_template,{512+i*16,12+rnd(4),512+j*16})
+        local s=make_egg({512+i*16,12+rnd(4),512+j*16},v_zero())
+        -- s.update=nop
+      end
+    end
+    ]]
     -- progression
     do_async(function()
       -- reset values
@@ -1493,7 +1519,7 @@ arizona_print;hIGHSCORES;1;8]],exec)
         spr(20,mx,my)
       end
       -- hw palette
-      memcpy(0x5f10,0x8140+hw_pal,16)
+      memcpy(0x5f10,0x8000+hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end
 end
@@ -1506,10 +1532,20 @@ function _init()
   -- enable lock
   -- increase tline precision
   -- cartdata
+  -- use "screen" as spritesheet source
+  -- copy tiles to spritesheet 1
+  -- todo: put back tline precision
   split2d([[poke;0x5f58;0x81
-poke;0x5f36;0x18
+poke;0x5f36;9
 poke;0x5f2d;0x7
-tline;17
+poke;0x5f54;0x60;0x00
+memcpy;0x0;0x6000;0x2000
+_map_display;1
+memcpy;0;0xc500;2048
+memcpy;2048;0xc500;2048
+memcpy;4096;0xc500;2048
+memcpy;6144;0xc500;2048
+_map_display;0
 cartdata;freds72_daggers]],exec)
 
   -- local score version
@@ -1585,16 +1621,17 @@ cartdata;freds72_daggers]],exec)
     -- ##6: vertex index
     -- ##7: vertex index
     -- ##8: tex coords
-    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0.0404; -2;32.0;0;2;58;55;52;49;0x0008.0404; -3;-384.0;0;1;13;22;58;49;0x0004.0404; 3;640.0;0;1;19;16;52;55;0x0004.0404; -1;-320.0;2;1;49;52;16;13;0x0004.0404
-2; 2;0.0;0;2;1;4;7;10;0x0.0404; -2;32.0;0;2;46;43;40;37;0x0008.0404; -3;-320.0;0;1;1;10;46;37;0x0004.0404; 3;704.0;0;1;7;4;40;43;0x0004.0404; -1;-384.0;2;1;22;1;37;58;0x0004.0404; -1;-384.0;2;1;4;19;55;40;0x0004.0404; 1;640.0;2;1;28;7;43;64;0x0004.0404; 1;640.0;2;1;10;25;61;46;0x0004.0404
-3; 2;0.0;0;2;25;28;31;34;0x0.0404; -2;32.0;0;2;70;67;64;61;0x0008.0404; -3;-384.0;0;1;25;34;70;61;0x0004.0404; 1;704.0;2;1;70;34;31;67;0x0004.0404; 3;640.0;0;1;31;28;64;67;0x0004.0404]],function(id,...)
+    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0000.1010;1; -2;32.0;0;2;58;55;52;49;0x0014.0404;0; -3;-384.0;0;1;13;22;58;49;0x0010.0404;0; 3;640.0;0;1;19;16;52;55;0x0010.0404;0; -1;-320.0;2;1;49;52;16;13;0x0010.0404;0
+2; 2;0.0;0;2;1;4;7;10;0x0000.1010;1; -2;32.0;0;2;46;43;40;37;0x0014.0404;0; -3;-320.0;0;1;1;10;46;37;0x0010.0404;0; 3;704.0;0;1;7;4;40;43;0x0010.0404;0; -1;-384.0;2;1;22;1;37;58;0x0010.0404;0; -1;-384.0;2;1;4;19;55;40;0x0010.0404;0; 1;640.0;2;1;28;7;43;64;0x0010.0404;0; 1;640.0;2;1;10;25;61;46;0x0010.0404;0
+3; 2;0.0;0;2;25;28;31;34;0x0000.1010;1; -2;32.0;0;2;70;67;64;61;0x0014.0404;0; -3;-384.0;0;1;25;34;70;61;0x0010.0404;0; 1;704.0;2;1;70;34;31;67;0x0010.0404;0; 3;640.0;0;1;31;28;64;67;0x0010.0404;0
+]],function(id,...)
       -- localize
       local planes={...}
       _bsp[id]=function(cam)        
         local m,origin,cx,cy,cz=cam.m,cam.origin,unpack(cam.origin)
         local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
         -- all brush planes
-        for i=1,#planes,9 do
+        for i=1,#planes,10 do
           -- visible?
           local dir=planes[i]
           if sgn(dir)*origin[abs(dir)]>planes[i+1] then              
@@ -1609,7 +1646,7 @@ cartdata;freds72_daggers]],exec)
               if(0.5*ax>az) code|=8
               
               local w=32/az 
-              verts[j]={ax,ay,az,u=_vertices[vi+uindex],v=_vertices[vi+vindex],x=63.5+ax*w,y=63.5-ay*w,w=w}
+              verts[j]={ax,ay,az,u=(_vertices[vi+uindex]-320)*0x0.0aaa,v=(_vertices[vi+vindex]-320)*0x0.0aaa,x=63.5+ax*w,y=63.5-ay*w,w=w}
               
               outcode&=code
               nearclip+=code&2
@@ -1644,6 +1681,7 @@ cartdata;freds72_daggers]],exec)
     
               -- texture
               poke4(0x5f38,planes[i+8])
+              _map_display(planes[i+9])
               --[[
               color(1)
               local v0=verts[#verts]
@@ -1653,7 +1691,7 @@ cartdata;freds72_daggers]],exec)
                 v0=v1
               end 
               ]]
-              mode7(verts,#verts,_ramp_pal)  
+              mode7(verts,#verts,_ramp_pal+0x1100)  
               --[[
               local mx,my=0,0
               for _,v in inext,verts do
@@ -1665,6 +1703,7 @@ cartdata;freds72_daggers]],exec)
             end
           end
         end
+        _map_display(0)
       end
     end)
   -- attach world draw as a named BSP node
@@ -1676,14 +1715,7 @@ cartdata;freds72_daggers]],exec)
 
   -- must be globals
   -- predefined entries (avoids constant gc)
-  _blood_ents,_goo_ents,_spark_ents={
-    _entities.blood1,
-    _entities.blood2
-  },{
-    _entities.goo0,
-    _entities.goo1,
-    _entities.goo2
-  },{
+  _spark_ents={
     _entities.spark1,
     _entities.spark2
   }
@@ -1708,18 +1740,14 @@ cartdata;freds72_daggers]],exec)
           make_jewel(origin,velocity)
         end 
         grid_unregister(_ENV)  
-        -- custom explosion?
-        if blast then
-          blast(pos)
-        else
-          for i=1,3+rnd"2" do
-            local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
-            vel[2]=rnd()
-            make_particle(rnd()<gibs and _gib_template or _lgib_template,origin,v_scale(vel,1+rnd"2"))
-          end
-          local vel=vector_in_cone(0.25-bullet.zangle,0,0.01)
-          make_particle(_lgib_template,pos,v_scale(vel,-0.5))
+        for i=1,3+rnd"2" do
+          local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
+          vel[2]=rnd()
+          -- custom explosion?
+          make_particle(rnd()<gibs and gib or lgib,origin,v_scale(vel,1+rnd"2"))
         end
+        local vel=vector_in_cone(0.25-bullet.zangle,0,0.01)
+        make_particle(lgib,pos,v_scale(vel,-0.5))
       else
         hit_ttl=5
       end
@@ -1813,17 +1841,18 @@ cartdata;freds72_daggers]],exec)
   -- global templates
   local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,-1
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
-_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,@ents,_blood_ents
+_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,stain,5
+_goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
+_goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0,rebound,-1
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
-_skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,4,target_yangle,0,gibs,-1;_skull_core
-_egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,@blast,make_goo,obituary,aCIDIFIED,min_velocity,-1;_skull_template
-_goo_gib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,@ents,_goo_ents
+_skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template;_skull_core
+_egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
 _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
 _worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
 _worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
 _jewel_template;ent,jewel,radius,12,zangle,0,ttl,300,@apply,nop,is_jewel,1
-_spiderling_template;ent,spiderling0,radius,16,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,@blast,make_goo,apply_filter,on_ground;_skull_template
+_spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template;_skull_template
 _squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
@@ -1893,7 +1922,11 @@ function _update()
   
   _plyr:update()
   --
-  if _slow_mo%2==0 then    
+  if _slow_mo%2==0 then
+    -- draw on tiles setup
+    split2d([[_map_display;1
+poke;0x5f54;0x00;0x60
+poke;0x5f5e;0b11110110]],exec)  
     -- physic must run *before* general updates
     for _,_ENV in inext,_things do
       if(physic) physic(_ENV)
@@ -1911,6 +1944,10 @@ function _update()
         if(update) update(_ENV)
       end
     end
+    -- revert
+    split2d([[poke;0x5f5e;0xff
+poke;0x5f54;0x60;0x00
+_map_display;0]],exec)
   end
 
   _update_state()

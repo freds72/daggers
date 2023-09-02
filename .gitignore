@@ -3,6 +3,7 @@ config.txt
 activity_log.txt
 sdl_controllers.txt
 favourites.txt
+_label.png
 /backup/
 /bbs/
 /carts/demos
@@ -10,6 +11,9 @@ favourites.txt
 /carts/pic_*.p8
 /carts/*_mini.p8
 /carts/*_mini.lua
+/carts/index.html
+/carts/daggers_*.js
+
 /cdata/
 /cstore/
 *.bin
