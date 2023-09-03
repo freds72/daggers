@@ -325,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  --dead=true
-                  --next_state(gameover_state,thing.obituary)
+                  dead=true
+                  next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -1406,7 +1406,7 @@ function gameover_state(obituary)
   local ttl,buttons,over_btn=90,{
     {"rETRY",1,111,cb=function() 
       do_async(function()
-        for i=0,15 do
+        for i=0,11 do
           hw_pal=i<<4
           yield()
         end
@@ -1491,11 +1491,12 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
       draw_world()
       if ttl==0 then
         split2d([[palt;0;false
-poke;0x5f54;0x60
-memcpy;0x5f00;0x8090;16
-spr;0;0;0;16;16
-pal
 poke;0x5f54;0x00
+memcpy;0x5f00;0x8200;16
+spr;0;0;0;16;16
+poke;0x5f54;0x60
+memcpy;0x5f00;0x8270;16
+poke;0x5f00;0x10
 arizona_print;hIGHSCORES;1;8]],exec)
         -- darken game screen
         -- shift palette
