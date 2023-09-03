@@ -617,7 +617,7 @@ end
 
 -- particle thingy
 function make_particle(template,_origin,_velocity)  
-  local max_ttl=15+rnd"12"
+  local max_ttl=8+rnd"12"
   return add(_things,inherit({
     origin=_origin,
     update=function(_ENV)
@@ -1245,7 +1245,7 @@ _map_display;0]],exec)
       music"32"
       _start_time=time()
       -- must be done *outside* async update loop!!!
-      _futures,_total_things,_time_penalty,_time_wait={},0,0
+      _futures,_total_things,_time_penalty,_hw_pal,_time_wait={},0,0,0
       -- scenario
       local scenario=do_async(function()
         local script=split2d([[
@@ -1716,7 +1716,8 @@ cartdata;freds72_daggers]],exec)
 
   -- must be globals
   -- predefined entries (avoids constant gc)
-  _spark_ents={
+  _spark_trail={
+    _entities.spark0,
     _entities.spark1,
     _entities.spark2
   }
@@ -1845,19 +1846,19 @@ _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,
 _gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,stain,5
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
 _goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0,rebound,-1
-_dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark1,@ents,_spark_ents,rebound,-1
+_dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_ents,rebound,1.2
 _skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
 _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
 _worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
 _worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
-_jewel_template;ent,jewel,radius,12,zangle,0,ttl,300,@apply,nop,is_jewel,1
-_spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template;_skull_template
-_squid_core;no_render,1,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
+_jewel_template;ent,jewel,radius,8,zangle,0,ttl,300,@apply,nop,is_jewel,1
+_spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
+_squid_core;no_render,1,radius,18,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
 _squid_jewel;jewel,1,hp,10,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
-_squid_tentacle;ent,tentacle0,radius,16,origin,v_zero,zangle,0,is_tentacle,1
+_squid_tentacle;ent,tentacle0,radius,6,origin,v_zero,zangle,0,is_tentacle,1
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
 _skull2_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template

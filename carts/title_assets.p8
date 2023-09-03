@@ -8,7 +8,7 @@ addr=0x1240
 assert(addr,"missing target address")
 
 -- gfx assets
--- pal({[0]=0,128,130,133,5,134,137,7,136,8,138,139,3,131,129,135},1)
+-- pal({[0]=0,128,130,133,5,134,137,7,136,8,138,139,3,131,129,6},1)
 local clen=px9_comp(0,0,128,64,0x8000,sget)
 cstore(addr,0x8000,clen,"title.p8")
 
