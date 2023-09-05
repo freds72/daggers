@@ -1,6 +1,10 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
+--# notice! #
+--run this cart with
+--root_path set to project root
+
 ---convert address to coords
 --@param num {number}
 --	address to convert
