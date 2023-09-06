@@ -617,9 +617,10 @@ end
 
 -- particle thingy
 function make_particle(template,_origin,_velocity)  
-  local max_ttl=8+rnd"12"
+  local max_ttl=12+rnd"8"
   return add(_things,inherit({
     origin=_origin,
+    ttl=rnd{0,1,2},
     update=function(_ENV)
       ttl+=1
       if(ttl>max_ttl) dead=true return
@@ -1716,10 +1717,14 @@ cartdata;freds72_daggers]],exec)
 
   -- must be globals
   -- predefined entries (avoids constant gc)
-  _spark_trail={
+  _spark_trail,_blood_trail={
     _entities.spark0,
     _entities.spark1,
     _entities.spark2
+  },{
+    _entities.blood0,
+    _entities.blood1,
+    _entities.blood2
   }
 
   _skull_core=inherit({
@@ -1841,12 +1846,12 @@ cartdata;freds72_daggers]],exec)
   })
 
   -- global templates
-  local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,-1
+  local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,0.8
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
-_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,stain,5
+_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_trail,rebound,0,stain,5
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
 _goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0,rebound,-1
-_dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_ents,rebound,1.2
+_dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
 _skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
