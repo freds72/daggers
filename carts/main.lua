@@ -7,29 +7,29 @@ local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
-384.0,0,704.0,
-640.0,0,704.0,
-640.0,0,320.0,
-320.0,0,384.0,
-320.0,0,640.0,
-384.0,0,640.0,
-384.0,0,384.0,
-640.0,0,384.0,
-640.0,0,640.0,
-704.0,0,640.0,
-704.0,0,384.0,
-384.0,-32,320.0,
-384.0,-32,704.0,
-640.0,-32,704.0,
-640.0,-32,320.0,
-320.0,-32,384.0,
-320.0,-32,640.0,
-384.0,-32,640.0,
-384.0,-32,384.0,
-640.0,-32,384.0,
-640.0,-32,640.0,
-704.0,-32,640.0,
-704.0,-32,384.0]],
+384,0,704,
+640,0,704,
+640,0,320,
+320,0,384,
+320,0,640,
+384,0,640,
+384,0,384,
+640,0,384,
+640,0,640,
+704,0,640,
+704,0,384,
+384,-32,320,
+384,-32,704,
+640,-32,704,
+640,-32,320,
+320,-32,384,
+320,-32,640,
+384,-32,640,
+384,-32,384,
+640,-32,384,
+640,-32,640,
+704,-32,640,
+704,-32,384]],
 {
   -- xmin/max - ymin/max
   -- with 8 unit buffer simulate player "volume"
@@ -164,37 +164,6 @@ function grid_unregister(_ENV)
   end    
 end
 
--- range index generator
---[[
-  done={}
-
-function visit(x0,y0,len)
- local s=""
-	for x=x0,x0+len-1 do
-	 for y=y0,y0+len-1 do
-	 	local idx=(x-x0)>>16|(y-y0)
-	 	if not done[x|y<<6] then
-	 	 done[x|y<<6]=true
-	 	 s..=tostr(idx,1)..","
-	 	end
-	 end
-	end
-	return s
-end
-
-local s="{{"..visit(2,2,2).."},\n"
-s..="{"..visit(1,1,4).."},\n"
-s..="{"..visit(0,0,6).."}}"
-printh(s,"@clip")
-]]
--- concentric offset around player in chatter grid
---  2222
--- 211112
--- 210012
--- 210012
--- 211112
---  2222
-
 function make_player(_origin,_a)
   local _chatter_ranges,on_ground,prev_jump={
     split"0x0,0x0001,0x0.0001,0x0001.0001",
@@ -325,8 +294,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  -- dead=true
+                  -- next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -438,7 +407,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
           -- no matter what - we hit the ground!
           dead=true
           -- sparkles
-          for i=1,rnd"5" do
+          for i=1,3+rnd"3" do
             local vel,u,v=vector_in_cone(0.25-zangle,yangle,0.03)
             make_particle(_dagger_hit_template,new_origin,v_scale(vel,1+rnd()))
           end
@@ -545,6 +514,21 @@ palt;0;0x00]],exec)
       pal1=(light*min(15,item.key<<4))\1
     end    
     if(pal0!=pal1) memcpy(0x5f00,_ramp_pal+(pal1<<4),16) palt(15,true) pal0=pal1   
+    -- custom draw for boss
+    if thing.orb then      
+      pal0=-1
+      local r=item.key*thing.radius
+      split2d(scanf([[
+memcpy;0x5f00;$;16
+fillp;0xa5a5
+camera;$;$
+circfill;0;0;$;0x24
+fillp;0xa5a5;
+circfill;0;0;$;0x4f
+fillp
+circfill;0;0;$;7
+camera]],_ramp_pal+240,-item.x,-item.y,r,r-0.5,r-1),exec)
+    else
       -- draw things
       local w0,entity,origin=item.key,thing.ent,thing.origin
       -- zangle (horizontal)
@@ -559,59 +543,28 @@ palt;0;0x00]],exec)
       -- up/down angle
       local zangles,yside=entity.zangles,0
       if zangles!=0 then
-        local yangle,step=thing.yangle or 0,1/(zangles<<1)
-        yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
-      if(yside>zangles) yside=zangles-(yside%zangles)
-    end
-    -- copy to spr
-    -- skip top+top rotation
-    local frame,sprites=entity.frames[(yangles+1)*yside+side+1],entity.sprites
-    local base,w,h=frame.base,frame.width,frame.height
-    -- cache works in 10% of cases :/
-    if prev_base!=base or prev_sprites!=sprites then
-      prev_base,prev_sprites=base,sprites
-      for i=0,(h-1)<<6,64 do
-        poke4(i,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
-        base+=4
+          local yangle,step=thing.yangle or 0,1/(zangles<<1)
+          yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
+        if(yside>zangles) yside=zangles-(yside%zangles)
       end
-    end
-    w0*=(thing.scale or 1)
-    local sx,sy=item.x-w*w0/2,item.y-h*w0/2
-    local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
-    --
-    sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip)
-
-    --[[
-    if thing.radius then
-      local oy=thing.o_offset
-      if oy then
-        oy+=thing.origin[2]
-        local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
-        local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
-        local w=32/az
-        circ(63.5+w*ax,63.5-w*ay,w*thing.radius,10)
-      else
-        circ(item.x,item.y,w0*thing.radius,9)
+      -- copy to spr
+      -- skip top+top rotation
+      local frame,sprites=entity.frames[(yangles+1)*yside+side+1],entity.sprites
+      local base,w,h=frame.base,frame.width,frame.height
+      -- cache works in 10% of cases :/
+      if prev_base!=base or prev_sprites!=sprites then
+        prev_base,prev_sprites=base,sprites
+        for i=0,(h-1)<<6,64 do
+          poke4(i,sprites[base],sprites[base+1],sprites[base+2],sprites[base+3])
+          base+=4
+        end
       end
+      w0*=(thing.scale or 1)
+      local sx,sy=item.x-w*w0/2,item.y-h*w0/2
+      local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
+      --
+      sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip)
     end
-    ]]
-    --[[
-    circ(item.x,item.y,(thing.radius or 1)*w0,9)
-    if thing.debug_forces then
-      -- draw
-      local forces=thing.debug_forces
-      local x,y,z=origin[1]+forces[1]-cx,origin[2]+forces[2]-cy,origin[3]+forces[3]-cz
-      -- 
-      local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
-      if az>8 then
-        local ay,w=m2*x+m6*y+m10*z,64/az
-        line(item.x,item.y,63.5+ax*w,63.5-ay*w,7)
-      end
-    end
-    ]]
-
-    --sspr(0,0,32,32,sx,sy,32,32,flip)
-    --print(thing.zangle,sx+sw/2,sy-8,9)      
   end
 end
 
@@ -623,6 +576,7 @@ function make_particle(template,_origin,_velocity)
     ttl=rnd{0,1,2},
     update=function(_ENV)
       ttl+=1
+      zangle=rnd()
       if(ttl>max_ttl) dead=true return
       -- animated?
       if(ents) ent=ents[flr(#ents*ttl/max_ttl)+1]
@@ -971,6 +925,55 @@ function make_worm()
   },_worm_head_template),_origin)
 end
 
+function make_orb(_origin)
+  add(_things,inherit({
+    origin=v_clone(_origin),
+    ai=do_async(function()
+      local yangle=0
+      while true do
+        for i=1,10 do
+          for j=0,0.75,0.25 do
+            --make_bullet(_origin,yangle+j,-0.5,.01)
+          end
+          wait_async(3)          
+        end
+        wait_async(10)
+        yangle+=0.05
+      end
+    end),
+    hit=function(_ENV,pos,bullet) 
+      if(dead) return      
+      hp-=1
+      -- feedback
+      make_particle(_lgib_template,pos,v_scale(bullet.velocity,-3))
+      sfx"56"
+      if hp<=0 then
+        dead=true
+        -- death animation + gameover "victory" screen
+        do_async(function()
+        end)
+      end
+    end,
+    update=function(_ENV)
+      local t=time()*16
+      local k=(t%32)/32
+      local r=k*k*32
+      local c=((t\32)%2)*5
+      circ(64,64,r,c)
+      grid_register(_ENV)
+      
+      for i=1,2+rnd"2" do
+        local a=rnd()
+        -- local lr=rnd(90)
+        local lr=3*r
+        local p=make_particle(_lighting_template,{512+lr*cos(a),8,512+lr*sin(a)},{1-rnd(2),-r/8,1-rnd(2)})
+        --p.scale=1-lr/180
+      end
+    end
+  },_orb_template))
+end
+
+
 function make_jewel(_origin,_velocity)
   add(_things,inherit({    
     origin=v_clone(_origin),
@@ -1102,20 +1105,6 @@ function draw_world()
   memset(0x6000,0,512)
   memset(0x7e00,0,512)
 
-  --[[
-  local stats={
-    BULLETS=_bullets,
-    PARTICLE=_particles,
-    THINGS=_things,
-    FUTURES=_futures
-  }
-  local s=""
-  for k,v in pairs(stats) do
-    s..=k.."# "..#v.."\n"
-  end
-  print(s..stat(0).."kb",2,2,3)
-  ]]
-
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
@@ -1207,38 +1196,6 @@ _map_display;0]],exec)
 
       -- hw palette
       memcpy(0x5f10,0x8000+_hw_pal,16)
-
-      --[[
-      palt(0,true)
-      local function world_to_map(o)
-        return (4*o[1])\32,(4*o[3])\32
-      end
-
-      for x=0,31 do
-        for y=0,31 do
-          local idx,count=x>>16|y,0
-          for _ in pairs(_grid[idx].things) do
-            count+=1
-          end
-          rectfill(x*4,y*4,(x+1)*4-1,(y+1)*4-1,count%16)
-          for thing in pairs(_grid[idx].things) do
-            local x0,y0=world_to_map(thing.origin)
-            pset(x0,y0,8)
-            if thing.target then
-              local x1,y1=world_to_map(thing.target)
-              line(x0,y0,x1,y1,5)
-            end
-          end
-        end
-      end
-      local x0,y0=world_to_map(_plyr.origin)
-      spr(7,x0-2,y0-2)      
-      local x0,y0=world_to_map(_flying_target)
-      spr(23,x0-2,y0-2)
-      ]]
-
-      --_map_display(1)
-      --spr(0,0,0,16,16)
     end,
     -- init
     function()
@@ -1309,8 +1266,10 @@ wait_async;150
 random_spawn_angle
 set_spawn;200;64
 make_worm
-wait_async;600]],exec) 
+wait_async;600]],nop) 
     end)
+
+    make_orb({512,24,512})
 
     --[[
     do_async(function()
@@ -1684,24 +1643,9 @@ cartdata;freds72_daggers]],exec)
               -- texture
               poke4(0x5f38,planes[i+8])
               _map_display(planes[i+9])
-              --[[
-              color(1)
-              local v0=verts[#verts]
-              for i=1,#verts do
-                local v1=verts[i]
-                line(v0.x,v0.y,v1.x,v1.y)
-                v0=v1
-              end 
-              ]]
+
               mode7(verts,#verts,_ramp_pal+0x1100)  
-              --[[
-              local mx,my=0,0
-              for _,v in inext,verts do
-                mx+=v.x
-                my+=v.y
-              end
-              print(id.." / "..((i\9)+1),mx/#verts,my/#verts,8)
-              ]]
+
             end
           end
         end
@@ -1867,7 +1811,9 @@ _squid_tentacle;ent,tentacle0,radius,6,origin,v_zero,zangle,0,is_tentacle,1,shad
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
 _skull2_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]]
+_spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1
+_orb_template;orb,1,radius,18,hp,1000,obituary,vOIDED,scale,1,@apply,nop
+_lighting_template;shadeless,1,ent,thunder0,zangle,0,yangle,0,ttl,0,scale,1,rebound,-1]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
@@ -1962,7 +1908,7 @@ end
 
 -- unpack assets
 function unpack_entities()
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spiderling0,spiderling1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2,spider0,spider1,spark0,spark1,spark2"
+  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spiderling0,spiderling1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2,spider0,spider1,spark0,spark1,spark2,thunder0"
   unpack_array(function()
     local id=mpeek()
     if id!=0 then

@@ -36,7 +36,7 @@ local _entities={
     {text="dAGGER0",angles=default_angles},
     {text="dAGGER1",angles=default_angles},
     {text="dAGGER2",angles=0x08},
-    -- resting hand
+    -- dagger
     {text="hAND0",angles=0,no_export=true},
     {text="hAND1",angles=0x08,no_export=true},
     {text="hAND2",angles=0x08,no_export=true},
@@ -72,7 +72,8 @@ local _entities={
     -- sparks
     {text="sPARK0",angles=0},
     {text="sPARK1",angles=0},
-    {text="sPARK2",angles=0}
+    {text="sPARK2",angles=0},
+    {text="tHUNDER0",angles=0x08},
 }
 local _current_entity
 
