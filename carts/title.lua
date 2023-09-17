@@ -344,12 +344,15 @@ function menu_state(buttons,default)
       ovalfill(r0/2,128-r0*0.75,127-r0/2,128+r0*0.75,2)
 
       -- 
-      draw_things(skulls,cam,64,0.8)
+      draw_things(skulls,cam,64,0.5)
 
       pal()
       
       -- any background?
-      if(buttons.draw) buttons:draw()
+      if buttons.draw then
+        draw_dialog()
+        buttons:draw()
+      end
 
       -- draw menu & all
       for i,btn in inext,buttons do
@@ -429,6 +432,20 @@ function delayed_print(text,centered)
   end
 end
 
+-- commnon "dialog background"
+function draw_dialog()
+  poke(0x5f54,0x60)
+  memcpy(0x5f00,0x8180+5*16,16)
+  sspr(0,24,128,84,0,24)
+  poke(0x5f54,0x00)
+  pal()
+
+  split2d([[1;24;126;24;2
+  1;25;126;25;1
+  1;109;126;109;2
+  1;108;126;108;1]],line)   
+end
+
 -- leaderboard
 function leaderboard_state()
   -- local score version
@@ -454,10 +471,7 @@ function leaderboard_state()
       next_state(menu_state, _main_buttons)
     end,
     draw=function()
-      split2d([[1;24;126;24;1
-      1;25;126;25;0
-      1;109;126;109;0
-      1;108;126;108;1]],line)   
+      draw_dialog()
       arizona_print("lOCAL hIGHSCORES",1,16,2)
       delay_print(function(s,x,i)
         arizona_print(s,x,23+i*7)
@@ -476,10 +490,7 @@ function credits_state()
       next_state(menu_state, _main_buttons)
     end,
     draw=function()
-      split2d([[1;24;126;24;1
-      1;25;126;25;0
-      1;109;126;109;0
-      1;108;126;108;1]],line)   
+      draw_dialog()
       arizona_print("cREDITS",1,16,2)
       delay_print(function(s,x,i)
         arizona_print(s,x,23+i*7)
@@ -1087,10 +1098,6 @@ cartdata;freds72_daggers]],exec)
     end
     },
     draw=function()
-      split2d([[1;24;126;24;1
-      1;25;126;25;0
-      1;109;126;109;0
-      1;108;126;108;1]],line)   
       arizona_print("kEYBOARD & mOUSE",1,16,2)
     end
   }
