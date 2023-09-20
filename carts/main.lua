@@ -7,29 +7,29 @@ local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x
 _spawn_angle,_spawn_origin=0,split"512,0,512"
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
-384.0,0,704.0,
-640.0,0,704.0,
-640.0,0,320.0,
-320.0,0,384.0,
-320.0,0,640.0,
-384.0,0,640.0,
-384.0,0,384.0,
-640.0,0,384.0,
-640.0,0,640.0,
-704.0,0,640.0,
-704.0,0,384.0,
-384.0,-32,320.0,
-384.0,-32,704.0,
-640.0,-32,704.0,
-640.0,-32,320.0,
-320.0,-32,384.0,
-320.0,-32,640.0,
-384.0,-32,640.0,
-384.0,-32,384.0,
-640.0,-32,384.0,
-640.0,-32,640.0,
-704.0,-32,640.0,
-704.0,-32,384.0]],
+384,0,704,
+640,0,704,
+640,0,320,
+320,0,384,
+320,0,640,
+384,0,640,
+384,0,384,
+640,0,384,
+640,0,640,
+704,0,640,
+704,0,384,
+384,-32,320,
+384,-32,704,
+640,-32,704,
+640,-32,320,
+320,-32,384,
+320,-32,640,
+384,-32,640,
+384,-32,384,
+640,-32,384,
+640,-32,640,
+704,-32,640,
+704,-32,384]],
 {
   -- xmin/max - ymin/max
   -- with 8 unit buffer simulate player "volume"
@@ -617,9 +617,10 @@ end
 
 -- particle thingy
 function make_particle(template,_origin,_velocity)  
-  local max_ttl=8+rnd"12"
+  local max_ttl=12+rnd"8"
   return add(_things,inherit({
     origin=_origin,
+    ttl=rnd{0,1,2},
     update=function(_ENV)
       ttl+=1
       if(ttl>max_ttl) dead=true return
@@ -1097,10 +1098,6 @@ function draw_world()
     end
   end
 
-  -- hide trick top/bottom 8 pixel rows :)
-  memset(0x6000,0,512)
-  memset(0x7e00,0,512)
-
   --[[
   local stats={
     BULLETS=_bullets,
@@ -1115,10 +1112,13 @@ function draw_world()
   print(s..stat(0).."kb",2,2,3)
   ]]
 
+  -- hide trick top/bottom 8 pixel rows :)
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
-  split2d(scanf([[pal
+  split2d(scanf([[memset;0x6000;0;512
+memset;0x7e00;0;512
+pal
 poke;0x5f0f;0x1f
 poke;0x5f00;0x0
 clip;0;8;128;112
@@ -1138,7 +1138,6 @@ sspr;0;64;64;64;72;64]],r,0.9*r,0.9*r),exec)
   end
   clip()
   camera() 
-
 end
 
 
@@ -1153,10 +1152,8 @@ end
 function play_state()
   -- clean up stains!
   split2d([[_map_display;1
-memcpy;0;0xc500;2048
-memcpy;2048;0xc500;2048
-memcpy;4096;0xc500;2048
-memcpy;6144;0xc500;2048
+memcpy;0;0xc500;4096
+memcpy;4096;0xc500;4096
 _map_display;0]],exec)
 
   -- camera & player & reset misc values
@@ -1542,10 +1539,8 @@ poke;0x5f2d;0x7
 poke;0x5f54;0x60;0x00
 memcpy;0x0;0x6000;0x2000
 _map_display;1
-memcpy;0;0xc500;2048
-memcpy;2048;0xc500;2048
-memcpy;4096;0xc500;2048
-memcpy;6144;0xc500;2048
+memcpy;0;0xc500;4096
+memcpy;4096;0xc500;4096
 _map_display;0
 cartdata;freds72_daggers]],exec)
 
@@ -1716,10 +1711,14 @@ cartdata;freds72_daggers]],exec)
 
   -- must be globals
   -- predefined entries (avoids constant gc)
-  _spark_ents={
+  _spark_trail,_blood_trail={
     _entities.spark0,
     _entities.spark1,
     _entities.spark2
+  },{
+    _entities.blood0,
+    _entities.blood1,
+    _entities.blood2
   }
 
   _skull_core=inherit({
@@ -1841,12 +1840,12 @@ cartdata;freds72_daggers]],exec)
   })
 
   -- global templates
-  local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,-1
+  local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,0.8
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
-_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,rebound,0,stain,5
+_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_trail,rebound,0,stain,5
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
 _goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0,rebound,-1
-_dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_ents,rebound,1.2
+_dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
 _skull_template;zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
 _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
