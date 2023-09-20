@@ -101,7 +101,7 @@ function with_properties(props,dst)
     local k,v=props[i],props[i+1]
     -- deference
     if k[1]=="@" then
-      k,v=sub(k,2,-1),_ENV[v]
+      k,v=sub(k,2),_ENV[v]
     elseif k=="ent" then 
       v=_entities[v] 
     else
@@ -576,7 +576,6 @@ function make_particle(template,_origin,_velocity)
     ttl=rnd{0,1,2},
     update=function(_ENV)
       ttl+=1
-      zangle=rnd()
       if(ttl>max_ttl) dead=true return
       -- animated?
       if(ents) ent=ents[flr(#ents*ttl/max_ttl)+1]
@@ -925,6 +924,7 @@ function make_worm()
   },_worm_head_template),_origin)
 end
 
+-- mega boss
 function make_orb(_origin)
   add(_things,inherit({
     origin=v_clone(_origin),
@@ -959,14 +959,14 @@ function make_orb(_origin)
       local k=(t%32)/32
       local r=k*k*32
       local c=((t\32)%2)*5
-      circ(64,64,r,c)
+      circfill(64,64,r,c)
       grid_register(_ENV)
       
-      for i=1,2+rnd"2" do
-        local a=rnd()
-        -- local lr=rnd(90)
-        local lr=3*r
-        local p=make_particle(_lighting_template,{512+lr*cos(a),8,512+lr*sin(a)},{1-rnd(2),-r/8,1-rnd(2)})
+      for i=1,1+rnd"2" do
+        local a,lr=rnd(),rnd(90)
+        --local lr=3*r
+        make_particle(_lighting_template,{512+lr*cos(a),60+rnd"8",512+lr*sin(a)},{0,-6,0}).zangle=rnd()
+
         --p.scale=1-lr/180
       end
     end
@@ -1102,13 +1102,12 @@ function draw_world()
   end
 
   -- hide trick top/bottom 8 pixel rows :)
-  memset(0x6000,0,512)
-  memset(0x7e00,0,512)
-
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
-  split2d(scanf([[pal
+  split2d(scanf([[memset;0x6000;0;512
+memset;0x7e00;0;512
+pal
 poke;0x5f0f;0x1f
 poke;0x5f00;0x0
 clip;0;8;128;112
@@ -1450,8 +1449,7 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
     function()
       draw_world()
       if ttl==0 then
-        split2d([[palt;0;false
-poke;0x5f54;0x00
+        split2d([[poke;0x5f54;0x00
 memcpy;0x5f00;0x8200;16
 spr;0;0;0;16;16
 poke;0x5f54;0x60
@@ -1813,7 +1811,7 @@ _skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0
 _skull2_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
 _spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1
 _orb_template;orb,1,radius,18,hp,1000,obituary,vOIDED,scale,1,@apply,nop
-_lighting_template;shadeless,1,ent,thunder0,zangle,0,yangle,0,ttl,0,scale,1,rebound,-1]]
+_lighting_template;radius,4,ent,thunder0,zangle,0,yangle,0,ttl,0,scale,1,rebound,0]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
