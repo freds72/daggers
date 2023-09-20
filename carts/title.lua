@@ -374,7 +374,8 @@ function menu_state(buttons,default)
       px9_decomp(0,0,0x1240,sget,sset)
       -- copy tiles to high mem (for shadows/splash)
       local mem=0xc500
-      for i=0,32*64-1,64 do
+      for i=0,64*64-1,64 do
+        -- copy the same row twice
         memcpy(mem,i+32,32) mem+=32
         memcpy(mem,i+32,32) mem+=32
       end
@@ -713,7 +714,7 @@ function play_state()
         end
         poke(0x5f55,0x00)
         local r=abs(cos(time()/8))
-        draw_radius(32,0.5)
+        draw_radius(32,0.25)
         r+=2.2
         draw_radius(32-r*r,0.7)
         r+=0.2
