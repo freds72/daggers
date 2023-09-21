@@ -325,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  --dead=true
+                  --next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -416,6 +416,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
     -- make sure to keep the sign of the y component!!
     u=_s*_u,
     v=_s*_v,
+    piercing=_piercing,
     shadeless=true,
     ttl=time()+0.5+rnd"0.1",
     ent=rnd{_entities.dagger0,_entities.dagger1},
@@ -425,7 +426,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
       else
         _checked+=1
         yangle+=0.1
-        local cur_origin,new_origin,len,hit_t,hit_thing,hit_pos=origin,v_add(origin,velocity,10),10,32000
+        local cur_origin,new_origin,len=origin,v_add(origin,velocity,10),10,32000
         local x,y,z=unpack(new_origin)
         if y<0 then
           -- hit ground?
@@ -444,8 +445,9 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
           end
         end
         -- collect touched grid indices
+        -- advanced bullets can traverse enemies
+        local hits={}
         collect_grid(cur_origin,new_origin,u,v,function(things)
-          -- todo: advanced bullets can traverse enemies
           for thing in pairs(things) do
             -- hitable?
             -- avoid checking the same enemy twice
@@ -466,22 +468,32 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
               if(disc<0)  goto continue
               local t=-b-sqrt(disc)
               -- far away?
-              if(t>len)  goto continue
+              if(t>len) goto continue
               -- inside radius?
               if(t<0) t=rnd(len)
-              if t<hit_t then
-                hit_thing,hit_t,hit_pos=thing,t,{ax+t*dx,ay+t*dy,az+t*dz}
+              local inserti=#hits+1
+              -- basic insertion sort
+              for i,prev_hit in inext,hits do          
+                if(prev_hit[1]>t) inserti=i break
               end
+              add(hits,{t,function() 
+                local pos={ax+t*dx,ay+t*dy,az+t*dz}
+                thing:hit(pos,_ENV) 
+                _total_hits+=0x0.0001 
+                -- todo: piercing effect?
+                -- if(piercing>0) make_particle(_dagger_hit_template,pos,velocity)
+              end},inserti)
 ::continue::
-            end            
+            end
           end
         end)
-        -- apply hit on closest thing
-        if hit_thing then
-          hit_thing:hit(hit_pos,_ENV)
-          dead=true
-          _total_hits+=0x0.0001
-          -- todo: allow for multiple hits
+        -- apply hit on closest thing        
+        if #hits>0 then          
+          for i,hit in inext,hits do            
+            hit[2]()
+            piercing-=1
+            if(piercing<0) dead=true break
+          end
         end
         origin=new_origin
       end      
@@ -508,7 +520,7 @@ poke;0x5f5e;0b10001000]],exec)
     local oy=origin[2]
     if not obj.shadeless then
       local sx,sy=origin[1]/3-0x6a.aaaa,origin[3]/3-0x6a.aaaa
-      circfill(sx,sy,obj.radius/3,4)
+      circfill(sx,sy,(obj.s_radius or obj.radius)/3,4)
     end
     -- centipede can be below ground...
     if oy>=1 then
@@ -1305,7 +1317,7 @@ wait_async;150
 random_spawn_angle
 set_spawn;200;64
 make_worm
-wait_async;600]],exec) 
+wait_async;600]],nop) 
     end)
 
     --[[
@@ -1323,31 +1335,34 @@ wait_async;600]],exec)
         if(s) s.dead=true
       end
     end)
-    
+    ]]
+
     for i=-4,5 do
       for j=-4,5 do
-        -- local s=make_skull(_skull1_template,{512+i*16,12+rnd(4),512+j*16})
-        local s=make_egg({512+i*16,12+rnd(4),512+j*16},v_zero())
-        -- s.update=nop
+        local s=make_skull(_skull1_template,{512+i*16,12+rnd(4),512+j*16})
+        --local s=make_egg({512+i*16,12+rnd(4),512+j*16},v_zero())
+        s.update=nop
       end
     end
-    ]]
+   
     -- progression
     do_async(function()
       -- reset values
-      _fire_ttl,_shotgun_count,_shotgun_spread=3,10,0.025
+      _fire_ttl,_shotgun_count,_shotgun_spread,_piercing=3,10,0.025,0
       -- level 1
       wait_jewels(10)
-      _shotgun_count,_shotgun_spread=20,0.033
+      _shotgun_count,_shotgun_spread=20,0.030
       levelup_async(3)
       
       -- level 2
       wait_jewels(70)
       _fire_ttl=2
+      _shotgun_count,_shotgun_spread,_piercing=2,30,0.033,1
       levelup_async(5)
 
       -- level 3
       wait_jewels(150)
+      _shotgun_count,_shotgun_spread,_piercing=40,0.037,2
       levelup_async(7)
     end)
 
@@ -1716,7 +1731,6 @@ cartdata;freds72_daggers]],exec)
     _entities.spark1,
     _entities.spark2
   },{
-    _entities.blood0,
     _entities.blood1,
     _entities.blood2
   }
@@ -1852,7 +1866,7 @@ _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx
 _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
 _worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
 _worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
-_jewel_template;ent,jewel,radius,8,zangle,0,ttl,300,@apply,nop,is_jewel,1
+_jewel_template;ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop,is_jewel,1
 _spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,radius,18,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
@@ -1874,6 +1888,7 @@ end
 function collect_grid(a,b,u,v,cb)
   local mapx,mapy=a[1]\32,a[3]\32
   -- check first cell (always)
+  -- pack lookup index into a single 16:16 value
   local dest_idx,map_idx=b[3]\32|b[1]\32>>16,mapy|mapx>>16
   cb(_grid[map_idx].things)
   -- early exit
