@@ -714,10 +714,10 @@ function play_state()
         end
         poke(0x5f55,0x00)
         local r=abs(cos(time()/8))
-        draw_radius(32,0.25)
-        r+=2.2
+        draw_radius(32-r*r,0.25)
+        r+=1
         draw_radius(32-r*r,0.7)
-        r+=0.2
+        r+=1.5
         draw_radius(32-r*r,0.99)
         poke(0x5f55,0x60) 
 

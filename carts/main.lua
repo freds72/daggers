@@ -325,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  --dead=true
-                  --next_state(gameover_state,thing.obituary)
+                  dead=true
+                  next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -375,7 +375,7 @@ function make_player(_origin,_a)
       m=make_m_from_euler(unpack(angle))    
 
       -- normal fire
-      local o=v_add(origin,{0,8,0})
+      local o=v_add(origin,v_add({0,8,0},v_add(m_fwd(m),m_right(m)),4))
       if fire==1 then          
         _total_bullets+=0x0.0001
         make_bullet(o,angle[2],angle[1],0.02)
@@ -591,39 +591,7 @@ palt;0;0x00]],exec)
     local sx,sy=item.x-w*w0/2,item.y-h*w0/2
     local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
     --
-    sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip)
-
-    --[[
-    if thing.radius then
-      local oy=thing.o_offset
-      if oy then
-        oy+=thing.origin[2]
-        local x,y,z=origin[1]-cx,oy-cy,origin[3]-cz
-        local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
-        local w=32/az
-        circ(63.5+w*ax,63.5-w*ay,w*thing.radius,10)
-      else
-        circ(item.x,item.y,w0*thing.radius,9)
-      end
-    end
-    ]]
-    --[[
-    circ(item.x,item.y,(thing.radius or 1)*w0,9)
-    if thing.debug_forces then
-      -- draw
-      local forces=thing.debug_forces
-      local x,y,z=origin[1]+forces[1]-cx,origin[2]+forces[2]-cy,origin[3]+forces[3]-cz
-      -- 
-      local ax,az=m1*x+m5*y+m9*z,m3*x+m7*y+m11*z
-      if az>8 then
-        local ay,w=m2*x+m6*y+m10*z,64/az
-        line(item.x,item.y,63.5+ax*w,63.5-ay*w,7)
-      end
-    end
-    ]]
-
-    --sspr(0,0,32,32,sx,sy,32,32,flip)
-    --print(thing.zangle,sx+sw/2,sy-8,9)      
+    sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip) 
   end
 end
 
@@ -723,15 +691,18 @@ function make_spider()
     end,
     update=function(_ENV)
       for thing in pairs(_grid[origin[1]>>21|origin[3]\32].things) do
-        if thing.is_jewel and not thing.dead then
+        if thing.pickup and not thing.dead then
           local dir,len=v_dir(origin,thing.origin)
           if len<radius then
             thing:pickup(true)
+            -- hp bonus when pickup up gems!
+            hp+=12
             do_async(function()
-              wait_async(3)
+              wait_async(10)
               -- spit an egg
               local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
               make_egg(v_clone(origin),{-force*cos(angle),force*rnd(),force*sin(angle)})
+              wait_async(20)
             end)
           end
         end
@@ -789,21 +760,21 @@ function make_squid(type)
 
   local squid_parts={
     -- type 1 (1 jewel)
-[[_squid_jewel;light_ttl,15,a_offset,0.0,r_offset,8,y_offset,24,cost,5
-_squid_hood;light_ttl,15,a_offset,0.3333,r_offset,8,y_offset,24
-_squid_hood;light_ttl,15,a_offset,0.6667,r_offset,8,y_offset,24
-_squid_tentacle;light_ttl,15,a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;light_ttl,15,a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;light_ttl,15,a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;light_ttl,15,a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
-_squid_tentacle;light_ttl,15,a_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;light_ttl,15,a_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;light_ttl,15,a_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;light_ttl,15,a_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
-_squid_tentacle;light_ttl,15,a_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
-_squid_tentacle;light_ttl,15,a_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
-_squid_tentacle;light_ttl,15,a_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;light_ttl,15,a_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]],
+[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24,cost,5
+_squid_hood;a_offset,0.3333,r_offset,8,y_offset,24
+_squid_hood;a_offset,0.6667,r_offset,8,y_offset,24
+_squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;a_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;a_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;a_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;a_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2
+_squid_tentacle;a_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
+_squid_tentacle;a_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
+_squid_tentacle;a_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
+_squid_tentacle;a_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]],
     -- type 2 (2 jewels)
 [[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24
 _squid_hood;a_offset,0.25,r_offset,8,y_offset,24
@@ -1008,8 +979,8 @@ function make_jewel(_origin,_velocity)
       end
       -- friction
       if on_ground then
-        velocity[1]*=0.9
-        velocity[3]*=0.9
+        velocity[1]*=0.95
+        velocity[3]*=0.95
       end
       -- gravity
       velocity[2]-=0.8
@@ -1018,21 +989,23 @@ function make_jewel(_origin,_velocity)
       local force,min_dist,min_dir,min_other=_plyr.attract_power,32000,{0,0,0},_plyr
       for other,other_origin in pairs(_spiders) do
         local dist_dir,dist=v_dir(origin,other_origin)
-        if(dist<min_dist) force,min_dir,min_dist,min_other=2,dist_dir,dist,other
+        if(dist<min_dist) force,min_dir,min_dist,min_other=1,dist_dir,dist,other
       end
       -- anyone stil alive?
       if not min_other.dead and force!=0 then
-        -- update dist if invalid
-        if(min_dist==32000) min_dir,min_dist=v_dir(origin,min_other.origin)
         -- boost repulsive force
-        if(force<0) force*=8
-        velocity=v_add(velocity,min_dir,3*force/mid(min_dist,1,5))
+        if(force<0) force*=4
         -- limit x/z velocity
-        local vn,vl=v_normz(velocity)
-        velocity[1]*=3/vl
-        velocity[3]*=3/vl
+        --local vn,vl=v_normz(velocity)
+        --velocity[1]*=5/vl
+        --velocity[3]*=5/vl
+        printh(force)
+        local new_origin=v_lerp(origin,min_other.origin,force/8)
+        velocity=v_add(new_origin,origin,-1)        
+        origin=new_origin
+      else
+        origin=v_add(origin,velocity) 
       end
-      origin=v_add(origin,velocity)
       on_ground=nil
       -- on ground?
       if origin[2]<8 then
@@ -1264,16 +1237,16 @@ wait_async;15
 random_spawn_angle
 set_spawn;200
 wait_async;330
-make_squid;2
+make_squid;1
 wait_async;330
 inc_spawn_angle;0.25
 set_spawn;200
 make_squid;1
-wait_async;150
+wait_async;250
 inc_spawn_angle;0.25
 set_spawn;200
 make_squid;1
-wait_async;150
+wait_async;250
 inc_spawn_angle;0.25
 set_spawn;200
 make_squid;1
@@ -1282,6 +1255,7 @@ inc_spawn_angle;0.25
 set_spawn;200
 make_squid;2
 --;first spider
+wait_async;300
 random_spawn_angle
 set_spawn;200;78
 make_spider
@@ -1317,7 +1291,7 @@ wait_async;150
 random_spawn_angle
 set_spawn;200;64
 make_worm
-wait_async;600]],nop) 
+wait_async;600]],exec) 
     end)
 
     --[[
@@ -1335,7 +1309,6 @@ wait_async;600]],nop)
         if(s) s.dead=true
       end
     end)
-    ]]
 
     for i=-4,5 do
       for j=-4,5 do
@@ -1344,6 +1317,7 @@ wait_async;600]],nop)
         s.update=nop
       end
     end
+    ]]
    
     -- progression
     do_async(function()
@@ -1866,16 +1840,16 @@ _worm_seg_template;ent,worm1,radius,8,zangle,0,origin,v_zero,@apply,nop,spawnsfx
 _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
 _worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
 _worm_head_template;ent,worm0,radius,12,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
-_jewel_template;ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop,is_jewel,1
+_jewel_template;ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
 _spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,radius,18,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
-_squid_jewel;jewel,1,hp,10,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
+_squid_jewel;jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,12
 _squid_tentacle;ent,tentacle0,radius,6,origin,v_zero,zangle,0,is_tentacle,1,shadeless,1
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
 _skull2_template;ent,reaper,radius,10,hp,5,target_ttl,0,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;ent,spider1,radius,16,shadeless,1,hp,25,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]]
+_spider_template;ent,spider1,radius,16,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]]
   split2d(templates,function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
