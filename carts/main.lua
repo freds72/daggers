@@ -426,7 +426,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
       else
         _checked+=1
         yangle+=0.1
-        local cur_origin,new_origin,len=origin,v_add(origin,velocity,10),10,32000
+        local cur_origin,new_origin,len=origin,v_add(origin,velocity,10),10
         local x,y,z=unpack(new_origin)
         if y<0 then
           -- hit ground?
