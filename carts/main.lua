@@ -68,6 +68,9 @@ function wait_jewels(n)
 end
 
 function levelup_async(t)
+  sfx"-1"
+  music"44"
+
   -- 30 frames at 1/8 steps
   for j=0.125,t<<2,0.125 do
     _ramp_pal=0x8280+((j*j)&15)*16
