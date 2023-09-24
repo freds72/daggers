@@ -234,7 +234,10 @@ function make_player(_origin,_a)
         fire_frames+=1
         -- regular fire      
         if dblclick_ttl==0 and fire_ttl<=0 then
-          sfx"48"
+          if not stat"57" then
+            sfx"48"
+          end
+
           fire_ttl,fire=_fire_ttl,1
         end
         -- 
