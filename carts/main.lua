@@ -360,20 +360,22 @@ function make_player(_origin,_a)
       end
 ::end_noise::
 
-        --playback chatter
-        foreach(_chatter, do_chatter)
+        if not stat"57" then
+          --playback chatter
+          foreach(_chatter, do_chatter)
 
-        --check for chatter/ambient playback
-        for i = 0, 2 do
-          local cur_sfx = stat(46 + i)
+          --check for chatter/ambient playback
+          for i = 0, 2 do
+            local cur_sfx = stat(46 + i)
 
-          if mid(8, cur_sfx, 24) == cur_sfx then
-            goto end_chatter
+            if mid(8, cur_sfx, 24) == cur_sfx then
+              goto end_chatter
+            end
           end
-        end
 
-        --playback ambient sfx if no chatter
-        sfx"24"
+          --playback ambient sfx if no chatter
+          sfx"24"
+        end
 
 ::end_chatter::
 
