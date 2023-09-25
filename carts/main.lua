@@ -77,6 +77,9 @@ function levelup_async(t)
     _slow_mo+=1
     yield()
   end
+
+  sfx"43"
+
   -- restore state
   _ramp_pal,_slow_mo=0x8180,0
 end
