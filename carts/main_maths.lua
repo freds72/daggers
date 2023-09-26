@@ -48,6 +48,12 @@ function v_lerp(a,b,t)
 	}
 end
 
+-- generates a random vector
+function v_rnd(x,y,z,r,a)
+  a=a or rnd()
+  return {x+r*cos(a),y,z-r*sin(a)}
+end
+
 -- safe for overflow len
 -- faster than sqrt variant (23.5+14 vs. 27.5)
 -- credits: https://www.lexaloffle.com/bbs/?tid=49827
