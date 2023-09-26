@@ -69,12 +69,18 @@ function wait_jewels(n)
 end
 
 function levelup_async(t)
+  sfx"-1"
+  music"44"
+
   -- 30 frames at 1/8 steps
   for j=0.125,t<<2,0.125 do
     _ramp_pal=0x8280+((j*j)&15)*16
     _slow_mo+=1
     yield()
   end
+
+  sfx"43"
+
   -- restore state
   _ramp_pal,_slow_mo=0x8180,0
 end
@@ -232,7 +238,10 @@ function make_player(_origin,_a)
         fire_frames+=1
         -- regular fire      
         if dblclick_ttl==0 and fire_ttl<=0 then
-          sfx"48"
+          if not stat"57" then
+            sfx"48"
+          end
+
           fire_ttl,fire=_fire_ttl,1
         end
         -- 
@@ -355,20 +364,22 @@ function make_player(_origin,_a)
       end
 ::end_noise::
 
-        --playback chatter
-        foreach(_chatter, do_chatter)
+        if not stat"57" then
+          --playback chatter
+          foreach(_chatter, do_chatter)
 
-        --check for chatter/ambient playback
-        for i = 0, 2 do
-          local cur_sfx = stat(46 + i)
+          --check for chatter/ambient playback
+          for i = 0, 2 do
+            local cur_sfx = stat(46 + i)
 
-          if mid(8, cur_sfx, 24) == cur_sfx then
-            goto end_chatter
+            if mid(8, cur_sfx, 24) == cur_sfx then
+              goto end_chatter
+            end
           end
-        end
 
-        --playback ambient sfx if no chatter
-        sfx"24"
+          --playback ambient sfx if no chatter
+          sfx"24"
+        end
 
 ::end_chatter::
 
