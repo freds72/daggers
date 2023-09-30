@@ -9,10 +9,15 @@ def main():
 
   args = parser.parse_args()
 
-  minify_file("carts/main.lua","carts/main_mini.lua")
+  # all game files
+  includes = ["main","main_maths","common","polytex","plain","assets"]
+  for i in includes:
+    minify_file(f"carts/{i}.lua",f"carts/{i}_mini.lua")
 
   with open("carts/daggers.p8","r") as src:
-    src_content = src.read().replace("#include main.lua","#include main_mini.lua")
+    src_content = src.read()
+    for i in includes:
+      src_content = src_content.replace(f"#include {i}.lua","#include {i}_mini.lua")
     with open("carts/daggers_mini.p8","w") as dst:
       dst.write(src_content)
 
