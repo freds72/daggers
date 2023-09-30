@@ -364,24 +364,53 @@ function make_player(_origin,_a)
       end
 ::end_noise::
 
-        if not stat"57" then
-          --playback chatter
-          foreach(_chatter, do_chatter)
+      --playback chatter/ambient if no music
+      if not stat"57" then
+        --ambient sfx trigger
+        local ambient = true
 
-          --check for chatter/ambient playback
-          for i = 0, 2 do
+        for chatter in all(_chatter) do
+          local
+            variant,
+            idx,
+            dist
+            =
+            flr(rnd"4"),
+            unpack(chatter)
+
+          --loop audio channels
+          for i = 0, 3 do
             local cur_sfx = stat(46 + i)
 
-            if mid(8, cur_sfx, 24) == cur_sfx then
-              goto end_chatter
+            --go to next channel if chatter or ambient sfx in progress
+            if cur_sfx > 24 then
+              break
+            end
+
+            --disable ambient trigger if chatter or ambient sfx in progress
+            ambient = ambient and mid(8, cur_sfx, 24) ~= cur_sfx
+
+            --go to next chatter if variant sfx in progress
+            if mid(idx, cur_sfx, idx + 3) == cur_sfx then
+              goto next_chatter
             end
           end
 
-          --playback ambient sfx if no chatter
-          sfx"24"
+          local offset = (idx + variant) * 68
+
+          --copy dampened sfx
+          --start from 0xf120 instead of 0xf340 to account for sfx 0-7 in offset value
+          memcpy(0x3200 + offset, 0xf120 + 0x440 * dist + offset, 68)
+
+          sfx(idx + variant)
+
+          ::next_chatter::
         end
 
-::end_chatter::
+        if ambient then
+          sfx"24"
+        end
+      end
 
       -- refresh angles
       m=make_m_from_euler(unpack(angle))    
