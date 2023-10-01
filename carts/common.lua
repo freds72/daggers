@@ -16,15 +16,15 @@ end
 function scanf(st,...)
   local s=""
   for i,p in inext,split(st,"$") do
-      s..=({"",...})[i]..p
+      s..=select(i,"",...)..p
   end
   return s
  end
 
 
 -- radix sort
-function rsort(_data)  
-  local _len,buffer1,buffer2,idx=#_data, _data, {}, {}
+function rsort(data)  
+  local len,buffer1,buffer2,idx=#data, data, {}, {}
 
   -- radix shift (multiplied by 128 to get more precision)
   for shift=-7,-2,5 do
@@ -44,7 +44,7 @@ function rsort(_data)
       c0=c1
     end
 
-    for i=_len,1,-1 do
+    for i=len,1,-1 do
 		local k=idx[i]
       local c=@k
       buffer2[c] = buffer1[i]
@@ -75,6 +75,11 @@ function exec(fn,...)
   -- skip comments :)
   if(fn=="--") return
   _ENV[fn](...) 
+end
+
+-- set a global to the given value (used with code/string)
+function set(var,v)
+  _ENV[var]=v
 end
 
 -- split a 2d table:

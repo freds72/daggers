@@ -1,10 +1,9 @@
 -- global arrays
 local _bsp,_things,_futures,_spiders,_plyr,_cam,_grid,_entities={},{},{},{}
--- stats
-local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
-local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x8180,3,10,0.025
 -- must be globals
+-- stats
 _spawn_angle,_spawn_origin=0,split"512,0,512"
+local _G,_slow_mo,_hw_pal,_ramp_pal=_ENV,0,0,0x8180
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
 384,0,704,
@@ -133,7 +132,7 @@ function grid_register(thing)
   -- different from previous range?
   if grid_x0!=x0 or grid_x1!=x1 or grid_z0!=z0 or grid_z1!=z1 then
     -- remove previous grid cells
-    grid_unregister(thing)
+    grid_unregister(thing,true)
     for idx=x0,x1,0x0.0001 do
       for idx=idx|z0,idx|z1 do
         local cell=grid[idx]
@@ -161,7 +160,9 @@ function grid_register(thing)
 end
 
 -- removes thing from the collision grid
-function grid_unregister(_ENV)
+function grid_unregister(_ENV,not_dead)
+  -- flag as inactive
+  dead=not not_dead
   for idx,cell in pairs(cells) do
     cell.things[_ENV],cells[idx]=nil
   end  
@@ -418,11 +419,11 @@ function make_player(_origin,_a)
       -- normal fire
       local o=v_add(origin,v_add({0,8,0},v_add(m_fwd(m),m_right(m)),4))
       if fire==1 then          
-        _total_bullets+=0x0.0001
+        _G._total_bullets+=0x0.0001
         make_bullet(o,angle[2],angle[1],0.02)
       elseif fire==2 then
         -- shotgun
-        _total_bullets+=_shotgun_count>>16
+        _G._total_bullets+=_shotgun_count>>16
         for i=1,_shotgun_count do
           make_bullet(o,angle[2],angle[1],_shotgun_spread)
         end
@@ -521,7 +522,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
               add(hits,{t,function() 
                 local pos={ax+t*dx,ay+t*dy,az+t*dz}
                 thing:hit(pos,_ENV) 
-                _total_hits+=0x0.0001 
+                _G._total_hits+=0x0.0001 
                 -- todo: piercing effect?
                 -- if(piercing>0) make_particle(_dagger_hit_template,pos,velocity)
               end},inserti)
@@ -726,7 +727,6 @@ function make_spider()
       hp-=1
       hit_ttl=5
       if hp<0 then
-        dead=true
         make_goo(origin)
         -- unregister
         grid_unregister(_ENV)
@@ -802,9 +802,9 @@ function make_squid(type)
     end
   },_squid_core),_origin)
 
-  local squid_parts={
-    -- type 1 (1 jewel)
-[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24,cost,5
+  split2d(select(type,
+-- type 1 (1 jewel)
+[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24
 _squid_hood;a_offset,0.3333,r_offset,8,y_offset,24
 _squid_hood;a_offset,0.6667,r_offset,8,y_offset,24
 _squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
@@ -839,13 +839,11 @@ _squid_tentacle;a_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset
 _squid_tentacle;a_offset,0.75,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
 _squid_tentacle;a_offset,0.75,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
 _squid_tentacle;a_offset,0.75,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]}
-
-  split2d(squid_parts[type],function(base_template,properties)
+_squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]),
+  function(base_template,properties)
     add(_things,inherit(with_properties(properties,{
       light_t=time(),
       hit=function(_ENV,pos,bullet) 
-        if(dead) return
         if jewel then
           hp-=1
           hit_ttl=5
@@ -854,9 +852,8 @@ _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offse
           sfx"56"
           if hp<=0 then
             make_jewel(origin,{u,3,v},16)
-            -- avoid reentrancy
-            jewel=nil
-            ent=_entities.squid2
+            -- avoid reentrancy + change appearance
+            ent,jewel=_entities.squid2
             if(type==1) _dead=true
             -- "downgrade" squid!!
             type=1
@@ -865,8 +862,7 @@ _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offse
       end,
       update=function(_ENV)
         if _dead then
-          if(dead) return
-          dead=true     
+          if(dead) return        
           make_blood(origin) 
           grid_unregister(_ENV)
           _total_things-=cost or 0   
@@ -924,7 +920,6 @@ function make_worm()
         while #segments>0 do
           local _ENV=deli(segments,1)
           grid_unregister(_ENV)
-          dead=true
           make_blood(origin,{0,0,0})
           wait_async(3)
         end
@@ -957,7 +952,6 @@ function make_worm()
             if origin[2]>0 then
               goto above_ground
             else
-              dead=true
               grid_unregister(_ENV)
             end
           end
@@ -965,7 +959,6 @@ function make_worm()
     ::above_ground::
           yield()
         end
-        dead=true
         grid_unregister(_ENV)
       end)
     end,
@@ -1003,11 +996,10 @@ function make_jewel(_origin,_velocity)
     velocity=v_clone(_velocity),
     pickup=function(_ENV,spider)
       if(dead) return
-      dead=true
       grid_unregister(_ENV)
       -- no feedback when gobbed by spider
       if(spider) return
-      _total_jewels+=1 
+      _G._total_jewels+=1 
       sfx"57"      
     end,
     update=function(_ENV)
@@ -1017,7 +1009,7 @@ function make_jewel(_origin,_velocity)
         no_render=(ttl%4)<2
       end
       if ttl<0 then
-        dead=true
+        grid_unregister(_ENV)
         return
       end
       -- friction
@@ -1038,11 +1030,7 @@ function make_jewel(_origin,_velocity)
       if not min_other.dead and force!=0 then
         -- boost repulsive force
         if(force<0) force*=4
-        -- limit x/z velocity
-        --local vn,vl=v_normz(velocity)
-        --velocity[1]*=5/vl
-        --velocity[3]*=5/vl
-        local new_origin=v_lerp(origin,min_other.origin,force/8)
+        local new_origin=v_lerp(origin,min_other.origin,force/7)
         velocity=v_add(new_origin,origin,-1)        
         origin=new_origin
       else
@@ -1072,8 +1060,7 @@ function make_egg(_origin,_velocity)
     post_think=function(_ENV)
       ttl-=1
       if ttl<0 then
-        dead=true
-        sfx(51)
+        sfx"51"
         grid_unregister(_ENV)
         for i=1,2+rnd"2" do
           local a=rnd()
@@ -1141,28 +1128,37 @@ function draw_world()
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
-  split2d(scanf([[memset;0x6000;0;512
+  if _plyr.fire_ttl==0 then
+    split2d(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
 poke;0x5f0f;0x1f
 poke;0x5f00;0x00
 clip;0;8;128;112
-camera;0;$]],-_hand_y),exec)
-  if _plyr.fire_ttl==0 then
-    sspr(72,32,64,64,72,64)
+camera;0;$
+sspr;72;32;64;64;72;64
+clip
+camera]],-_hand_y),exec)        
   else          
     local r=24+rnd"8"
-    split2d(scanf([[poke;0x5f00;0x10
+    split2d(scanf([[memset;0x6000;0;512
+memset;0x7e00;0;512
+pal
+poke;0x5f0f;0x1f
+poke;0x5f00;0x00
+clip;0;8;128;112
+camera;0;$
+poke;0x5f00;0x10
 fillp;0xc5a5.8
 circfill;96;96;$;8
 fillp
 circfill;96;96;$;7
 circ;96;96;$;9
 poke;0x5f00;0x0
-sspr;0;64;64;64;72;64]],r,0.9*r,0.9*r),exec)
+sspr;0;64;64;64;72;64
+clip
+camera]],-_hand_y,r,0.9*r,0.9*r),exec)
   end
-  clip()
-  camera() 
 end
 
 -- script commands
@@ -1178,10 +1174,13 @@ function play_state()
   split2d([[_map_display;1
 memcpy;0;0xc500;4096
 memcpy;4096;0xc500;4096
-_map_display;0]],exec)
+_map_display;0
+set;_total_jewels;0
+set;_total_bullets;0
+set;_total_hits;0]],exec)
 
   -- camera & player & reset misc values
-  _plyr,_things,_spiders,_total_jewels,_total_bullets,_total_hits=make_player({512,24,512},0),{},{},0,0,0
+  _plyr,_things,_spiders=make_player({512,24,512},0),{},{}
   
   -- spatial partitioning grid
   _grid=setmetatable({},{
@@ -1219,10 +1218,9 @@ _map_display;0]],exec)
 
       if _show_timer then
         local t=((time()-_start_time)\0.1)/10
-        local s=tostr(t)
-        if(#tostr(t&0x0.ffff)==1) s..=".0"
-        s..="S"
-        arizona_print(s,64-print(s,0,128)/2,1,2)
+        if(t&0x0.ffff==0) t..=".0"
+        t..="S"
+        arizona_print(t,64-print(t,0,128)/2,1,2)
       end
 
       -- hw palette
@@ -1358,23 +1356,28 @@ wait_async;600]],exec)
 
     -- progression
     do_async(function()
-      -- reset values
-      _fire_ttl,_shotgun_count,_shotgun_spread,_piercing=3,10,0.025,0
-      -- level 1
-      wait_jewels(10)
-      _shotgun_count,_shotgun_spread=20,0.030
-      levelup_async(3)
-      
-      -- level 2
-      wait_jewels(70)
-      _fire_ttl=2
-      _shotgun_count,_shotgun_spread,_piercing=2,30,0.033,1
-      levelup_async(5)
-
-      -- level 3
-      wait_jewels(150)
-      _shotgun_count,_shotgun_spread,_piercing=40,0.037,2
-      levelup_async(7)
+      split2d([[set;_fire_ttl;3
+set;_shotgun_count;10
+set;_shotgun_spread;0.025
+set;_piercing;0
+--;level 1
+wait_jewels;10
+set;_shotgun_count;20
+set;_shotgun_spread;0.030
+levelup_async;3
+--;level 2
+wait_jewels;70
+set;_fire_ttl;2
+set;_shotgun_count;30
+set;_shotgun_spread;0.033
+set;_piercing;1
+levelup_async;5
+--;level 3
+wait_jewels;150
+set;_shotgun_count;40
+set;_shotgun_spread;0.037
+set;_piercing;2
+]],exec)
     end)
 
     do_async(function()
@@ -1519,7 +1522,11 @@ spr;0;0;0;16;16
 poke;0x5f54;0x60
 memcpy;0x5f00;0x8270;16
 poke;0x5f00;0x10
-arizona_print;hIGHSCORES;1;8]],exec)
+arizona_print;hIGHSCORES;1;8
+line;1;24;126;24;4
+line;1;25;126;25;2
+line;1;109;126;109;2
+line;1;108;126;108;4]],exec)
         -- darken game screen
         -- shift palette
         -- copy in place
@@ -1531,10 +1538,6 @@ arizona_print;hIGHSCORES;1;8]],exec)
           local s,x,y=unpack(btn)
           arizona_print(s,x,y,selected_tab==btn and 2 or i==over_btn and 1)
         end
-        split2d([[1;24;126;24;4
-1;25;126;25;2
-1;109;126;109;2
-1;108;126;108;4]],line)
 
         selected_tab:draw()
 
@@ -1567,7 +1570,8 @@ _map_display;1
 memcpy;0;0xc500;4096
 memcpy;4096;0xc500;4096
 _map_display;0
-cartdata;freds72_daggers]],exec)
+cartdata;freds72_daggers
+tline;17]],exec)
 
   -- local score version
   _local_scores,_local_best_t={}
@@ -1666,7 +1670,7 @@ cartdata;freds72_daggers]],exec)
               if(0.5*ax>az) code|=8
               
               local w=32/az 
-              verts[j]={ax,ay,az,u=(_vertices[vi+uindex]-320)*0x0.0aaa,v=(_vertices[vi+vindex]-320)*0x0.0aaa,x=63.5+ax*w,y=63.5-ay*w,w=w}
+              verts[j]={ax,ay,az,u=(_vertices[vi+uindex]-320)*0x0.aaaa,v=(_vertices[vi+vindex]-320)*0x0.aaaa,x=63.5+ax*w,y=63.5-ay*w,w=w}
               
               outcode&=code
               nearclip+=code&2
@@ -1750,7 +1754,7 @@ cartdata;freds72_daggers]],exec)
       if(dead) return
       hp-=1
       if hp<=0 then
-        dead=true
+        grid_unregister(_ENV)  
         -- free a spawn slot
         _total_things-=cost or 0
         -- custom death function?
@@ -1763,7 +1767,6 @@ cartdata;freds72_daggers]],exec)
         if jewel then
           make_jewel(origin,velocity)
         end 
-        grid_unregister(_ENV)  
         for i=1,3+rnd"2" do
           local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
           vel[2]=rnd()
@@ -1866,7 +1869,7 @@ cartdata;freds72_daggers]],exec)
   })
 
   -- global templates
-  local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,0.8
+  split2d([[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,0.8
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
 _gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_trail,rebound,0,stain,5
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
@@ -1887,8 +1890,8 @@ _squid_tentacle;ent,tentacle0,radius,6,origin,v_zero,zangle,0,is_tentacle,1,shad
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
 _skull2_template;ent,reaper,radius,10,hp,4,seed0,4.5,seed1,5,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]]
-  split2d(templates,function(name,template,parent)
+_spider_template;ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
+  function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
 
