@@ -522,7 +522,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
               add(hits,{t,function() 
                 local pos={ax+t*dx,ay+t*dy,az+t*dz}
                 thing:hit(pos,_ENV) 
-                _total_hits+=0x0.0001 
+                _G._total_hits+=0x0.0001 
                 -- todo: piercing effect?
                 -- if(piercing>0) make_particle(_dagger_hit_template,pos,velocity)
               end},inserti)
