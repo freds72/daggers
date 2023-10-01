@@ -802,9 +802,9 @@ function make_squid(type)
     end
   },_squid_core),_origin)
 
-  local squid_parts={
-    -- type 1 (1 jewel)
-[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24,cost,5
+  split2d(select(type,
+-- type 1 (1 jewel)
+[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24
 _squid_hood;a_offset,0.3333,r_offset,8,y_offset,24
 _squid_hood;a_offset,0.6667,r_offset,8,y_offset,24
 _squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
@@ -839,13 +839,11 @@ _squid_tentacle;a_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset
 _squid_tentacle;a_offset,0.75,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
 _squid_tentacle;a_offset,0.75,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_offset,60.0
 _squid_tentacle;a_offset,0.75,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
-_squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]}
-
-  split2d(squid_parts[type],function(base_template,properties)
+_squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]]),
+  function(base_template,properties)
     add(_things,inherit(with_properties(properties,{
       light_t=time(),
       hit=function(_ENV,pos,bullet) 
-        if(dead) return
         if jewel then
           hp-=1
           hit_ttl=5
@@ -854,9 +852,8 @@ _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offse
           sfx"56"
           if hp<=0 then
             make_jewel(origin,{u,3,v},16)
-            -- avoid reentrancy
-            jewel=nil
-            ent=_entities.squid2
+            -- avoid reentrancy + change appearance
+            ent,jewel=_entities.squid2
             if(type==1) _dead=true
             -- "downgrade" squid!!
             type=1
@@ -1882,7 +1879,7 @@ cartdata;freds72_daggers]],exec)
   })
 
   -- global templates
-  local templates=[[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,0.8
+  split2d([[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,0.8
 _lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
 _gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_trail,rebound,0,stain,5
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
@@ -1903,8 +1900,8 @@ _squid_tentacle;ent,tentacle0,radius,6,origin,v_zero,zangle,0,is_tentacle,1,shad
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
 _skull2_template;ent,reaper,radius,10,hp,4,seed0,4.5,seed1,5,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]]
-  split2d(templates,function(name,template,parent)
+_spider_template;ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
+  function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
 
