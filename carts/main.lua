@@ -1,10 +1,10 @@
 -- global arrays
 local _bsp,_things,_futures,_spiders,_plyr,_cam,_grid,_entities={},{},{},{}
--- stats
-local _total_jewels,_total_bullets,_total_hits,_show_timer,_start_time=0,0,0,false
-local _slow_mo,_hw_pal,_ramp_pal,_fire_ttl,_shotgun_count,_shotgun_spread=0,0,0x8180,3,10,0.025
 -- must be globals
+-- stats
 _spawn_angle,_spawn_origin=0,split"512,0,512"
+
+local _slow_mo,_hw_pal,_ramp_pal=0,0,0x8180
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
 384,0,704,
@@ -1141,28 +1141,37 @@ function draw_world()
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
-  split2d(scanf([[memset;0x6000;0;512
+  if _plyr.fire_ttl==0 then
+    split2d(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
 poke;0x5f0f;0x1f
 poke;0x5f00;0x00
 clip;0;8;128;112
-camera;0;$]],-_hand_y),exec)
-  if _plyr.fire_ttl==0 then
-    sspr(72,32,64,64,72,64)
+camera;0;$
+sspr;72;32;64;64;72;64
+clip
+camera]],-_hand_y),exec)        
   else          
     local r=24+rnd"8"
-    split2d(scanf([[poke;0x5f00;0x10
+    split2d(scanf([[memset;0x6000;0;512
+memset;0x7e00;0;512
+pal
+poke;0x5f0f;0x1f
+poke;0x5f00;0x00
+clip;0;8;128;112
+camera;0;$
+poke;0x5f00;0x10
 fillp;0xc5a5.8
 circfill;96;96;$;8
 fillp
 circfill;96;96;$;7
 circ;96;96;$;9
 poke;0x5f00;0x0
-sspr;0;64;64;64;72;64]],r,0.9*r,0.9*r),exec)
+sspr;0;64;64;64;72;64
+clip
+camera]],-_hand_y,r,0.9*r,0.9*r),exec)
   end
-  clip()
-  camera() 
 end
 
 -- script commands
@@ -1178,10 +1187,13 @@ function play_state()
   split2d([[_map_display;1
 memcpy;0;0xc500;4096
 memcpy;4096;0xc500;4096
-_map_display;0]],exec)
+_map_display;0
+set;_total_jewels;0
+set;_total_bullets;0
+set;_total_hits;0]],exec)
 
   -- camera & player & reset misc values
-  _plyr,_things,_spiders,_total_jewels,_total_bullets,_total_hits=make_player({512,24,512},0),{},{},0,0,0
+  _plyr,_things,_spiders=make_player({512,24,512},0),{},{}
   
   -- spatial partitioning grid
   _grid=setmetatable({},{
@@ -1219,10 +1231,9 @@ _map_display;0]],exec)
 
       if _show_timer then
         local t=((time()-_start_time)\0.1)/10
-        local s=tostr(t)
-        if(#tostr(t&0x0.ffff)==1) s..=".0"
-        s..="S"
-        arizona_print(s,64-print(s,0,128)/2,1,2)
+        if(t&0x0.ffff==0) t..=".0"
+        t..="S"
+        arizona_print(t,64-print(t,0,128)/2,1,2)
       end
 
       -- hw palette
@@ -1358,23 +1369,28 @@ wait_async;600]],exec)
 
     -- progression
     do_async(function()
-      -- reset values
-      _fire_ttl,_shotgun_count,_shotgun_spread,_piercing=3,10,0.025,0
-      -- level 1
-      wait_jewels(10)
-      _shotgun_count,_shotgun_spread=20,0.030
-      levelup_async(3)
-      
-      -- level 2
-      wait_jewels(70)
-      _fire_ttl=2
-      _shotgun_count,_shotgun_spread,_piercing=2,30,0.033,1
-      levelup_async(5)
-
-      -- level 3
-      wait_jewels(150)
-      _shotgun_count,_shotgun_spread,_piercing=40,0.037,2
-      levelup_async(7)
+      split2d([[set;_fire_ttl;3
+set;_shotgun_count;10
+set;_shotgun_spread;0.025
+set;_piercing;0
+--;level 1
+wait_jewels;10
+set;_shotgun_count;20
+set;_shotgun_spread
+levelup_async;3
+--;level 2
+wait_jewels;70
+set;_fire_ttl=2
+set;_shotgun_count;30
+set;_shotgun_spread;0.033
+set;_piercing;1
+levelup_async;5
+--;level 3
+wait_jewels;150;
+_shotgun_count;40
+_shotgun_spread;0.037
+_piercing;2
+]],exec)
     end)
 
     do_async(function()
@@ -1519,7 +1535,11 @@ spr;0;0;0;16;16
 poke;0x5f54;0x60
 memcpy;0x5f00;0x8270;16
 poke;0x5f00;0x10
-arizona_print;hIGHSCORES;1;8]],exec)
+arizona_print;hIGHSCORES;1;8
+line;1;24;126;24;4
+line;1;25;126;25;2
+line;1;109;126;109;2
+line;1;108;126;108;4]],exec)
         -- darken game screen
         -- shift palette
         -- copy in place
@@ -1531,10 +1551,6 @@ arizona_print;hIGHSCORES;1;8]],exec)
           local s,x,y=unpack(btn)
           arizona_print(s,x,y,selected_tab==btn and 2 or i==over_btn and 1)
         end
-        split2d([[1;24;126;24;4
-1;25;126;25;2
-1;109;126;109;2
-1;108;126;108;4]],line)
 
         selected_tab:draw()
 

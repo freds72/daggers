@@ -16,7 +16,7 @@ end
 function scanf(st,...)
   local s=""
   for i,p in inext,split(st,"$") do
-      s..=({"",...})[i]..p
+      s..=select(i,"",...)..p
   end
   return s
  end
@@ -75,6 +75,11 @@ function exec(fn,...)
   -- skip comments :)
   if(fn=="--") return
   _ENV[fn](...) 
+end
+
+-- set a global to the given value (used with code/string)
+function set(var,v)
+  _ENV[var]=v
 end
 
 -- split a 2d table:
