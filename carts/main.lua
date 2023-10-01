@@ -132,7 +132,7 @@ function grid_register(thing)
   -- different from previous range?
   if grid_x0!=x0 or grid_x1!=x1 or grid_z0!=z0 or grid_z1!=z1 then
     -- remove previous grid cells
-    grid_unregister(thing)
+    grid_unregister(thing,true)
     for idx=x0,x1,0x0.0001 do
       for idx=idx|z0,idx|z1 do
         local cell=grid[idx]
@@ -160,9 +160,9 @@ function grid_register(thing)
 end
 
 -- removes thing from the collision grid
-function grid_unregister(_ENV)
+function grid_unregister(_ENV,not_dead)
   -- flag as inactive
-  dead=true
+  dead=not not_dead
   for idx,cell in pairs(cells) do
     cell.things[_ENV],cells[idx]=nil
   end  
@@ -1570,7 +1570,8 @@ _map_display;1
 memcpy;0;0xc500;4096
 memcpy;4096;0xc500;4096
 _map_display;0
-cartdata;freds72_daggers]],exec)
+cartdata;freds72_daggers
+tline;17]],exec)
 
   -- local score version
   _local_scores,_local_best_t={}
@@ -1669,7 +1670,7 @@ cartdata;freds72_daggers]],exec)
               if(0.5*ax>az) code|=8
               
               local w=32/az 
-              verts[j]={ax,ay,az,u=(_vertices[vi+uindex]-320)*0x0.0aaa,v=(_vertices[vi+vindex]-320)*0x0.0aaa,x=63.5+ax*w,y=63.5-ay*w,w=w}
+              verts[j]={ax,ay,az,u=(_vertices[vi+uindex]-320)*0x0.aaaa,v=(_vertices[vi+vindex]-320)*0x0.aaaa,x=63.5+ax*w,y=63.5-ay*w,w=w}
               
               outcode&=code
               nearclip+=code&2
