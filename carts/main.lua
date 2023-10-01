@@ -3,8 +3,7 @@ local _bsp,_things,_futures,_spiders,_plyr,_cam,_grid,_entities={},{},{},{}
 -- must be globals
 -- stats
 _spawn_angle,_spawn_origin=0,split"512,0,512"
-
-local _slow_mo,_hw_pal,_ramp_pal=0,0,0x8180
+local _G,_slow_mo,_hw_pal,_ramp_pal=_ENV,0,0,0x8180
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
 384,0,704,
@@ -162,6 +161,8 @@ end
 
 -- removes thing from the collision grid
 function grid_unregister(_ENV)
+  -- flag as inactive
+  dead=true
   for idx,cell in pairs(cells) do
     cell.things[_ENV],cells[idx]=nil
   end  
@@ -418,11 +419,11 @@ function make_player(_origin,_a)
       -- normal fire
       local o=v_add(origin,v_add({0,8,0},v_add(m_fwd(m),m_right(m)),4))
       if fire==1 then          
-        _total_bullets+=0x0.0001
+        _G._total_bullets+=0x0.0001
         make_bullet(o,angle[2],angle[1],0.02)
       elseif fire==2 then
         -- shotgun
-        _total_bullets+=_shotgun_count>>16
+        _G._total_bullets+=_shotgun_count>>16
         for i=1,_shotgun_count do
           make_bullet(o,angle[2],angle[1],_shotgun_spread)
         end
@@ -726,7 +727,6 @@ function make_spider()
       hp-=1
       hit_ttl=5
       if hp<0 then
-        dead=true
         make_goo(origin)
         -- unregister
         grid_unregister(_ENV)
@@ -862,8 +862,7 @@ _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offse
       end,
       update=function(_ENV)
         if _dead then
-          if(dead) return
-          dead=true     
+          if(dead) return        
           make_blood(origin) 
           grid_unregister(_ENV)
           _total_things-=cost or 0   
@@ -921,7 +920,6 @@ function make_worm()
         while #segments>0 do
           local _ENV=deli(segments,1)
           grid_unregister(_ENV)
-          dead=true
           make_blood(origin,{0,0,0})
           wait_async(3)
         end
@@ -954,7 +952,6 @@ function make_worm()
             if origin[2]>0 then
               goto above_ground
             else
-              dead=true
               grid_unregister(_ENV)
             end
           end
@@ -962,7 +959,6 @@ function make_worm()
     ::above_ground::
           yield()
         end
-        dead=true
         grid_unregister(_ENV)
       end)
     end,
@@ -1000,11 +996,10 @@ function make_jewel(_origin,_velocity)
     velocity=v_clone(_velocity),
     pickup=function(_ENV,spider)
       if(dead) return
-      dead=true
       grid_unregister(_ENV)
       -- no feedback when gobbed by spider
       if(spider) return
-      _total_jewels+=1 
+      _G._total_jewels+=1 
       sfx"57"      
     end,
     update=function(_ENV)
@@ -1014,7 +1009,7 @@ function make_jewel(_origin,_velocity)
         no_render=(ttl%4)<2
       end
       if ttl<0 then
-        dead=true
+        grid_unregister(_ENV)
         return
       end
       -- friction
@@ -1035,11 +1030,7 @@ function make_jewel(_origin,_velocity)
       if not min_other.dead and force!=0 then
         -- boost repulsive force
         if(force<0) force*=4
-        -- limit x/z velocity
-        --local vn,vl=v_normz(velocity)
-        --velocity[1]*=5/vl
-        --velocity[3]*=5/vl
-        local new_origin=v_lerp(origin,min_other.origin,force/8)
+        local new_origin=v_lerp(origin,min_other.origin,force/7)
         velocity=v_add(new_origin,origin,-1)        
         origin=new_origin
       else
@@ -1069,8 +1060,7 @@ function make_egg(_origin,_velocity)
     post_think=function(_ENV)
       ttl-=1
       if ttl<0 then
-        dead=true
-        sfx(51)
+        sfx"51"
         grid_unregister(_ENV)
         for i=1,2+rnd"2" do
           local a=rnd()
@@ -1373,20 +1363,20 @@ set;_piercing;0
 --;level 1
 wait_jewels;10
 set;_shotgun_count;20
-set;_shotgun_spread
+set;_shotgun_spread;0.030
 levelup_async;3
 --;level 2
 wait_jewels;70
-set;_fire_ttl=2
+set;_fire_ttl;2
 set;_shotgun_count;30
 set;_shotgun_spread;0.033
 set;_piercing;1
 levelup_async;5
 --;level 3
-wait_jewels;150;
-_shotgun_count;40
-_shotgun_spread;0.037
-_piercing;2
+wait_jewels;150
+set;_shotgun_count;40
+set;_shotgun_spread;0.037
+set;_piercing;2
 ]],exec)
     end)
 
@@ -1763,7 +1753,7 @@ cartdata;freds72_daggers]],exec)
       if(dead) return
       hp-=1
       if hp<=0 then
-        dead=true
+        grid_unregister(_ENV)  
         -- free a spawn slot
         _total_things-=cost or 0
         -- custom death function?
@@ -1776,7 +1766,6 @@ cartdata;freds72_daggers]],exec)
         if jewel then
           make_jewel(origin,velocity)
         end 
-        grid_unregister(_ENV)  
         for i=1,3+rnd"2" do
           local vel=vector_in_cone(0.25-bullet.zangle,0,0.2)
           vel[2]=rnd()

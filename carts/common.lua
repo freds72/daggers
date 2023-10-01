@@ -23,8 +23,8 @@ function scanf(st,...)
 
 
 -- radix sort
-function rsort(_data)  
-  local _len,buffer1,buffer2,idx=#_data, _data, {}, {}
+function rsort(data)  
+  local len,buffer1,buffer2,idx=#data, data, {}, {}
 
   -- radix shift (multiplied by 128 to get more precision)
   for shift=-7,-2,5 do
@@ -44,7 +44,7 @@ function rsort(_data)
       c0=c1
     end
 
-    for i=_len,1,-1 do
+    for i=len,1,-1 do
 		local k=idx[i]
       local c=@k
       buffer2[c] = buffer1[i]
