@@ -162,7 +162,7 @@ end
 -- removes thing from the collision grid
 function grid_unregister(_ENV,not_dead)
   -- flag as inactive
-  dead=not not_dead
+  if(not not_dead) dead=true
   for idx,cell in pairs(cells) do
     cell.things[_ENV],cells[idx]=nil
   end  
@@ -1132,7 +1132,7 @@ function draw_world()
     split2d(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
-poke;0x5f0f;0x1f
+poke;0x5f0a;0x1a
 poke;0x5f00;0x00
 clip;0;8;128;112
 camera;0;$
