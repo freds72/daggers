@@ -445,7 +445,6 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
   if(_origin[2]<2) return
 
   local _velocity,_u,_v,_s,_zangle=vector_in_cone(_zangle,_yangle,_spread)
-  -- local o=v_add(origin,v_add(v_scale(m_up(m),1-rnd(2)),m_right(m),1-rnd(2)))
   add(_things,inherit({
     origin=v_clone(_origin),
     -- must be a unit vector  
