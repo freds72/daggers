@@ -971,6 +971,7 @@ function make_worm()
     post_think=function(_ENV)
       local curr_y,dirt=origin[2]
       if sgn(curr_y)!=sgn(prev_y) then
+        sfx"59"
         make_dirt(_ENV)
         dirt=true
       end
@@ -1321,8 +1322,10 @@ make_squid;2
 inc_spawn_angle;0.25
 set_spawn;200
 make_squid;1
-wait_async;150
+wait_async;130
 --; first centipede
+sfx;60
+wait_async;20
 random_spawn_angle
 set_spawn;200;64
 make_worm
