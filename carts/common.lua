@@ -70,16 +70,25 @@ function next_state(fn,...)
   end
 end
 
--- helper to execute a call (usually from a split string)
-function exec(fn,...)
-  -- skip comments :)
-  if(fn=="--") return
-  _ENV[fn](...) 
+local function inherit(t,env)
+  return setmetatable(t,{__index=env or _ENV})
 end
+function nop() end
 
--- set a global to the given value (used with code/string)
-function set(var,v)
-  _ENV[var]=v
+-- helper to execute a call (usually from a split string)
+function exec(code,env)
+  env=env or _ENV
+  local _ENV=inherit({
+    -- skip comments :)
+    ["--"]=nop,
+    -- set a global to the given value
+    set=function(k,v)
+      env[k]=v
+    end},
+    env)
+  split2d(code,function(fn,...)
+    _ENV[fn](...)
+  end)
 end
 
 -- split a 2d table:

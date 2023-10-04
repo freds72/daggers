@@ -812,10 +812,10 @@ function _init()
   -- capture mouse
   -- enable lock
   -- cartdata
-  split2d([[poke;0x5f58;0x81
+  exec[[poke;0x5f58;0x81
 poke;0x5f36;0x18
 poke;0x5f2d;0x7
-cartdata;freds72_daggers]],exec)
+cartdata;freds72_daggers]]
 
   --decompress audio payloads and save to lua ram
   holdframe()

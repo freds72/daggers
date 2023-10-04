@@ -97,10 +97,6 @@ function reserve_async(n)
 end
 
 -- misc helpers
-function inherit(t,env)
-  return setmetatable(t,{__index=env or _ENV})
-end
-function nop() end
 function with_properties(props,dst)
   local dst,props=dst or {},split(props)
   for i=1,#props,2 do
@@ -550,11 +546,11 @@ function draw_grid(cam)
 
   -- clear shadows
 	-- draw shadows
-  split2d([[_map_display;1
+  exec[[_map_display;1
 poke;0x5f54;0x00;0x60
 poke;0x5f5e;0b00001000
 rectfill;0;0;127;127;0
-poke;0x5f5e;0b10001000]],exec)
+poke;0x5f5e;0b10001000]]
 
   -- project
   for i,obj in inext,_things do
@@ -578,11 +574,11 @@ poke;0x5f5e;0b10001000]],exec)
     end
   end
   -- default transparency
-  split2d([[poke;0x5f5e;0xff
+  exec[[poke;0x5f5e;0xff
 poke;0x5f54;0x60;0x00
 _map_display;0
 poke;0x5f0f;0x1f
-poke;0x5f00;0x00]],exec)
+poke;0x5f00;0x00]]
 
   -- radix sort
   rsort(things)
@@ -1128,7 +1124,7 @@ function draw_world()
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
   if _plyr.fire_ttl==0 then
-    split2d(scanf([[memset;0x6000;0;512
+    exec(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
 poke;0x5f0a;0x1a
@@ -1137,10 +1133,10 @@ clip;0;8;128;112
 camera;0;$
 sspr;72;32;64;64;72;64
 clip
-camera]],-_hand_y),exec)        
+camera]],-_hand_y))
   else          
     local r=24+rnd"8"
-    split2d(scanf([[memset;0x6000;0;512
+    exec(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
 poke;0x5f0f;0x1f
@@ -1156,7 +1152,7 @@ circ;96;96;$;9
 poke;0x5f00;0x0
 sspr;0;64;64;64;72;64
 clip
-camera]],-_hand_y,r,0.9*r,0.9*r),exec)
+camera]],-_hand_y,r,0.9*r,0.9*r))
   end
 end
 
@@ -1170,13 +1166,13 @@ end
 -- gameplay state
 function play_state()
   -- clean up stains!
-  split2d([[_map_display;1
+  exec[[_map_display;1
 memcpy;0;0xc500;4096
 memcpy;4096;0xc500;4096
 _map_display;0
 set;_total_jewels;0
 set;_total_bullets;0
-set;_total_hits;0]],exec)
+set;_total_hits;0]]
 
   -- camera & player & reset misc values
   _plyr,_things,_spiders=make_player({512,24,512},0),{},{}
@@ -1211,7 +1207,7 @@ set;_total_hits;0]],exec)
     function()
       draw_world()   
 
-      -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       local s=_total_things.."/60 ⧗:".._time_penalty.."S"
       print(s,64-print(s,0,128)/2,2,7)
 
@@ -1266,7 +1262,7 @@ set;_total_hits;0]],exec)
       _futures,_total_things,_time_penalty,_hw_pal,_time_wait={},0,0,0
       -- scenario
       local scenario=do_async(function()
-        local script=split2d([[
+        exec[[
 wait_async;90
 --;first squids wave
 random_spawn_angle
@@ -1325,7 +1321,7 @@ wait_async;150
 random_spawn_angle
 set_spawn;200;64
 make_worm
-wait_async;600]],exec) 
+wait_async;600]]
     end)
 
     --[[
@@ -1355,7 +1351,7 @@ wait_async;600]],exec)
 
     -- progression
     do_async(function()
-      split2d([[set;_fire_ttl;3
+      exec[[set;_fire_ttl;3
 set;_shotgun_count;10
 set;_shotgun_spread;0.025
 set;_piercing;0
@@ -1376,7 +1372,7 @@ wait_jewels;150
 set;_shotgun_count;40
 set;_shotgun_spread;0.037
 set;_piercing;2
-]],exec)
+]]
     end)
 
     do_async(function()
@@ -1514,7 +1510,7 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
     function()
       draw_world()
       if ttl==0 then
-        split2d([[palt;0;false
+        exec[[palt;0;false
 poke;0x5f54;0x00
 memcpy;0x5f00;0x8200;16
 spr;0;0;0;16;16
@@ -1525,7 +1521,7 @@ arizona_print;hIGHSCORES;1;8
 line;1;24;126;24;4
 line;1;25;126;25;2
 line;1;109;126;109;2
-line;1;108;126;108;4]],exec)
+line;1;108;126;108;4]]
         -- darken game screen
         -- shift palette
         -- copy in place
@@ -1560,7 +1556,7 @@ function _init()
   -- use "screen" as spritesheet source
   -- copy tiles to spritesheet 1
   -- todo: put back tline precision
-  split2d([[poke;0x5f58;0x81
+  exec[[poke;0x5f58;0x81
 poke;0x5f36;9
 poke;0x5f2d;0x7
 poke;0x5f54;0x60;0x00
@@ -1570,7 +1566,7 @@ memcpy;0;0xc500;4096
 memcpy;4096;0xc500;4096
 _map_display;0
 cartdata;freds72_daggers
-tline;17]],exec)
+tline;17]]
 
   -- local score version
   _local_scores,_local_best_t={}
@@ -1954,9 +1950,9 @@ function _update()
   --
   if _slow_mo%2==0 then
     -- draw on tiles setup
-    split2d([[_map_display;1
+    exec[[_map_display;1
 poke;0x5f54;0x00;0x60
-poke;0x5f5e;0b11110110]],exec)  
+poke;0x5f5e;0b11110110]]
     -- physic must run *before* general updates
     for _,_ENV in inext,_things do
       if(physic) physic(_ENV)
@@ -1975,9 +1971,9 @@ poke;0x5f5e;0b11110110]],exec)
       end
     end
     -- revert
-    split2d([[poke;0x5f5e;0xff
+    exec[[poke;0x5f5e;0xff
 poke;0x5f54;0x60;0x00
-_map_display;0]],exec)
+_map_display;0]]
   end
 
   _update_state()
