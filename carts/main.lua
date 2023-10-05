@@ -970,6 +970,7 @@ function make_worm()
     post_think=function(_ENV)
       local curr_y,dirt=origin[2]
       if sgn(curr_y)!=sgn(prev_y) then
+        sfx"59"
         make_dirt(_ENV)
         dirt=true
       end
@@ -1320,8 +1321,10 @@ make_squid;2
 inc_spawn_angle;0.25
 set_spawn;200
 make_squid;1
-wait_async;150
+wait_async;130
 --; first centipede
+sfx;60
+wait_async;20
 random_spawn_angle
 set_spawn;200;64
 make_worm
@@ -1876,10 +1879,10 @@ _goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
 _skull_template;wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
-_worm_seg_template;ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,spawnsfx,42,obituary,wORMED,scale,1.5,jewel,1
+_worm_seg_template;ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.5,jewel,1
 _worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
 _worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
-_worm_head_template;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,10,chatter,20,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
+_worm_head_template;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,10,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
 _jewel_template;ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
 _spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,s_radius,18,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
