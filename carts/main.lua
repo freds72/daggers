@@ -1002,7 +1002,7 @@ function make_jewel(_origin,_velocity)
       sfx"57"      
     end,
     update=function(_ENV)
-      ttl-=1
+      ttl-=1      
       -- blink when going to disapear
       if ttl<30 then
         no_render=(ttl%4)<2
@@ -1135,7 +1135,7 @@ poke;0x5f0a;0x1a
 poke;0x5f00;0x00
 clip;0;8;128;112
 camera;0;$
-sspr;72;32;64;64;72;64
+sspr;72;32;64;64;72;72
 clip
 camera]],-_hand_y),exec)        
   else          
@@ -1148,7 +1148,7 @@ poke;0x5f00;0x00
 clip;0;8;128;112
 camera;0;$
 poke;0x5f00;0x10
-fillp;0xc5a5.8
+fillp;0xa5a5.8
 circfill;96;96;$;8
 fillp
 circfill;96;96;$;7
@@ -1888,7 +1888,7 @@ _squid_jewel;jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,
 _squid_tentacle;ent,tentacle0,radius,6,origin,v_zero,zangle,0,is_tentacle,1,shadeless,1
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
-_skull2_template;ent,reaper,radius,10,hp,4,seed0,4.5,seed1,5,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
+_skull2_template;ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
 _spider_template;ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
