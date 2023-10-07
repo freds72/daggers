@@ -484,7 +484,16 @@ end
 
 -- credits
 function credits_state()
-  local delay_print=delayed_print({"cODE & GFX: fREDS72","mUSIC & SFX: rIDGEK", "fONT: LITHIFY BY SOMEPEX","","tHANKS TO:","sORATH","aRTYOM bRULLOV","..."},true)
+  local delay_print=delayed_print({
+    "cODE & GFX: fREDS72",
+    "mUSIC & SFX: rIDGEK",
+    "eXTRA GFX: aRTYOM bRULLOV",
+    "fONT: LITHIFY BY SOMEPEX",
+    "",
+    "sPECIAL tHANKS TO:",
+    "sORATH & zEP",
+    "hERACLUM & mISS mOUSE",
+    "fAMILLY & PICO8 dISCORD"},true)
   next_state(menu_state,{
     {"bACK",111,
     cb=function() 
