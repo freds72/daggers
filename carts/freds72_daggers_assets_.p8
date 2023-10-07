@@ -1,5 +1,27 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
+__lua__
+function _init()
+  local mem=0x0
+  mem+=4
+  local version,n=@mem,@(mem+1)
+  assert(version==1,"unknown/invalid version: "..version)
+  mem+=2
+  for i=1,n do
+    -- read string
+    local k=@mem
+    mem+=1
+    -- read data
+    local len=peek2(mem)
+    mem+=2
+    mem+=len
+  end
+  print("total bytes:"..mem)
+
+  cstore(0,0,mem,"editor.p8")
+end
+
+
 __gfx__
 9531467810f1109e101063003900000000000000303a00000000000030303b00000000000031304800000000000000114900000000001131114a000000000031
 41004b00000000000030015600000000000020105700000000002010105800000000002010315900000000201031305a00000000003141005b00000000203030

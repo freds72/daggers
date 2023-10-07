@@ -1,5 +1,7 @@
 import argparse
+import os
 import subprocess
+from subprocess import Popen, PIPE
 from python2pico import minify_file
 
 def main():
@@ -9,20 +11,31 @@ def main():
 
   args = parser.parse_args()
 
-  # all game files
-  includes = ["main","main_maths","common","polytex","plain","assets"]
-  for i in includes:
-    minify_file(f"carts/{i}.lua",f"carts/{i}_mini.lua")
+  # game files
+  game_files = ["freds72_daggers_title","freds72_daggers"]
+  for game_file in game_files:
+    with open(f"carts/{game_file}.p8","r") as src: 
+      cart = []
+      for line in src.readlines():
+        if "#include" in line:
+          # get file
+          _,include = line.split(" ")
+          mini_file = include.replace(".lua","_mini.lua")
+          minify_file(f"carts/{include}",f"carts/{mini_file}")
+          line = f"#include {mini_file}"
+        cart.append(line)
+      # export minified cart
+      with open("carts/{game_file}_mini.p8","w") as dst:
+        dst.write("\n".join(cart))
 
-  with open("carts/daggers.p8","r") as src:
-    src_content = src.read()
-    for i in includes:
-      src_content = src_content.replace(f"#include {i}.lua","#include {i}_mini.lua")
-    with open("carts/daggers_mini.p8","w") as dst:
-      dst.write(src_content)
+  print("BINARY EXPORTS")
+  print("open freds72_daggers_title_mini.p8 in pico. Execute: ")
+  print(f"export daggers_{args.release}.html -f index.html freds72_daggers_mini.p8 freds72_daggers_editor.p8")
 
-  print("open title.p8 in pico. Execute: ")
-  print(f"export daggers_{args.release}.html -f index.html daggers_mini.p8 editor.p8 daggers_assets.p8")
+  print("BBS EXPORTS")
+  for game_file in game_files:
+    subprocess.run([os.path.join(args.pico,"pico8"),"-home",".",f"{game_file}_mini.p8","-export",f"{game_file}_mini.p8.png"], stdout=PIPE, stderr=PIPE, check=True)
+  subprocess.run([os.path.join(args.pico,"pico8"),"-home",".",f"freds72_daggers_editor.p8","-export",f"freds72_daggers_editor_mini.p8.png"], stdout=PIPE, stderr=PIPE, check=True)
 
 if __name__ == '__main__':
   main()

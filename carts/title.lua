@@ -405,8 +405,9 @@ _main_buttons={
     end},
   {"eDITOR",74,
     cb=function(self) 
-      -- ensure dev version is loaded first
-      load("editor.p8")
+      -- ensure dev version is loaded first then BBS
+      load("freds72_daggers_editor.p8")
+      load("#freds72_daggers_editor")
     end},
   {"cONTROLS",84,
     cb=function(self)
@@ -649,9 +650,10 @@ function play_state()
               yield()
             until not stat"57"
 
-            -- load dev version first
-            load("daggers.p8")
-            load("daggers_mini.p8")
+            -- load dev version first then release then BBS
+            load("freds72_daggers.p8")
+            load("freds72_daggers_mini.p8")
+            load("#freds72_daggers")
           end)
         end
       end
@@ -844,8 +846,12 @@ cartdata;freds72_daggers]]
   end
 
   -- generate assets if not there
-  if reload(0x6000,0x0,0x1,"pic_0.p8")==0 then
-    load("editor.p8","","generate")
+  if reload(0x6000,0x0,0x1,"freds72_daggers_pic_0.p8")==0 or dget(99)!=0 then
+    -- in case player halts generation
+    dset(99,1)
+    load("freds72_daggers_editor.p8","","generate")
+    load("#freds72_daggers_editor","","generate")
+    dset(99,0)
   end
 
   -- HW palette + fade to black
