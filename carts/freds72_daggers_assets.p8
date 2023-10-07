@@ -18,7 +18,7 @@ function _init()
   end
   print("total bytes:"..mem)
 
-  cstore(0,0,mem,"editor.p8")
+  cstore(0,0,mem,"freds72_daggers_editor.p8")
 end
 
 
