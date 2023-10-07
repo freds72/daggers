@@ -799,7 +799,7 @@ function make_squid(type)
 
   split2d(select(type,
 -- type 1 (1 jewel)
-[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24
+[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24,cost,5
 _squid_hood;a_offset,0.3333,r_offset,8,y_offset,24
 _squid_hood;a_offset,0.6667,r_offset,8,y_offset,24
 _squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,r_offset,12,y_offset,52.0
@@ -815,7 +815,7 @@ _squid_tentacle;a_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,r_offset,12,y_
 _squid_tentacle;a_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,r_offset,12,y_offset,66.4
 _squid_tentacle;a_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offset,71.2]],
     -- type 2 (2 jewels)
-[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24
+[[_squid_jewel;a_offset,0.0,r_offset,8,y_offset,24,cost,5
 _squid_hood;a_offset,0.25,r_offset,8,y_offset,24
 _squid_jewel;a_offset,0.5,r_offset,8,y_offset,24
 _squid_hood;a_offset,0.75,r_offset,8,y_offset,24
@@ -860,8 +860,8 @@ _squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,r_offset,12,y_offse
           if(dead) return        
           make_blood(origin) 
           grid_unregister(_ENV)
-          _total_things-=cost or 0   
           sfx"39"
+          _total_things-=cost or 0
         end
         zangle=_angle+a_offset
         -- store u/v angle
@@ -1209,8 +1209,8 @@ set;_total_hits;0]]
       draw_world()   
 
       -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
-      local s=_total_things.."/60 ⧗:".._time_penalty.."S"
-      print(s,64-print(s,0,128)/2,2,7)
+      -- local s=_total_things.."/60 ⧗:".._time_penalty.."S"
+      -- print(s,64-print(s,0,128)/2,2,7)
 
       if _show_timer then
         local t=((time()-_start_time)\0.1)/10
@@ -1850,8 +1850,8 @@ _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ent
 _skull_template;wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
 _worm_seg_template;ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.5,jewel,1
-_worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2
-_worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8
+_worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2,s_radius,7
+_worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8,s_radius,4
 _worm_head_template;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,10,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
 _jewel_template;ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
 _spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
