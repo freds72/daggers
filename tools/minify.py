@@ -18,7 +18,7 @@ def main():
       cart = []
       while line := src.readline():
         line = line.rstrip('\n')
-        if "#include" in line:
+        if "#include" in line and ".p8l" not in line:
           # get file
           _,include = line.split(" ")
           mini_file = include.replace(".lua","_mini.lua")
