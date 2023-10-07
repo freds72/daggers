@@ -1208,7 +1208,7 @@ set;_total_hits;0]]
     function()
       draw_world()   
 
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       local s=_total_things.."/60 ⧗:".._time_penalty.."S"
       print(s,64-print(s,0,128)/2,2,7)
 
@@ -1263,9 +1263,8 @@ set;_total_hits;0]]
       _futures,_total_things,_time_penalty,_hw_pal,_time_wait={},0,0,0
       -- scenario
       local scenario=do_async(function()
-        exec[[
-wait_async;90
---;first squids wave
+        exec[[wait_async;90
+//;first squids wave
 random_spawn_angle
 set_spawn;200
 make_squid;1
@@ -1285,12 +1284,12 @@ wait_async;450
 inc_spawn_angle;0.25
 set_spawn;200
 make_squid;2
---;first spider
+//;first spider
 wait_async;300
 random_spawn_angle
 set_spawn;200;78
 make_spider
---; second squid wave
+//; second squid wave
 wait_async;300
 random_spawn_angle
 set_spawn;200
@@ -1318,7 +1317,7 @@ inc_spawn_angle;0.25
 set_spawn;200
 make_squid;1
 wait_async;130
---; first centipede
+//; first centipede
 sfx;60
 wait_async;20
 random_spawn_angle
@@ -1358,24 +1357,23 @@ wait_async;600]]
 set;_shotgun_count;10
 set;_shotgun_spread;0.025
 set;_piercing;0
---;level 1
+//;level 1
 wait_jewels;10
 set;_shotgun_count;20
 set;_shotgun_spread;0.030
 levelup_async;3
---;level 2
+//;level 2
 wait_jewels;70
 set;_fire_ttl;2
 set;_shotgun_count;30
 set;_shotgun_spread;0.033
 set;_piercing;1
 levelup_async;5
---;level 3
+//;level 3
 wait_jewels;150
 set;_shotgun_count;40
 set;_shotgun_spread;0.037
-set;_piercing;2
-]]
+set;_piercing;2]]
     end)
 
     do_async(function()
@@ -1439,7 +1437,6 @@ function gameover_state(obituary)
     {"sTATS",1,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
-        -- before: 7618
         local x=1
         split2d(scanf([[⧗ ;_;30;3
 $S    ;x;30;0
@@ -1450,7 +1447,8 @@ $;x;38;0
     ● ;x;38;3
 $;x;38;0
     ☉ ;x;38;3
-$%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_bullets==0 and 0 or 1000*(_total_hits/_total_bullets))/10),function(s,_,y,sel)
+$%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_bullets==0 and 0 or 1000*(_total_hits/_total_bullets))/10),
+        function(s,_,y,sel)
           -- new line?
           if(_=="_") x=1
           x=arizona_print(s,x,y,sel)
@@ -1588,7 +1586,7 @@ tline;17]]
   -- exit menu entry
   menuitem(1,"main menu",function()
     -- local version
-    load"title.p8"
+    load"freds72_daggers_title.p8"
     -- bbs version
     load"#freds72_daggers_title"
   end)
@@ -1704,24 +1702,7 @@ tline;17]]
               -- texture
               poke4(0x5f38,planes[i+8])
               _map_display(planes[i+9])
-              --[[
-              color(1)
-              local v0=verts[#verts]
-              for i=1,#verts do
-                local v1=verts[i]
-                line(v0.x,v0.y,v1.x,v1.y)
-                v0=v1
-              end 
-              ]]
               mode7(verts,#verts,_ramp_pal+0x1100)  
-              --[[
-              local mx,my=0,0
-              for _,v in inext,verts do
-                mx+=v.x
-                my+=v.y
-              end
-              print(id.." / "..((i\9)+1),mx/#verts,my/#verts,8)
-              ]]
             end
           end
         end
@@ -1732,7 +1713,7 @@ tline;17]]
   _bsp.grid=draw_grid
   
   -- load images
-  _entities=decompress("pic",0,0,unpack_entities)
+  _entities=decompress("freds72_daggers_pic",0,0,unpack_entities)
   reload()
 
   -- must be globals
@@ -1751,6 +1732,7 @@ tline;17]]
       -- avoid reentrancy
       if(dead) return
       hp-=1
+      hit_ttl=5
       if hp<=0 then
         grid_unregister(_ENV)  
         -- free a spawn slot
@@ -1773,8 +1755,6 @@ tline;17]]
         end
         local vel=vector_in_cone(0.25-bullet.zangle,0,0.01)
         make_particle(lgib,pos,v_scale(vel,-0.5))
-      else
-        hit_ttl=5
       end
     end,
     apply=function(_ENV,other,force,t)
@@ -1848,13 +1828,7 @@ tline;17]]
       
       -- move & clamp
       origin[1]=mid(origin[1]+velocity[1],0,1024)
-      local oy=origin[2]+velocity[2]
-      if oy<ground_limit then
-        oy=ground_limit
-        --yangle+=rnd(1)
-      end
-
-      origin[2]=oy
+      origin[2]=max(ground_limit,origin[2]+velocity[2])
       origin[3]=mid(origin[3]+velocity[3],0,1024)
 
       -- for centipede

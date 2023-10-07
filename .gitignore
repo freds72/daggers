@@ -9,11 +9,12 @@ _label.png
 /carts/demos
 /carts/*.p8.png
 /carts/pic_*.p8
+freds72_daggers_pic_*.p8
 /carts/*_mini.p8
 /carts/*_mini.lua
 /carts/index.html
 /carts/daggers_*.js
-
+*.zip
 /cdata/
 /cstore/
 *.bin

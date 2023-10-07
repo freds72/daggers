@@ -14,18 +14,20 @@ def main():
   # game files
   game_files = ["freds72_daggers_title","freds72_daggers"]
   for game_file in game_files:
-    with open(f"carts/{game_file}.p8","r") as src: 
+    with open(f"carts/{game_file}.p8", "r", encoding='UTF-8') as src: 
       cart = []
-      for line in src.readlines():
+      while line := src.readline():
+        line = line.rstrip('\n')
         if "#include" in line:
           # get file
           _,include = line.split(" ")
           mini_file = include.replace(".lua","_mini.lua")
+          print(f"Minifying: {include}")
           minify_file(f"carts/{include}",f"carts/{mini_file}")
           line = f"#include {mini_file}"
         cart.append(line)
       # export minified cart
-      with open("carts/{game_file}_mini.p8","w") as dst:
+      with open(f"carts/{game_file}_mini.p8", "w", encoding='UTF-8') as dst:
         dst.write("\n".join(cart))
 
   print("BINARY EXPORTS")
@@ -33,9 +35,13 @@ def main():
   print(f"export daggers_{args.release}.html -f index.html freds72_daggers_mini.p8 freds72_daggers_editor.p8")
 
   print("BBS EXPORTS")
+  try:
+    os.mkdir(os.path.join("carts",args.release))
+  except FileExistsError:
+    pass
   for game_file in game_files:
-    subprocess.run([os.path.join(args.pico,"pico8"),"-home",".",f"{game_file}_mini.p8","-export",f"{game_file}_mini.p8.png"], stdout=PIPE, stderr=PIPE, check=True)
-  subprocess.run([os.path.join(args.pico,"pico8"),"-home",".",f"freds72_daggers_editor.p8","-export",f"freds72_daggers_editor_mini.p8.png"], stdout=PIPE, stderr=PIPE, check=True)
+    subprocess.run([os.path.join(args.pico,"pico8"),"-home",".",f"carts/{game_file}_mini.p8","-export",f"carts/{args.release}/{game_file}_mini.p8.png"], stdout=PIPE, stderr=PIPE, check=True)
+  subprocess.run([os.path.join(args.pico,"pico8"),"-home",".",f"carts/freds72_daggers_editor.p8","-export",f"carts/{args.release}/freds72_daggers_editor.p8.png"], stdout=PIPE, stderr=PIPE, check=True)
 
 if __name__ == '__main__':
   main()

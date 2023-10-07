@@ -874,7 +874,7 @@ cartdata;freds72_daggers]]
   end
 
   -- load background assets
-  decompress("pic",0,0,function()
+  decompress("freds72_daggers_pic",0,0,function()
     local names={
       [1]="skull",
       [8]="dagger",
