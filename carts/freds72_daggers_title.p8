@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
--- Demi Daggers
+-- dEMI dAGGERS
 -- by freds72 & ridgek
 #include main_maths.lua
 #include common.lua

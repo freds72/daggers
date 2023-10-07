@@ -1,14 +1,25 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
--- voxel editor
--- @freds72
-#include debug.lua
-#include ui.lua
-#include maths.lua
-#include poly.lua
-#include voxel_editor.lua
+-- editor sprites
+function escape_binary_str(s)
+ local out=""
+ for i=1,#s do
+  local c  = sub(s,i,i)
+  local nc = ord(s,i+1)
+  local pr = (nc and nc>=48 and nc<=57) and "00" or ""
+  local v=c
+  if(c=="\"") v="\\\""
+  if(c=="\\") v="\\\\"
+  if(ord(c)==0) v="\\"..pr.."0"
+  if(ord(c)==10) v="\\n"
+  if(ord(c)==13) v="\\r"
+  out..= v
+ end
+ return out
+end
 
+printh(escape_binary_str(chr(peek(0,64*32))), "@clip")
 
 __gfx__
 01111000000100000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

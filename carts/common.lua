@@ -76,16 +76,14 @@ end
 function nop() end
 
 -- helper to execute a call (usually from a split string)
-function exec(code,env)
-  env=env or _ENV
+function exec(code)
   local _ENV=inherit({
     -- skip comments :)
-    ["--"]=nop,
+    ["//"]=nop,
     -- set a global to the given value
     set=function(k,v)
-      env[k]=v
-    end},
-    env)
+      _ENV[k]=v
+    end})
   split2d(code,function(fn,...)
     _ENV[fn](...)
   end)

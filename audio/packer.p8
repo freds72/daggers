@@ -355,7 +355,7 @@ offset = 0
 
 paths = {
 	manifest = "./carts/titleaudio",
-	output = "../carts/title.p8",
+	output = "../carts/freds72_daggers_title.p8",
 }
 
 payloads = {
