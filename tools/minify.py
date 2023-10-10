@@ -18,13 +18,19 @@ def main():
       cart = []
       while line := src.readline():
         line = line.rstrip('\n')
-        if "#include" in line and ".p8l" not in line:
+        if "#include" in line:
           # get file
           _,include = line.split(" ")
-          mini_file = include.replace(".lua","_mini.lua")
-          print(f"Minifying: {include}")
-          minify_file(f"carts/{include}",f"carts/{mini_file}")
-          line = f"#include {mini_file}"
+          if include.endswith(".p8l"):
+            release_file = include.replace(".p8l","_release.p8l")
+            if os.path.exists(os.path.join("carts",release_file)):
+              print(f"Using relase data: {include} --> {release_file}")
+              line = f"#include {release_file}"
+          else:
+            mini_file = include.replace(".lua","_mini.lua")
+            print(f"Minifying: {include}  --> {mini_file}")
+            minify_file(f"carts/{include}",f"carts/{mini_file}")
+            line = f"#include {mini_file}"
         cart.append(line)
       # export minified cart
       with open(f"carts/{game_file}_mini.p8", "w", encoding='UTF-8') as dst:

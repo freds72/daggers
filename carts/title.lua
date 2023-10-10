@@ -855,12 +855,11 @@ cartdata;freds72_daggers]]
   end
 
   -- generate assets if not there
-  if reload(0x6000,0x0,0x1,"freds72_daggers_pic_0.p8")==0 or dget(99)!=0 then
+  if reload(0x6000,0x0,0x1,"freds72_daggers_pic_0.p8")==0 or dget(63)!=0 then
     -- in case player halts generation
-    dset(99,1)
+    dset(63,1)
     load("freds72_daggers_editor.p8","","generate")
     load("#freds72_daggers_editor","","generate")
-    dset(99,0)
   end
 
   -- HW palette + fade to black

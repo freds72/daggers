@@ -5,7 +5,7 @@ __lua__
 --by ridgek
 
 --copy all sfx/music to daggers.p8
-cstore(0x3100,0x3100,0x1200,"../carts/daggers.p8")
+cstore(0x3100,0x3100,0x1200,"../carts/freds72_daggers.p8")
 
 --copy chatter sfx to chatter.p8
 cstore(0x3420,0x3420, 16 * 68, "./chatter.p8")
