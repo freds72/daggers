@@ -57,7 +57,9 @@ function rsort(data)
 end
 
 -- game states
-function next_state(fn,...)
+function next_state(fn,...)  
+  -- to allow call from exec
+  fn=_ENV[fn] or fn
   local u,d,i=fn(...)
   -- ensure update/draw pair is consistent
   _update_state=function()
@@ -74,16 +76,13 @@ local function inherit(t,env)
   return setmetatable(t,{__index=env or _ENV})
 end
 function nop() end
+_ENV["//"]=nop
+function set(k,v,env)
+  (_ENV[env] or _ENV)[k]=v
+end
 
 -- helper to execute a call (usually from a split string)
 function exec(code)
-  local _ENV=inherit({
-    -- skip comments :)
-    ["//"]=nop,
-    -- set a global to the given value
-    set=function(k,v)
-      _ENV[k]=v
-    end})
   split2d(code,function(fn,...)
     _ENV[fn](...)
   end)

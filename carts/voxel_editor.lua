@@ -977,13 +977,13 @@ function pack_entities()
                 cls()
                 fillp()
                 rectfill(0,0,127,7,8)
-                print("gENERATING gAME aSSETS ["..flr(100*(i-1)/#_entities).."%]",1,1,1)
+                print("gENERATING gAME aSSETS ["..flr(100*(i-1)/#_entities).."%]",1,1,7)
                 local s,total_frames=ent.text,(ent.angles\16)+(ent.angles&0xf)
-                print(s,64-print(s,0,130)/2,10,6)
+                print(s,64-print(s,0,130)/2,10,8)
                 local x=128*count/total_frames
                 rectfill(0,9,x,15,8)
                 clip(0,0,x,128)
-                print(s,64-print(s,0,130)/2,10,1)
+                print(s,64-print(s,0,130)/2,10,7)
                 clip()
                 -- print(_entities[i].text..": "..flr(100*count/40).."%",2,i*6+4,7)
                 flip()
@@ -1029,6 +1029,7 @@ function _init()
     -- integrated fill colors
     poke(0x5f34, 1)
     poke(0x5f2d, 0x5)
+    cartdata"freds72_daggers"
 
     -- init keys for cube points
     for i=1,#cube do
@@ -1045,13 +1046,6 @@ function _init()
     
     -- reload previous archive (if any)
     unpack_archive()
-    
-    if stat(6)=="generate" then
-        pack_entities()
-        load"freds72_daggers_title.p8"
-        load"freds72_daggers_title_mini.p8"
-        load"#freds72_daggers_title"
-    end
 
     -- restore sprites & ramps
     local _reload=reload
@@ -1061,12 +1055,22 @@ function _init()
         poke(0x0,ord(data,1,#data))  
     end    
     reload()
+
     -- integrated fillp palette
     for i=0,15 do
         _palette[i]=i|i<<4|0x1000
         _palette[15+i]=i|sget(57,i)<<4|0x1000.a5a5
     end
     
+    if stat(6)=="generate" then
+        pack_entities()
+        -- "commit" generation
+        dset(63,0)
+        load"freds72_daggers_title.p8"
+        load"freds72_daggers_title_mini.p8"
+        load"#freds72_daggers_title"
+    end
+
     -- clear screen cache
     memset(0x8000,0,0x2000)
 
