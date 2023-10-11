@@ -873,15 +873,16 @@ _squid_tentacle;a_offset,0.8333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]]),
     add(_things,inherit(with_properties(properties,{
       light_t=time(),
       hit=function(_ENV,pos,bullet) 
-        if jewel==1 then
+        if jewel then
           hp-=1
           hit_ttl=5
           -- feedback
           make_particle(_lgib_template,pos,{u,-3*bullet.velocity[2],v})
           sfx"56"
           if hp<=0 then
+            make_jewel(origin,{u,3,v},16)
             -- change appearance + avoid reentrancy (jewel can't be null!!)
-            ent,jewel=_entities.squid2,2
+            ent,jewel=_entities.squid2,false
             if(type==1) _dead=true
             -- "downgrade" squid!!
             type-=1

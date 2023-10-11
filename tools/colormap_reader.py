@@ -357,7 +357,7 @@ def main():
   if args.export:
     tmp.save(args.export,"PNG")
   else:
-    cstore(out,"D:\\pico-8_0.2.5","..\\carts","title",0x0)
+    cstore(out,"D:\\pico-8_0.2.5","..\\carts","freds72_daggers_title",0x0)
     run_cart("D:\\pico-8_0.2.5","..\\carts","title_assets",len(out))
 
     
