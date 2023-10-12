@@ -341,72 +341,52 @@ function make_player(_origin,_a)
         end)
       end
 
-      -- collect nearby chatter
-      _chatter={}
-      local x0,z0=x>>22,z\64
-      for dist,offsets in inext,_chatter_ranges do
-        local idx=x0|z0
-        for _,idx_offset in inext,offsets do
-          local cell=_grid[idx+idx_offset]            
-          for chatter_id,cnt in pairs(cell.chatter) do
-            if(cnt>0) add(_chatter,{chatter_id,dist-1})
-            -- enough data?
-            if(#_chatter==3) goto end_noise
-          end
+      --chatter stats
+      local _ambient,_chatter,_chattered,_chattermax=true,{},0,3
+      for i=46,49 do
+        local cur_sfx = stat(i)
+
+        if cur_sfx>24 then
+          --reduce available channels
+          _chattermax-=1
+        elseif cur_sfx>7 then
+          --record chatter_id
+          _ambient,_chatter[cur_sfx-cur_sfx%4]=false,true
         end
-        -- next range
-        x0-=0x0.0001
-        z0-=1
+      end
+
+      --chatter playback
+      if _chattermax > 0 and not stat"57" then
+        local x0,z0=x>>22,z\64
+        for dist,offsets in inext,_chatter_ranges do
+          local idx=x0|z0
+          for _,idx_offset in inext,offsets do
+            local cell=_grid[idx+idx_offset]
+            for chatter_id,cnt in pairs(cell.chatter) do
+              --queue new chatter
+              if cnt>0 and not _chatter[chatter_id] then
+                local variant=chatter_id+flr(rnd"4")
+                local offset=variant*68
+
+                --copy dampened sfx, start at 0xf340-0x220 to offset sfx 0-7
+                memcpy(0x3200+offset, 0xf120+0x440*(dist-1)+offset, 68)
+                sfx(variant)
+
+                _ambient,_chatter[chatter_id]=false,true
+                _chattered += 1
+
+                if(_chattered>=_chattermax) goto end_noise
+              end
+            end
+          end
+          -- next range
+          x0-=0x0.0001
+          z0-=1
+        end
+
+        if(_ambient) sfx"24"
       end
 ::end_noise::
-
-      --playback chatter/ambient if no music
-      if not stat"57" then
-        --ambient sfx trigger
-        local ambient = true
-
-        for chatter in all(_chatter) do
-          local
-            variant,
-            idx,
-            dist
-            =
-            flr(rnd"4"),
-            unpack(chatter)
-
-          --loop audio channels
-          for i = 0, 3 do
-            local cur_sfx = stat(46 + i)
-
-            --go to next channel if chatter or ambient sfx in progress
-            if cur_sfx > 24 then
-              break
-            end
-
-            --disable ambient trigger if chatter or ambient sfx in progress
-            ambient = ambient and mid(8, cur_sfx, 24) ~= cur_sfx
-
-            --go to next chatter if variant sfx in progress
-            if mid(idx, cur_sfx, idx + 3) == cur_sfx then
-              goto next_chatter
-            end
-          end
-
-          local offset = (idx + variant) * 68
-
-          --copy dampened sfx
-          --start from 0xf120 instead of 0xf340 to account for sfx 0-7 in offset value
-          memcpy(0x3200 + offset, 0xf120 + 0x440 * dist + offset, 68)
-
-          sfx(idx + variant)
-
-          ::next_chatter::
-        end
-
-        if ambient then
-          sfx"24"
-        end
-      end
 
       -- refresh angles
       m=make_m_from_euler(unpack(angle))    
