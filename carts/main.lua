@@ -1,5 +1,5 @@
 -- global arrays
-local _bsp,_things,_futures,_spiders,_cam,_grid,_entities={},{},{},{}
+local _bsp,_things,_futures,_spiders,_squid_templates,_cam,_grid,_entities={},{},{},{},{{},{},{}}
 -- must be globals
 _fire_ttl,_spawn_angle,_spawn_origin=3,0,split"512,0,512"
 local _G,_slow_mo,_hw_pal,_ramp_pal=_ENV,0,0,0x8180
@@ -127,7 +127,7 @@ function grid_register(thing)
   -- different from previous range?
   if grid_x0!=x0 or grid_x1!=x1 or grid_z0!=z0 or grid_z1!=z1 then
     -- remove previous grid cells
-    grid_unregister(thing,true)
+    grid_unregister(thing)
     for idx=x0,x1,0x0.0001 do
       for idx=idx|z0,idx|z1 do
         local cell=grid[idx]
@@ -155,10 +155,7 @@ function grid_register(thing)
 end
 
 -- removes thing from the collision grid
-function grid_unregister(_ENV,not_dead)
-  -- flag as inactive + free a spawn slot
-  if(not not_dead) dead=true _total_things-=cost or 0
-
+function grid_unregister(_ENV)
   for idx,cell in pairs(cells) do
     cell.things[_ENV],cells[idx]=nil
   end  
@@ -332,8 +329,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  --dead=true
+                  --next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -707,8 +704,7 @@ function make_spider()
           make_goo(v_add(origin,vel,rnd"3"),v_scale(vel,1+rnd"2"))
         end
         -- unregister
-        grid_unregister(_ENV)
-        _spiders[_ENV]=nil
+        dead,_spiders[_ENV]=true
       end
     end,
     update=function(_ENV)
@@ -742,33 +738,79 @@ end
 -- squid
 -- type 1: 3 blocks
 -- type 2: 4 blocks
-function make_squid(size)
-  local _spawns,_origin,_velocity,_dx,_dz,_angle,_dead=select(size,4,4,8),v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
-  -- spill skulls every x seconds
-  local spill=do_async(function()
-    wait_async(90)
-    local function make_skull_async(template)
-      make_skull(template,{_origin[1],64+rnd"16",_origin[3]})
-      wait_async(2,2)
-    end
-    while true do
-      -- don't spawn while outside
-      if _dx<220 and _dz<220 then
-        for i=1,_spawns do
-          make_skull_async(_skull1_template)
-        end
-        make_skull_async(_skull2_template)
-        -- wait 10s
-        wait_async(300)
-      end
-      yield()
-    end
-  end)
+function make_squid(type)
+  local _spawns,_origin,_velocity,_dx,_dz,_angle,_dead=select(type,4,4,8),v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
+  local function make_skull_async(template)
+    make_skull(template,{_origin[1],64+rnd"16",_origin[3]})
+    wait_async(2,2)
+  end
 
-  local squid=make_skull(inherit({
-    ai=spill,
+  make_skull(inherit({
+    init=function(_ENV)
+      -- spill skulls every x seconds
+      ai=do_async(function()
+        wait_async(90)
+        while true do
+          -- don't spawn while outside
+          if _dx<220 and _dz<220 then
+            for i=1,_spawns do
+              make_skull_async(_skull1_template)
+            end
+            make_skull_async(_skull2_template)
+            -- wait 10s
+            wait_async(300)            
+          end
+          yield()          
+        end
+      end)
+      -- squid parts
+      for part_template in all(_squid_templates[type]) do
+        add(_things,inherit({
+          light_t=time(),
+          hit=function(_ENV,pos,bullet) 
+            if jewel then
+              hp-=1
+              hit_ttl=5
+              -- feedback
+              make_particle(_lgib_template,pos,{u,-3*bullet.velocity[2],v})
+              sfx"56"
+              if hp<=0 then
+                make_jewel(origin,{u,3,v},16)
+                -- change appearance + avoid reentrancy (jewel can't be null!!)
+                ent,jewel=_entities.squid2,false
+                if(type==1) _dead=true sfx"39"
+                -- "downgrade" squid!!
+                type-=1
+              end
+            end
+          end,
+          update=function(_ENV)
+            if _dead then
+              if(dead) return
+              make_blood(origin) 
+              dead=true
+              return
+            end
+            zangle=_angle+a_offset
+            -- store u/v angle
+            local cc,ss,offset=cos(zangle),-sin(zangle),r_offset
+            if is_tentacle then
+              yangle=-cos(time()/8+scale)*swirl
+              offset+=sin(time()/4+scale)*swirl
+            else
+              u,v=cc,ss
+              zangle+=0.5
+            end
+            origin=v_add(_origin,{offset*cc,y_offset,offset*ss})
+            if(reg) grid_register(_ENV)
+          end    
+        },part_template))
+      end
+    end,
     think=function(_ENV)
+      -- kill core
       dead=_dead
+
       _angle+=0.005
       -- keep "move" as the main driving force
       forces=v_add(forces,_velocity,30)
@@ -779,118 +821,6 @@ function make_squid(size)
       if(_dx>300 or _dz>300) _dead=true
     end
   },_squid_core),_origin)
-
-  split2d(select(size,
--- type 1 (1 jewel)
-[[_squid_jewel;a_offset,0.0,cost,5
-_squid_hood;a_offset,0.3333
-_squid_hood;a_offset,0.6667
-_squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]],
-    -- type 2 (2 jewels)
-[[_squid_jewel;a_offset,0.0,cost,5
-_squid_hood;a_offset,0.25
-_squid_jewel;a_offset,0.5
-_squid_hood;a_offset,0.75
-_squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.25,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.25,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.25,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.25,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.5,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.5,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.5,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.75,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.75,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.75,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]],
-  -- type 3
-[[_squid_jewel;a_offset,0.0,cost,10,hp,21,r_offset,22
-_squid_hood;a_offset,0.1667,r_offset,22
-_squid_jewel;a_offset,0.3333,hp,21,r_offset,22
-_squid_hood;a_offset,0.5,r_offset,22
-_squid_jewel;a_offset,0.6667,hp,21,r_offset,22
-_squid_hood;a_offset,0.8333,r_offset,22
-_squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.1667,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.1667,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.1667,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.1667,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.5,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.5,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.5,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
-_squid_tentacle;a_offset,0.8333,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
-_squid_tentacle;a_offset,0.8333,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
-_squid_tentacle;a_offset,0.8333,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
-_squid_tentacle;a_offset,0.8333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]]),
-  function(base_template,properties)
-    add(_things,inherit(with_properties(properties,{
-      light_t=time(),
-      hit=function(_ENV,pos,bullet) 
-        if jewel then
-          hp-=1
-          hit_ttl=5
-          -- feedback
-          make_particle(_lgib_template,pos,{u,-3*bullet.velocity[2],v})
-          sfx"56"
-          if hp<=0 then
-            make_jewel(origin,{u,3,v},16)
-            -- change appearance + avoid reentrancy (jewel can't be null!!)
-            ent,jewel=_entities.squid2,false
-            if(size==1) _dead=true
-            -- "downgrade" squid!!
-            size-=1
-          end
-        end
-      end,
-      update=function(_ENV)
-        if _dead then
-          if(dead) return        
-          make_blood(origin) 
-          grid_unregister(_ENV)
-          sfx"39"
-        end
-        zangle=_angle+a_offset
-        -- store u/v angle
-        local cc,ss,offset=cos(zangle),-sin(zangle),r_offset
-        if is_tentacle then
-          yangle=-cos(time()/8+scale)*swirl
-          offset+=sin(time()/4+scale)*swirl
-        else
-          u,v=cc,ss
-          zangle+=0.5
-        end
-        origin=v_add(_origin,{offset*cc,y_offset,offset*ss})
-        if(not is_tentacle) grid_register(_ENV)
-      end    
-    }),_ENV[base_template]))
-  end)
 end
 
 -- centipede
@@ -911,7 +841,7 @@ function make_worm(type)
       do_async(function()
         while #segments>0 do
           local _ENV=deli(segments,1)
-          grid_unregister(_ENV)
+          dead=true
           make_blood(origin,{0,0,0})
           wait_async(3)
         end
@@ -962,15 +892,14 @@ function make_worm(type)
           for _ENV in all(segments) do
             if origin[2]>0 then
               goto above_ground
-            else
-              grid_unregister(_ENV)
             end
+            dead=true
           end
           break
     ::above_ground::
           yield()
         end
-        grid_unregister(_ENV)
+        dead=true
       end)
     end,
     think=function(_ENV)
@@ -1008,7 +937,7 @@ function make_jewel(_origin,_velocity)
     velocity=v_clone(_velocity),
     pickup=function(_ENV,spider)
       if(dead) return
-      grid_unregister(_ENV)
+      dead=true
       -- no feedback when gobbed by spider
       if(spider) return
       _G._total_jewels+=1 
@@ -1021,7 +950,7 @@ function make_jewel(_origin,_velocity)
         no_render=(ttl%4)<2
       end
       if ttl<0 then
-        grid_unregister(_ENV)
+        dead=true
         return
       end
       -- friction
@@ -1036,7 +965,7 @@ function make_jewel(_origin,_velocity)
       local force,min_dist,min_other=_plyr.attract_power,32000,_plyr
       for other,other_origin in pairs(_spiders) do
         local dist_dir,dist=v_dir(origin,other_origin)
-        if(dist<min_dist) force,min_dist,min_other=1,dist,other
+        if(dist<min_dist) force,min_dist,min_other=0.2,dist,other
       end
       -- anyone stil alive?
       if not min_other.dead and force!=0 then
@@ -1081,7 +1010,7 @@ function make_egg(_origin,_velocity)
               -- kill egg
               local _ENV=egg
               sfx"51"
-              grid_unregister(_ENV)
+              dead=true
               for i=1,2+rnd"2" do
                 local a=rnd()
                 make_goo(origin,{cos(a),rnd"5",sin(a)})
@@ -1218,8 +1147,8 @@ set;_total_hits;0]]
       draw_world()   
 
       -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
-      local s=_total_things.."/60 ⧗:".._time_penalty.."S"
-      print(s,64-print(s,0,128)/2,2,7)
+      -- local s=_total_things.."/60 ⧗:".._time_penalty.."S"
+      -- print(s,64-print(s,0,128)/2,2,7)
 
       if _show_timer then
         local t=((time()-_start_time)\0.1)/10
@@ -1626,7 +1555,7 @@ tline;17]]
       hp-=1
       hit_ttl=5
       if hp<=0 then
-        grid_unregister(_ENV)  
+        dead=true
         -- custom death function?
         if die then
           die(_ENV)
@@ -1737,13 +1666,13 @@ _gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_t
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
 _goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0,rebound,-1
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
-_skull_template;wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template,cost,1;_skull_core
+_skull_template;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template,cost,1;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
-_worm_seg_normal0;ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.5,jewel,1,hp,5
-_worm_seg_mega0;ent,worm1,s_radius,10,radius,16,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.7,jewel,1,hp,10
-_worm_seg_giga0;ent,worm1,s_radius,11,radius,20,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.9,jewel,1,hp,30
-_worm_seg_tail1;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2,s_radius,7
-_worm_seg_tail2;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8,s_radius,4
+_worm_seg_normal0;reg,1,ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.5,jewel,1,hp,5
+_worm_seg_mega0;reg,1,ent,worm1,s_radius,10,radius,16,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.7,jewel,1,hp,10
+_worm_seg_giga0;reg,1,ent,worm1,s_radius,11,radius,20,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.9,jewel,1,hp,30
+_worm_seg_tail1;reg,1,ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2,s_radius,7
+_worm_seg_tail2;reg,1,ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8,s_radius,4
 _worm_seg_normal1;;_worm_seg_tail1
 _worm_seg_mega1;;_worm_seg_tail1
 _worm_seg_giga1;;_worm_seg_tail1
@@ -1753,19 +1682,93 @@ _worm_seg_giga2;;_worm_seg_tail2
 _worm_head_normal;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,50,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _worm_head_mega;wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_radius,14,radius,20,scale,1.2,hp,200,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _worm_head_giga;wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_radius,16,radius,22,scale,1.5,hp,400,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
-_jewel_template;ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
+_jewel_template;reg,1,ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
 _spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,s_radius,18,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
-_squid_jewel;jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
+_squid_jewel;reg,1,jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
 _squid_tentacle;ent,tentacle0,origin,v_zero,zangle,0,is_tentacle,1,shadeless,1,r_offset,12
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,obituary,sKULLED,target_yangle,0.1;_skull_base_template
 _skull2_template;ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
+_spider_template;reg,1,ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
+
+  for i,squid_cfg in inext,{
+-- type 1 (1 jewel)
+[[_squid_jewel;a_offset,0.0
+_squid_hood;a_offset,0.3333
+_squid_hood;a_offset,0.6667
+_squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]],
+    -- type 2 (2 jewels)
+[[_squid_jewel;a_offset,0.0
+_squid_hood;a_offset,0.25
+_squid_jewel;a_offset,0.5
+_squid_hood;a_offset,0.75
+_squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.25,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.25,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.25,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.25,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.5,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.5,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.5,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.75,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.75,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.75,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.75,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]],
+  -- type 3
+[[_squid_jewel;a_offset,0.0,hp,21,r_offset,22
+_squid_hood;a_offset,0.1667,r_offset,22
+_squid_jewel;a_offset,0.3333,hp,21,r_offset,22
+_squid_hood;a_offset,0.5,r_offset,22
+_squid_jewel;a_offset,0.6667,hp,21,r_offset,22
+_squid_hood;a_offset,0.8333,r_offset,22
+_squid_tentacle;a_offset,0.0,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.0,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.0,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.0,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.1667,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.1667,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.1667,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.1667,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.3333,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.3333,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.3333,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.3333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.5,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.5,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.5,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.5,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.6667,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.6667,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.6667,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.6667,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2
+_squid_tentacle;a_offset,0.8333,scale,1.0,swirl,0.0,radius,8.0,y_offset,52.0
+_squid_tentacle;a_offset,0.8333,scale,0.8,swirl,0.6667,radius,6.4,y_offset,60.0
+_squid_tentacle;a_offset,0.8333,scale,0.6,swirl,1.333,radius,4.8,y_offset,66.4
+_squid_tentacle;a_offset,0.8333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]]} do
+    split2d(squid_cfg,function(parent,properties)
+      add(_squid_templates[i],inherit(with_properties(properties),_ENV[parent]))
+    end)
+  end
 
   -- run game
   next_state(play_state)
@@ -1836,9 +1839,10 @@ poke;0x5f5e;0b11110110]]
     for i=#_things,1,-1 do
       local _ENV=_things[i]
       if dead then
+        _total_things-=cost or 0
+        if(reg) grid_unregister(_ENV)
         -- kill ai coroutine (if any)
         if(ai) ai.co=nil
-        -- note: assumes thing is already unregistered
         deli(_things,i)
       else
         -- common timers
