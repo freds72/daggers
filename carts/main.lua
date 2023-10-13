@@ -1,7 +1,7 @@
 -- global arrays
 local _bsp,_things,_futures,_spiders,_cam,_grid,_entities={},{},{},{}
 -- must be globals
-_spawn_angle,_spawn_origin=0,split"512,0,512"
+_fire_ttl,_spawn_angle,_spawn_origin=3,0,split"512,0,512"
 local _G,_slow_mo,_hw_pal,_ramp_pal=_ENV,0,0,0x8180
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
@@ -156,8 +156,9 @@ end
 
 -- removes thing from the collision grid
 function grid_unregister(_ENV,not_dead)
-  -- flag as inactive
-  if(not not_dead) dead=true
+  -- flag as inactive + free a spawn slot
+  if(not not_dead) dead=true _total_things-=cost or 0
+
   for idx,cell in pairs(cells) do
     cell.things[_ENV],cells[idx]=nil
   end  
@@ -588,28 +589,28 @@ poke;0x5f00;0x00]]
     local thing=item.thing
     local hit_ttl,pal1=thing.hit_ttl
     if hit_ttl and hit_ttl>0 then
-      pal1=min(2*hit_ttl,8)-8
+      pal1=min(hit_ttl<<1,8)-8
     else
-      local light=thing.light_t and min(1,(time()-thing.light_t)/0.15) or 1
+      local light=thing.light_t and min(1,time()-thing.light_t) or 1
       pal1=(light*min(15,item.key<<4))\1
     end    
     if(pal0!=pal1) memcpy(0x5f00,_ramp_pal+(pal1<<4),16) palt(15,true) pal0=pal1   
-      -- draw things
-      local w0,entity,origin=item.key,thing.ent,thing.origin
-      -- zangle (horizontal)
-      local dx,dz,yangles,side,flip=cx-origin[1],cz-origin[3],entity.yangles,0
-      local zangle=atan2(dx,-dz)
-      if yangles!=0 then
-        local step=1/(yangles<<1)
-        side=((zangle-thing.zangle+0.5+step/2)&0x0.ffff)\step
-        if(side>yangles) side=yangles-(side%yangles) flip=true
-      end
+    -- draw things
+    local w0,entity,origin=item.key,thing.ent,thing.origin
+    -- zangle (horizontal)
+    local dx,dz,yangles,side,flip=cx-origin[1],cz-origin[3],entity.yangles,0
+    local zangle=atan2(dx,-dz)
+    if yangles!=0 then
+      local step=1/(yangles<<1)
+      side=((zangle-thing.zangle+0.5+step/2)&0x0.ffff)\step
+      if(side>yangles) side=yangles-(side%yangles) flip=true
+    end
 
-      -- up/down angle
-      local zangles,yside=entity.zangles,0
-      if zangles!=0 then
-        local yangle,step=thing.yangle or 0,1/(zangles<<1)
-        yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
+    -- up/down angle
+    local zangles,yside=entity.zangles,0
+    if zangles!=0 then
+      local yangle,step=thing.yangle or 0,1/(zangles<<1)
+      yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
       if(yside>zangles) yside=zangles-(yside%zangles)
     end
     -- copy to spr
@@ -629,7 +630,7 @@ poke;0x5f00;0x00]]
     local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
     --
     sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip) 
-    -- if(thing.radius) circ(item.x,item.y,item.key*thing.radius,9) print(thing.hp,item.x,item.y-item.key*32,8)
+    --if(thing.radius) circ(item.x,item.y,item.key*thing.radius,9) print(thing.hp,item.x,item.y-item.key*32,8)
   end
 end
 
@@ -660,9 +661,9 @@ function make_particle(template,_origin,_velocity)
           -- write on playground
           if stain and rebound==0 then
             -- don't drop blood each time
-            if rnd()>0.5 then
-            -- convert coords into map space
-            local sx,sy=origin[1]/3-0x6a.aaaa,origin[3]/3-0x6a.aaaa
+            if rnd()>0.33 then
+              -- convert coords into map space
+              local sx,sy=origin[1]/3-0x6a.aaaa,origin[3]/3-0x6a.aaaa
               pset(sx,sy,stain)
             end
             dead=true
@@ -687,6 +688,8 @@ end
 -- spiderling
 -- egg
 function make_skull(_ENV,_origin)
+  reserve_async(_ENV.cost)
+
   local thing=add(_things,inherit({
     origin=_origin,
     resolved={},
@@ -694,8 +697,6 @@ function make_skull(_ENV,_origin)
     wobble=lerp(wobble0,wobble1,rnd()),
     -- grid cells
     cells={}
-    -- perf test
-    -- yangle=rnd()
   },_ENV))
 
   -- custom init function?
@@ -714,14 +715,17 @@ function make_spider()
   local spawn_angle=_spawn_angle
   add(_things,inherit({
     origin=v_clone(_spawn_origin),
-    zangle=_spawn_angle,
+    zangle=spawn_angle,
     light_t=time(),
     hit=function(_ENV,pos)
       if(dead) return
       hp-=1
       hit_ttl=5
-      if hp<0 then
-        make_goo(origin)
+      if hp<=0 then
+        for i=1,8 do
+          local vel=vector_in_cone(0,0,1)
+          make_goo(v_add(origin,vel,rnd"3"),v_scale(vel,1+rnd"2"))
+        end
         -- unregister
         grid_unregister(_ENV)
         _spiders[_ENV]=nil
@@ -758,11 +762,8 @@ end
 -- squid
 -- type 1: 3 blocks
 -- type 2: 4 blocks
-function make_squid(type)
-  -- wait for a free slot
-  reserve_async(select(type,5,5,10))
-
-  local _origin,_velocity,_dx,_dz,_angle,_dead=v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
+function make_squid(size)
+  local _spawns,_origin,_velocity,_dx,_dz,_angle,_dead=select(size,4,4,8),v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
   -- spill skulls every x seconds
   local spill=do_async(function()
     wait_async(90)
@@ -772,9 +773,8 @@ function make_squid(type)
     end
     while true do
       -- don't spawn while outside
-      if _dx<256 and _dz<256 then
-        reserve_async(5)
-        for i=1,select(type,4,4,8) do
+      if _dx<220 and _dz<220 then
+        for i=1,_spawns do
           make_skull_async(_skull1_template)
         end
         make_skull_async(_skull2_template)
@@ -796,11 +796,11 @@ function make_squid(type)
     post_think=function(_ENV)
       _origin,_dx,_dz=origin,abs(origin[1]-512),abs(origin[3]-512)
       -- remove squid if out of sight
-      if(_dx>400 or _dz>400) _dead=true
+      if(_dx>300 or _dz>300) _dead=true
     end
   },_squid_core),_origin)
 
-  split2d(select(type,
+  split2d(select(size,
 -- type 1 (1 jewel)
 [[_squid_jewel;a_offset,0.0,cost,5
 _squid_hood;a_offset,0.3333
@@ -873,18 +873,19 @@ _squid_tentacle;a_offset,0.8333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]]),
     add(_things,inherit(with_properties(properties,{
       light_t=time(),
       hit=function(_ENV,pos,bullet) 
-        if jewel==1 then
+        if jewel then
           hp-=1
           hit_ttl=5
           -- feedback
           make_particle(_lgib_template,pos,{u,-3*bullet.velocity[2],v})
           sfx"56"
           if hp<=0 then
+            make_jewel(origin,{u,3,v},16)
             -- change appearance + avoid reentrancy (jewel can't be null!!)
-            ent,jewel=_entities.squid2,2
-            if(type==1) _dead=true
+            ent,jewel=_entities.squid2,false
+            if(size==1) _dead=true
             -- "downgrade" squid!!
-            type-=1
+            size-=1
           end
         end
       end,
@@ -894,7 +895,6 @@ _squid_tentacle;a_offset,0.8333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]]),
           make_blood(origin) 
           grid_unregister(_ENV)
           sfx"39"
-          _total_things-=cost or 0
         end
         zangle=_angle+a_offset
         -- store u/v angle
@@ -914,26 +914,10 @@ _squid_tentacle;a_offset,0.8333,scale,0.4,swirl,2.0,radius,3.2,y_offset,71.2]]),
 end
 
 -- centipede
-function make_worm()  
-  reserve_async(10)
+function make_worm(type)  
 
-  local _origin,t_offset,seg_delta,segments,prev_angles,prev,head=v_clone(_spawn_origin),rnd(),4,{},{},{}
-
-  for i=1,20 do
-    add(segments,add(_things,inherit({
-      hit=function(_ENV,pos,bullet)
-        -- tail? (no jewels)
-        if(not jewel) return
-        -- avoid reentrancy
-        if(touched) return
-        make_blood(pos,v_add(bullet.velocity,head.velocity))
-        make_jewel(origin,head.velocity)
-        -- change sprite (no jewels)
-        touched,ent,hit_ttl=true,_entities.worm2,5
-        sfx"56"
-      end
-    },_ENV["_worm_seg_template"..i] or _worm_seg_template)))
-  end
+  local head_template,_origin,segments,prev_angles,prev,head=_ENV["_worm_head_"..type],v_clone(_spawn_origin),{},{},{}  
+  local templates=split(head_template.templates,"|")
 
   local function make_dirt(_ENV)
     make_blood(v_add(origin,{1-rnd(),1,1-rnd()},8),{0,3*rnd(),0})
@@ -954,6 +938,26 @@ function make_worm()
       end)
     end,
     init=function(_ENV)
+      -- create segments
+      for id in all(templates) do
+        add(segments,add(_things,inherit({
+          hit=function(_ENV,pos,bullet)
+            -- tail? (no jewels)
+            if(not jewel) return
+            -- avoid reentrancy
+            if(touched) return
+            hp-=1
+            hit_ttl=5
+            if hp<=0 then
+              make_blood(pos,v_add(bullet.velocity,head.velocity))
+              make_jewel(origin,head.velocity)
+              -- change sprite (no jewels)
+              touched,ent,hit_ttl=true,_entities.worm2,5
+              sfx"56"
+            end
+          end},_ENV["_worm_seg_"..type..id])))
+      end
+
       ai=do_async(function()
         target=v_clone(_origin,96)
         wait_async(60)
@@ -973,7 +977,6 @@ function make_worm()
         -- go away
         ground_limit,target=-64,v_clone(_plyr.eye_pos,-96)
         wait_async(90)
-        _total_things-=10
         -- wait until all segments are underground
         while true do
           for _ENV in all(segments) do
@@ -1005,18 +1008,18 @@ function make_worm()
       end
       prev_y=curr_y
       add(prev,{v_clone(origin),zangle,yangle,dirt},1)
-      if(#prev>20*seg_delta) deli(prev)
-      for i=1,#prev,seg_delta do
-        local _ENV,dirt=segments[i\seg_delta+1]
+      if(#prev>#templates*4) deli(prev)
+      for i=1,#prev,4 do
+        local _ENV,dirt=segments[i\4+1]
         -- can happen when centipede is dying
         if _ENV then
           origin,zangle,yangle,dirt=unpack(prev[i])
-          grid_register(_ENV)          
+          grid_register(_ENV)
           if(dirt) make_dirt(_ENV)
         end
       end
     end
-  },_worm_head_template),_origin)
+  },head_template),_origin)
 end
 
 function make_jewel(_origin,_velocity)
@@ -1077,8 +1080,8 @@ end
 
 function make_egg(_origin,_velocity)
   -- spider spawn time
-  local ttl=300+rnd"10"
-  make_skull(inherit({
+  local ttl,egg=300+rnd"10"
+  egg=make_skull(inherit({
     think=function(_ENV)
       -- gravity
       _velocity[2]-=0.8
@@ -1087,29 +1090,36 @@ function make_egg(_origin,_velocity)
       _velocity[3]=0
     end,
     post_think=function(_ENV)
+      if(hatching) return
       ttl-=1
       if ttl<0 then
-        sfx"51"
-        grid_unregister(_ENV)
-        for i=1,2+rnd"2" do
-          local a=rnd()
-          make_goo(origin,{cos(a),rnd(5),sin(a)})
-        end
+        hatching=true
         -- spiderling
-        make_skull(inherit({
-          think=function(_ENV)
-            -- navigate to target (direct)
-            local dir=v_dir(origin,_plyr.origin)
-            forces=v_add(forces,dir,8)
-            -- ensure spiderlings don't walk on air!
-            local avoid,avoid_dist=v_dir(origin,{512,0,512})
-            if avoid_dist>96 then
-              forces=v_add(forces,avoid,8*avoid_dist/96)
+        ai=do_async(function()
+          make_skull(inherit({
+            init=function()
+              -- kill egg
+              local _ENV=egg
+              sfx"51"
+              grid_unregister(_ENV)
+              for i=1,2+rnd"2" do
+                local a=rnd()
+                make_goo(origin,{cos(a),rnd"5",sin(a)})
+              end
+            end,
+            think=function(_ENV)
+              -- navigate to target (direct)
+              local dir=v_dir(origin,_plyr.origin)
+              forces=v_add(forces,dir,8)
+              -- ensure spiderlings don't walk on air!
+              local avoid,avoid_dist=v_dir(origin,{512,0,512})
+              if avoid_dist>96 then
+                forces=v_add(forces,avoid,avoid_dist*0.0833)
+              end
+              origin[2]=ground_limit
             end
-            forces[2]=0
-          end
-        },_spiderling_template),origin)
-        return
+          },_spiderling_template),origin)
+        end)
       end
     end
   },_egg_template),_origin)
@@ -1228,8 +1238,8 @@ set;_total_hits;0]]
       draw_world()   
 
       -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
-      -- local s=_total_things.."/60 ⧗:".._time_penalty.."S"
-      -- print(s,64-print(s,0,128)/2,2,7)
+      local s=_total_things.."/60 ⧗:".._time_penalty.."S"
+      print(s,64-print(s,0,128)/2,2,7)
 
       if _show_timer then
         local t=((time()-_start_time)\0.1)/10
@@ -1637,8 +1647,6 @@ tline;17]]
       hit_ttl=5
       if hp<=0 then
         grid_unregister(_ENV)  
-        -- free a spawn slot
-        _total_things-=cost or 0
         -- custom death function?
         if die then
           die(_ENV)
@@ -1749,12 +1757,22 @@ _gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_t
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
 _goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0,rebound,-1
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
-_skull_template;wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template;_skull_core
+_skull_template;wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template,cost,1;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
-_worm_seg_template;ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.5,jewel,1
-_worm_seg_template19;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2,s_radius,7
-_worm_seg_template20;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8,s_radius,4
-_worm_head_template;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,10,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5;_skull_template
+_worm_seg_normal0;ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.5,jewel,1,hp,5
+_worm_seg_mega0;ent,worm1,s_radius,10,radius,16,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.7,jewel,1,hp,10
+_worm_seg_giga0;ent,worm1,s_radius,11,radius,20,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.9,jewel,1,hp,30
+_worm_seg_tail1;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2,s_radius,7
+_worm_seg_tail2;ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8,s_radius,4
+_worm_seg_normal1;;_worm_seg_tail1
+_worm_seg_mega1;;_worm_seg_tail1
+_worm_seg_giga1;;_worm_seg_tail1
+_worm_seg_normal2;;_worm_seg_tail2
+_worm_seg_mega2;;_worm_seg_tail2
+_worm_seg_giga2;;_worm_seg_tail2
+_worm_head_normal;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,50,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
+_worm_head_mega;wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_radius,14,radius,20,scale,1.2,hp,200,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
+_worm_head_giga;wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_radius,16,radius,22,scale,1.5,hp,400,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _jewel_template;ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
 _spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,s_radius,18,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
@@ -1762,8 +1780,8 @@ _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAIL
 _squid_jewel;jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
 _squid_tentacle;ent,tentacle0,origin,v_zero,zangle,0,is_tentacle,1,shadeless,1,r_offset,12
 _skull_base_template;;_skull_template
-_skull1_template;ent,skull,radius,8,hp,2,cost,1,obituary,sKULLED,target_yangle,0.1;_skull_base_template
-_skull2_template;ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,cost,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
+_skull1_template;ent,skull,radius,8,hp,2,obituary,sKULLED,target_yangle,0.1;_skull_base_template
+_skull2_template;ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
 _spider_template;ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
