@@ -1150,10 +1150,16 @@ set;_total_hits;0]]
       --print(s,64-print(s,0,128)/2,2,7)
 
       if _show_timer then
-        local t=((time()-_start_time)\0.1)/10
+        local t,c=((time()-_start_time-_time_penalty)\0.1)/10,2
+        if _time_wait then
+          if(not _actual_time) _actual_time=t
+          t,c=_actual_time,0
+        else
+          _actual_time=nil
+        end
         if(t&0x0.ffff==0) t..=".0"
-        t..="S"
-        arizona_print(t,64-print(t,0,128)/2,1,2)
+        t..="S"        
+        arizona_print(t,64-print(t,0,128)/2,1,c)
       end
 
       -- hw palette
