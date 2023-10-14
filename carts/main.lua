@@ -67,9 +67,6 @@ function wait_jewels(n)
 end
 
 function levelup_async(t)
-  sfx"-1"
-  music"44"
-
   -- 30 frames at 1/8 steps
   for j=0.125,t<<2,0.125 do
     _ramp_pal=0x8280+((j*j)&15)*16
@@ -408,7 +405,7 @@ end
 
 local _checked=0
 function vector_in_cone(zangle,yangle,spread)
-  local zangle,yangle=0.25-zangle+(1-rnd"2")*spread,yangle+(1-rnd"2")*spread
+  local zangle,yangle=0.25-zangle+rrnd(spread),yangle+rrnd(spread)
   local u,v,s=cos(zangle),-sin(zangle),cos(yangle)
   return {s*u,sin(yangle),s*v},u,v,sgn(s),zangle,yangle
 end
@@ -691,7 +688,7 @@ end
 function make_spider()
   local spawn_angle=_spawn_angle
   add(_things,inherit({
-    origin=v_clone(_spawn_origin),
+    origin=v_clone(_spawn_origin,48),
     zangle=spawn_angle,
     light_t=time(),
     hit=function(_ENV,pos)
@@ -718,8 +715,8 @@ function make_spider()
             do_async(function()
               wait_async(10)
               -- spit an egg
-              local angle,force=spawn_angle+rnd"0.02"-0.01,8+rnd"4"
-              make_egg(v_clone(origin),{-force*cos(angle),force*rnd(),force*sin(angle)})
+              local angle,force=spawn_angle+rrnd"0.05",12+rnd"8"
+              make_egg(v_clone(origin),{-force*cos(angle),rnd"5",force*sin(angle)})
               wait_async(20)
             end)
           end
@@ -739,7 +736,7 @@ end
 -- type 1: 3 blocks
 -- type 2: 4 blocks
 function make_squid(type)
-  local _spawns,_origin,_velocity,_dx,_dz,_angle,_dead=select(type,4,4,8),v_clone(_spawn_origin),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
+  local _spawns,_origin,_velocity,_dx,_dz,_angle,_dead=select(type,4,4,8),v_clone(_spawn_origin,0),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
   local function make_skull_async(template)
     make_skull(template,{_origin[1],64+rnd"16",_origin[3]})
     wait_async(2,2)
@@ -826,11 +823,13 @@ end
 -- centipede
 function make_worm(type)  
 
-  local head_template,_origin,segments,prev_angles,prev,head=_ENV["_worm_head_"..type],v_clone(_spawn_origin),{},{},{}  
+  local head_template,_origin,segments,prev_angles,prev,head=_ENV["_worm_head_"..type],v_clone(_spawn_origin,-64),{},{},{}  
   local templates=split(head_template.templates,"|")
 
   local function make_dirt(_ENV)
-    make_blood(v_add(origin,{1-rnd(),1,1-rnd()},8),{0,3*rnd(),0})
+    for i=1,3+rnd"3" do
+      make_blood(v_add(origin,{rrnd"16",1,rrnd"16"}),{0,rnd"3",0})
+    end
   end
 
   head=make_skull(inherit({
@@ -862,7 +861,7 @@ function make_worm(type)
               make_blood(pos,v_add(bullet.velocity,head.velocity))
               make_jewel(origin,head.velocity)
               -- change sprite (no jewels)
-              touched,ent,hit_ttl=true,_entities.worm2,5
+              touched,ent=true,_entities.worm2
               sfx"56"
             end
           end},_ENV["_worm_seg_"..type..id])))
@@ -1098,8 +1097,8 @@ end
 -- script commands
 function random_spawn_angle() _spawn_angle=rnd() end
 function inc_spawn_angle(inc) _spawn_angle+=lerp(inc-0.05,inc+0.05,rnd()) end
-function set_spawn(dist,height)       
-  _spawn_origin=v_rnd(512,height or 0,512,dist,_spawn_angle)
+function set_spawn(dist)       
+  _spawn_origin=v_rnd(512,0,512,dist,_spawn_angle)
 end
 
 -- gameplay state
@@ -1146,9 +1145,9 @@ set;_total_hits;0]]
     function()
       draw_world()   
 
-      -- print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
-      -- local s=_total_things.."/60 ⧗:".._time_penalty.."S"
-      -- print(s,64-print(s,0,128)/2,2,7)
+      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      --local s=_total_things.."/60 ⧗:".._time_penalty.."S"
+      --print(s,64-print(s,0,128)/2,2,7)
 
       if _show_timer then
         local t=((time()-_start_time)\0.1)/10
@@ -1182,6 +1181,8 @@ set;_piercing;0
 wait_jewels;10
 set;_shotgun_count;20
 set;_shotgun_spread;0.030
+sfx;-1
+music;44
 levelup_async;3
 //;level 2
 wait_jewels;70
@@ -1189,12 +1190,17 @@ set;_fire_ttl;2
 set;_shotgun_count;30
 set;_shotgun_spread;0.033
 set;_piercing;1
+sfx;-1
+music;44
 levelup_async;5
 //;level 3
 wait_jewels;150
 set;_shotgun_count;40
 set;_shotgun_spread;0.037
-set;_piercing;2]]
+set;_piercing;2
+sfx;-1
+music;44
+levelup_async;7]]
     end)
 
     do_async(function()
@@ -1403,14 +1409,6 @@ tline;17]]
     end    
     _local_best_t=_local_scores[1][1]
   end
-
-  -- exit menu entry
-  menuitem(1,"main menu",function()
-    -- local version
-    load"freds72_daggers_title.p8"
-    -- bbs version
-    load"#freds72_daggers_title"
-  end)
 
   menuitem(2,"timer on/off",function()
     _show_timer=not _show_timer
