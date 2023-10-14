@@ -829,6 +829,7 @@ poke;0x5f36;0x18
 poke;0x5f2d;0x7
 poke;0x5f54;0x00;0x60
 _map_display;0
+reload
 cartdata;freds72_daggers]]
 
   --decompress audio payloads and save to lua ram
