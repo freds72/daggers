@@ -16,6 +16,11 @@ function shortest_angle(target,angle)
 	return angle
 end
 
+-- ranged random
+local function rrnd(spread)
+	return spread*(1-rnd"2")
+end
+ 
 -- 2d vector
 function v_zero() return {0,0,0} end
 
@@ -81,16 +86,14 @@ local function v_dir(a,b)
 end 
 
 -- matrix functions
-local function make_m_from_euler(x,y,z)
+local function make_m_from_euler(x,y)
 	local a,b = cos(x),-sin(x)
 	local c,d = cos(y),-sin(y)
-	local e,f = cos(z),-sin(z)
   
     -- yxz order
-  local ce,cf,de,df=c*e,c*f,d*e,d*f
 	return {
-	  ce+df*b,a*f,cf*b-de,0,
-	  de*b-cf,a*e,df+ce*b,0,
+	  c,0,-d,0,
+	  d*b,a,c*b,0,
 	  a*d,-b,a*c,0,
 	  0,0,0,1}
 end
