@@ -1843,7 +1843,7 @@ poke;0x5f5e;0b11110110]]
     for i=#_things,1,-1 do
       local _ENV=_things[i]
       if dead then
-        _total_things-=cost or 0
+        if(cost) _total_things=max(_total_things-cost)
         if(reg) grid_unregister(_ENV)
         -- kill ai coroutine (if any)
         if(ai) ai.co=nil
