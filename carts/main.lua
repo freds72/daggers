@@ -564,9 +564,8 @@ poke;0x5f00;0x00]]
     local hit_ttl,pal1=thing.hit_ttl
     if hit_ttl and hit_ttl>0 then
       pal1=min(hit_ttl<<1,8)-8
-    else
-      local light=thing.light_t and min(1,time()-thing.light_t) or 1
-      pal1=(light*min(15,item.key<<4))\1
+    else      
+      pal1=min(15,(item.key+(thing.bright or 0))<<4)\1
     end    
     if(pal0!=pal1) memcpy(0x5f00,_ramp_pal+(pal1<<4),16) palt(15,true) pal0=pal1   
     -- draw things
@@ -690,7 +689,6 @@ function make_spider()
   add(_things,inherit({
     origin=v_clone(_spawn_origin,48),
     zangle=spawn_angle,
-    light_t=time(),
     hit=function(_ENV,pos)
       if(dead) return
       hp-=1
@@ -763,7 +761,6 @@ function make_squid(type)
       -- squid parts
       for part_template in all(_squid_templates[type]) do
         add(_things,inherit({
-          light_t=time(),
           hit=function(_ENV,pos,bullet) 
             if jewel then
               hp-=1
@@ -943,7 +940,9 @@ function make_jewel(_origin,_velocity)
       sfx"57"      
     end,
     update=function(_ENV)
-      ttl-=1      
+      ttl-=1
+      -- visible from distance
+      bright=0.8*abs(cos(time()/2))
       -- blink when going to disapear
       if ttl<30 then
         no_render=(ttl%4)<2
