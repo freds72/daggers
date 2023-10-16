@@ -24,5 +24,6 @@ __pycache__/
 *.swp
 *.swo
 /.venv
+*.blend1
 
 

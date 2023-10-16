@@ -917,7 +917,7 @@ function make_worm(type)
       prev_y=curr_y
       add(prev,{v_clone(origin),zangle,yangle,dirt},1)
       if(#prev>#templates*4) deli(prev)
-      for i=1,#prev,4 do
+      for i=3,#prev,4 do
         local _ENV,dirt=segments[i\4+1]
         -- can happen when centipede is dying
         if _ENV then
@@ -1590,7 +1590,6 @@ tline;17]]
     end,
     -- default think
     think=function(_ENV)
-      yangle=lerp(yangle,target_yangle,0.4)
       -- converge toward player
       if target then
         -- add some lag to the tracking
@@ -1600,7 +1599,7 @@ tline;17]]
         forces[2]+=wobble*cos(time()/seed-seed)-wobble/8
       end
       -- move head up/down
-      yangle-=mid(forces[2]/(2*seed),-0.25,0.25)      
+      yangle=lerp(yangle,-mid(velocity[2]/seed,-0.25,0.25),0.1)
     end,
     update=function(_ENV)
       -- some friction
@@ -1670,7 +1669,7 @@ _gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_t
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
 _goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0,rebound,-1
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
-_skull_template;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,0,gibs,-1,@gib,_gib_template,@lgib,_lgib_template,cost,1;_skull_core
+_skull_template;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,-0.1,gibs,-1,@gib,_gib_template,@lgib,_lgib_template,cost,1;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
 _worm_seg_normal0;reg,1,ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.5,jewel,1,hp,5
 _worm_seg_mega0;reg,1,ent,worm1,s_radius,10,radius,16,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.7,jewel,1,hp,10
