@@ -4,6 +4,9 @@ import subprocess
 from subprocess import Popen, PIPE
 from python2pico import minify_file
 
+def run_cart(args):
+  subprocess.run(args, stdout=PIPE, stderr=PIPE, check=True)
+
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("--pico", required=True, type=str, help="path to pico binary")  
@@ -37,8 +40,12 @@ def main():
         dst.write("\n".join(cart))
 
   print("BINARY EXPORTS")
-  print("open freds72_daggers_title_mini.p8 in pico. Execute: ")
-  print(f"export daggers_{args.release}.html -f index.html freds72_daggers_mini.p8 freds72_daggers_editor.p8")
+  # refresh data assets
+  run_cart([os.path.join(args.pico,"pico8"),"-home",".","-x","carts/freds72_daggers_assets.p8"])
+
+  print("Manual steps: ")
+  print("load freds72_daggers_title_mini.p8")
+  print(f"export daggers_{args.release}.html -p fps.html freds72_daggers_mini.p8 freds72_daggers_editor.p8")
 
   print("BBS EXPORTS")
   try:
@@ -46,8 +53,8 @@ def main():
   except FileExistsError:
     pass
   for game_file in game_files:
-    subprocess.run([os.path.join(args.pico,"pico8"),"-home",".",f"carts/{game_file}_mini.p8","-export",f"carts/{args.release}/{game_file}_mini.p8.png"], stdout=PIPE, stderr=PIPE, check=True)
-  subprocess.run([os.path.join(args.pico,"pico8"),"-home",".",f"carts/freds72_daggers_editor.p8","-export",f"carts/{args.release}/freds72_daggers_editor.p8.png"], stdout=PIPE, stderr=PIPE, check=True)
+    run_cart([os.path.join(args.pico,"pico8"),"-home",".",f"carts/{game_file}_mini.p8","-export",f"carts/{args.release}/{game_file}_mini.p8.png"])
+  run_cart([os.path.join(args.pico,"pico8"),"-home",".",f"carts/freds72_daggers_editor.p8","-export",f"carts/{args.release}/freds72_daggers_editor.p8.png"])
 
 if __name__ == '__main__':
   main()
