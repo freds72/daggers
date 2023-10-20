@@ -1,6 +1,7 @@
 ﻿<html><head>
 <title>PICO-8 Cartridge</title>
 <meta name="viewport" content="width=device-width, user-scalable=no">
+<link rel="icon" type="image/png" sizes="16x16" href="##label_file##"/>
 <script type="text/javascript">
 
 	// Default shell for PICO-8 0.2.2 (includes @weeble's gamepad mod 1.0)
@@ -632,7 +633,7 @@
 
 		}
 		e.type = "application/javascript";
-		e.src = "daggers_alpha4.js";
+		e.src = "##js_file##";
 		e.id = "e_script";
 		
 		document.body.appendChild(e); // load and run
@@ -982,7 +983,7 @@ canvas{
 
 .p8_start_button{
 	cursor:pointer;
-	background:url("data:image/png;base64,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");
+	background:url("##label_file##");
 	-repeat center;
 	-webkit-background-size:cover; -moz-background-size:cover; -o-background-size:cover; background-size:cover;
 }
