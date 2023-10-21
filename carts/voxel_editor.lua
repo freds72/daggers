@@ -27,53 +27,57 @@ local _palette={}
 local default_angles=0x88
 -- note: new entities must be added at the end
 local _entities={
-    {text="sKULL",angles=default_angles},
-    {text="rEAPER",angles=default_angles},
+    {id=1,text="sKULL",angles=default_angles,sort=1},
+    {id=2,text="rEAPER",angles=default_angles},
     -- animation
-    {text="bLOOD0",angles=0},
-    {text="bLOOD1",angles=0},
-    {text="bLOOD2",angles=0},
-    {text="dAGGER0",angles=default_angles},
-    {text="dAGGER1",angles=default_angles},
-    {text="dAGGER2",angles=0x08},
-    -- resting hand
-    {text="hAND0",angles=0,no_export=true},
-    {text="hAND1",angles=0x08,no_export=true},
-    {text="hAND2",angles=0x08,no_export=true},
+    {id=3,text="bLOOD0",angles=0},
+    {id=4,text="bLOOD1",angles=0},
+    {id=5,text="bLOOD2",angles=0},
+    {id=6,text="dAGGER0",angles=default_angles},
+    {id=7,text="dAGGER1",angles=default_angles},
+    {id=8,text="dAGGER2",angles=0x08,sort=2},
     -- green goo
-    {text="gOOO0",angles=0},
-    {text="gOOO1",angles=0},
-    {text="gOOO2",angles=0},
+    {id=12,text="gOOO0",angles=0},
+    {id=13,text="gOOO1",angles=0},
+    {id=14,text="gOOO2",angles=0},
     -- egg
-    {text="eGG",angles=0x44},
+    {id=15,text="eGG",angles=0x44},
     -- spider0
-    {text="sPIDERLING0",angles=default_angles},
-    {text="sPIDERLING1",angles=default_angles},
+    {id=16,text="sPIDERLING0",angles=default_angles},
+    {id=17,text="sPIDERLING1",angles=default_angles},
     -- worm head+segment
-    {text="wORM0",angles=default_angles},
-    {text="wORM1",angles=default_angles},
+    {id=18,text="wORM0",angles=default_angles},
+    {id=19,text="wORM1",angles=default_angles},
     -- jewel
-    {text="jEWEL",angles=0x44},
+    {id=20,text="jEWEL",angles=0x44},
     -- worm segment without jewel
-    {text="wORM2",angles=default_angles},
+    {id=21,text="wORM2",angles=default_angles},
     -- squid tentacles
-    {text="tENTACLE0",angles=default_angles},
-    {text="tENTACLE1",angles=default_angles,no_export=true},
+    {id=22,text="tENTACLE0",angles=default_angles},
+    {id=23,text="tENTACLE1",angles=default_angles,no_export=true},
     -- squid base
-    {text="sQUID0",angles=0x08,no_export=true},
+    {id=24,text="sQUID0",angles=0x08,no_export=true},
     -- no jewel face
-    {text="sQUID1",angles=0x08,bottom="sQUID0"},
+    {id=25,text="sQUID1",angles=0x08,bottom=24},
     -- face with jewel
-    {text="sQUID2",angles=0x08,bottom="sQUID0"},
+    {id=26,text="sQUID2",angles=0x08,bottom=24},
     -- spider "face"
-    {text="sPIDER0",angles=0x08,no_export=true},
+    {id=27,text="sPIDER0",angles=0x08,no_export=true},
     -- spider "top"
-    {text="sPIDER1",angles=0x08,bottom="sPIDER0"},
+    {id=28,text="sPIDER1",angles=0x08,bottom=27},
     -- sparks
-    {text="sPARK0",angles=0},
-    {text="sPARK1",angles=0},
-    {text="sPARK2",angles=0}
+    {id=29,text="sPARK0",angles=0},
+    {id=30,text="sPARK1",angles=0},
+    {id=31,text="sPARK2",angles=0}
 }
+-- keep some slack in case some more entities mush be pushed before
+local _entities_by_id,sort_min={},10
+for _,ent in pairs(_entities) do
+    _entities_by_id[ent.id]=ent
+    ent.sort=ent.sort or sort_min
+    sort_min+=1
+end
+
 local _current_entity
 
 -- draw cube help
@@ -788,7 +792,7 @@ function pack_archive()
     local count_mem=mem
     mem+=1
     local n=0
-    for k,ent in pairs(_entities) do
+    for k,ent in pairs(_entities_by_id) do
         if ent.data then
             -- save id
             poke(mem,k) mem+=1
@@ -799,7 +803,7 @@ function pack_archive()
             n+=1
         end
     end
-    -- number of entries
+    -- number of (actual) entries
     poke(count_mem,n)
     cstore(0x0,0x0,mem,"freds72_daggers_assets.p8")
     reload()
@@ -817,13 +821,14 @@ function unpack_archive()
     assert(version==1,"unknown/invalid version: "..version)
     mem+=2
     for i=1,n do
-        -- read string
-        local k=@mem
+        -- read entity identifier
+        local id=@mem
         mem+=1
         -- read data
         local len=peek2(mem)
         mem+=2
-        _entities[k].data=chr(peek(mem,len))
+        -- drop "obsolete" entries
+        if(_entities_by_id[id]) _entities_by_id[id].data=chr(peek(mem,len))
         mem+=len
     end    
 end
@@ -836,18 +841,16 @@ function collect_frames(ent,cb)
         {lo=0,hi=_grid_size},
         {lo=0,hi=_grid_size}}
     if ent.bottom then
-        -- find liked
-        for _,linked in pairs(_entities) do
-            if ent.bottom==linked.text and linked.data then
-                local other_grid=grid_fromstr(linked.data)
-                for idx,v in pairs(grid) do
-                    other_grid[idx+_grid_size+1]=v
-                end
-                extents[3].hi=2*_grid_size
-                ymax=63
-                grid=other_grid
-                break
+        -- find linked
+        local linked=_entities_by_id[ent.bottom]
+        if linked.data then
+            local other_grid=grid_fromstr(linked.data)
+            for idx,v in pairs(grid) do
+                other_grid[idx+_grid_size+1]=v
             end
+            extents[3].hi=2*_grid_size
+            ymax=63
+            grid=other_grid
         end
     end
     local cam=make_cam(15.5,ymax/2,16,1)
@@ -950,9 +953,9 @@ function collect_frames(ent,cb)
 end
 
 -- export entities for game engine
-function pack_entities()
+function pack_sprites()
     -- save carts
-    local mem,cart_id=0x0,0
+    local mem,cart_id,sorted_entities=0x0,0,{}
     local function pack_bytes(b,width)
         width=width or 1
         for i=0,width-1 do
@@ -965,11 +968,22 @@ function pack_entities()
             end
         end
     end
-
+    -- need number of valid entities :/
+    for ent in all(_entities) do
+        if ent.data and not ent.no_export then
+            local insert_i=#sorted_entities+1
+            -- basic insertion sort
+            for i,other_ent in inext,sorted_entities do          
+              if(other_ent.sort>ent.sort) insert_i=i break
+            end
+            -- thing offset+cam offset
+            add(sorted_entities,ent,insert_i)
+        end
+    end
     -- number of entities
-    pack_bytes(#_entities,2)
-    for i=1,#_entities do
-        local ent=_entities[i]
+    pack_bytes(#sorted_entities,2)
+    local i=0
+    for i,ent in inext,sorted_entities do
         if ent.data and not ent.no_export then
             holdframe()
             local frames,count=collect_frames(ent,function(count)
@@ -977,7 +991,7 @@ function pack_entities()
                 cls()
                 fillp()
                 rectfill(0,0,127,7,8)
-                print("gENERATING gAME aSSETS ["..flr(100*(i-1)/#_entities).."%]",1,1,7)
+                print("gENERATING gAME aSSETS ["..flr(100*(i/#sorted_entities)).."%]",1,1,7)
                 local total_frames=(ent.angles\16)+(ent.angles&0xf)
                 local x=128*count/total_frames
                 rectfill(0,9,x,10,9)
@@ -987,7 +1001,7 @@ function pack_entities()
                 holdframe()
             end)
             -- save entity identifier
-            pack_bytes(i)
+            pack_bytes(ent.id)
             -- number of z/y angles (packed in 1 byte)
             pack_bytes(ent.angles)
             -- number of frames
@@ -1006,9 +1020,7 @@ function pack_entities()
                     pack_bytes(pixels,4)
                 end
             end
-        else
-            -- "invalid entity"
-            pack_bytes(0)
+            i+=1
         end
     end
     -- any remaining data?
@@ -1059,7 +1071,7 @@ function _init()
     end
     
     if stat(6)=="generate" then
-        pack_entities()
+        pack_sprites()
         -- "commit" generation
         dset(63,0)
         load"freds72_daggers_title.p8"
@@ -1111,7 +1123,7 @@ function _init()
 
         -- objects
         local list=dialog:add(make_list(63,62,8,bounded_binding({selected=0},"selected",0,#_entities-1)),2,33,63,40)
-        for k,ent in pairs(_entities) do
+        for ent in all(_entities) do
             list:add(make_button({text=ent.text,color=2},binding(function(e)
                 -- save entity?
                 if _current_entity!=ent then
@@ -1182,7 +1194,7 @@ function _init()
         -- commit latest changes
         if(_current_entity) _current_entity.data=grid_tostr(_grid)
         -- 
-        pack_entities()
+        pack_sprites()
     end)),18,0,6)
 
     -- pen +- radius
