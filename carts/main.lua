@@ -98,7 +98,7 @@ function with_properties(props,dst)
   for i=1,#props,2 do
     local k,v=props[i],props[i+1]
     -- deference
-    if k[1]=="@" then
+    if tostr(k)[1]=="@" then
       k,v=sub(k,2,-1),_ENV[v]
     elseif k=="ent" then 
       v=_entities[v] 
@@ -1144,7 +1144,7 @@ set;_total_hits;0]]
     function()
       draw_world()   
 
-      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       --local s=_total_things.."/60 ⧗:".._time_penalty.."S"
       --print(s,64-print(s,0,128)/2,2,7)
 
@@ -1863,18 +1863,17 @@ end
 
 -- unpack assets
 function unpack_entities()
-  local entities,names={},split"skull,reaper,blood0,blood1,blood2,dagger0,dagger1,dagger2,hand0,hand1,hand2,goo0,goo1,goo2,egg,spiderling0,spiderling1,worm0,worm1,jewel,worm2,tentacle0,tentacle1,squid0,squid1,squid2,spider0,spider1,spark0,spark1,spark2"
+  local entities,names={},with_properties"1,skull,2,reaper,3,blood0,4,blood1,5,blood2,6,dagger0,7,dagger1,12,goo0,13,goo1,14,goo2,15,egg,16,spiderling0,17,spiderling1,18,worm0,19,worm1,20,jewel,21,worm2,22,tentacle0,23,tentacle1,24,squid0,25,squid1,26,squid2,27,spider0,28,spider1,29,spark0,30,spark1,31,spark2"
   unpack_array(function()
-    local id=mpeek()
-    if id!=0 then
-      local sprites,angles={},mpeek()
-      entities[names[id]]={  
-        sprites=sprites,   
-        yangles=angles&0xf,
-        zangles=angles\16,        
-        frames=unpack_frames(sprites)
-      }
-    end
+    local name,sprites,angles=names[mpeek()],{},mpeek()
+    local data={  
+      sprites=sprites,   
+      yangles=angles&0xf,
+      zangles=angles\16,        
+      frames=unpack_frames(sprites)
+    }
+    -- some entries are not needed for game
+    if(name) entities[name]=data
   end)
   return entities
 end

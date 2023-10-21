@@ -894,21 +894,16 @@ cartdata;freds72_daggers]]
     }
     -- drop array size
     for i=1,mpeek2() do
-      local id=mpeek()
-      if id!=0 then
-        local sprites,angles={},mpeek()
-        local name=names[id]
-        -- todo: rearange sprites
-        if(name=="break") break
-        local ent={  
-          sprites=sprites,   
-          yangles=angles&0xf,
-          zangles=angles\16,        
-          frames=unpack_frames(sprites)
-        }
-        if name then
-          _entities[name]=ent
-        end
+      local name,sprites,angles=names[mpeek()],{},mpeek()
+      if(name=="break") break
+      local ent={  
+        sprites=sprites,   
+        yangles=angles&0xf,
+        zangles=angles\16,        
+        frames=unpack_frames(sprites)
+      }
+      if name then
+        _entities[name]=ent
       end
     end
   end)
