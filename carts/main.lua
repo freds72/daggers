@@ -1144,7 +1144,7 @@ set;_total_hits;0]]
     function()
       draw_world()   
 
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       --local s=_total_things.."/60 ⧗:".._time_penalty.."S"
       --print(s,64-print(s,0,128)/2,2,7)
 
@@ -1156,7 +1156,7 @@ set;_total_hits;0]]
         else
           _actual_time=nil
         end
-        if(t&0x0.ffff==0) t..=".0"
+        if(t\1==t) t..=".0"
         t..="S"        
         arizona_print(t,64-print(t,0,128)/2,1,c)
       end
