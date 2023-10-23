@@ -39,8 +39,8 @@ in main.lua:
       })
       while true do
         for i=-4,5 do
-          --local s=make_skull(_skull1_template,{512+8*i,rnd"24",512+200})
-          --s.min_velocity=0.8
+          local s=make_skull(_skull1_template,{512+8*i,rnd"24",512+200})
+          s.min_velocity=0.8
           wait_async(5)
         end
         wait_async(10)

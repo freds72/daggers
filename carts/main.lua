@@ -1209,22 +1209,22 @@ levelup_async;7]]
     end)
 
     do_async(function()
-        -- skull 1+2 circle around player
-        while not _plyr.dead do      
-          local x,y,z=unpack(_plyr.origin)
-          _skull_base_template.target=v_rnd(x,y+10+rnd"4",z,24*cos(time()/8))
-          wait_async(10,5)
-        end
+      -- skull 1+2 circle around player
+      while not _plyr.dead do      
+        local x,y,z=unpack(_plyr.origin)
+        _skull_base_template.target=v_rnd(x,y+10+rnd"4",z,24*cos(time()/8))
+        wait_async(10,5)
+      end
 
-        -- if player dead, find a random spot on map
-        -- stop creating monsters
-        scenario.co=nil
-        while true do
-          _skull_base_template.target=v_rnd(512,12+rnd"64",512,64)
-          wait_async(45,15)
-        end
-      end)
-    end   
+      -- if player dead, find a random spot on map
+      -- stop creating monsters
+      scenario.co=nil
+      while true do
+        _skull_base_template.target=v_rnd(512,12+rnd"64",512,64)
+        wait_async(45,15)
+      end
+    end)
+  end
 end
 
 function gameover_state(obituary,height,height_attract)  
@@ -1582,7 +1582,7 @@ tline;17]]
     apply=function(_ENV,other,force,t)
       if not apply_filter or other[apply_filter] then
         forces[1]+=t*force[1]
-        forces[2]+=2*t*force[2]
+        forces[2]+=t*force[2]
         forces[3]+=t*force[3]
       end
       resolved[other]=true
@@ -1615,16 +1615,17 @@ tline;17]]
         for other in pairs(_grid[idx].things) do
           -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
-            local avoid,avoid_dist=v_dir(origin,other.origin)
-            if(avoid_dist<4) avoid_dist=1
-            -- 4: good separation
-            local t=-4/avoid_dist
-            local t_self=other.radius*t 
-            fx+=t_self*avoid[1]
-            fy+=2*t_self*avoid[2]
-            fz+=t_self*avoid[3]
-            
-            other:apply(_ENV,avoid,-t*radius)
+            local other_radius,avoid,avoid_dist=other.radius,v_dir(origin,other.origin)
+            local r=(radius+other_radius)<<1
+            if avoid_dist<r then
+              local t=-64/(1+avoid_dist)
+              local t_self=t*other_radius/radius
+              fx+=t_self*avoid[1]
+              fy+=t_self*avoid[2]
+              fz+=t_self*avoid[3]
+              
+              other:apply(_ENV,avoid,-t*radius/other_radius)
+            end
             resolved[other]=true
           end
         end
