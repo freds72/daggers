@@ -1686,7 +1686,7 @@ _worm_head_normal;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,rad
 _worm_head_mega;wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_radius,14,radius,20,scale,1.2,hp,200,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _worm_head_giga;wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_radius,16,radius,22,scale,1.5,hp,400,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _jewel_template;reg,1,ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
-_spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
+_spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,s_radius,18,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
 _squid_jewel;reg,1,jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
