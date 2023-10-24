@@ -51,7 +51,7 @@ load("./packer.p8")
 --49: shot1
 --50: eggbounce
 --51: eggburst, killcentipede
---52: killskull1
+--52: killskull1, killspider
 --53: killspiderling
 --54: killcentipede
 --55: killcentipede

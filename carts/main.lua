@@ -700,6 +700,7 @@ function make_spider()
         end
         -- unregister
         dead,_spiders[_ENV]=true
+        sfx"52"
       end
     end,
     update=function(_ENV)
