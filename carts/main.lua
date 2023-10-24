@@ -341,7 +341,7 @@ function make_player(_origin,_a)
       for i=46,49 do
         local cur_sfx = stat(i)
 
-        if cur_sfx>24 then
+        if cur_sfx>28 then
           --reduce available channels
           _chattermax-=1
         elseif cur_sfx>7 then
@@ -379,7 +379,7 @@ function make_player(_origin,_a)
           z0-=1
         end
 
-        if(_ambient) sfx"24"
+        if(_ambient) sfx"28"
       end
 ::end_noise::
 
