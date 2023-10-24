@@ -844,7 +844,7 @@ cartdata;freds72_daggers]]
   --loop dampen levels
   for damp = 0, 2 do
     --dampened chatter bank destination address
-    local addr = 0xf340 + 0x440 * damp
+    local addr = 0xf010 + 0x550 * damp
 
     --dump chatter sfx bank
     audio_load("chatter", addr)

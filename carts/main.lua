@@ -363,8 +363,8 @@ function make_player(_origin,_a)
                 local variant=chatter_id+flr(rnd"4")
                 local offset=variant*68
 
-                --copy dampened sfx, start at 0xf340-0x220 to offset sfx 0-7
-                memcpy(0x3200+offset, 0xf120+0x440*(dist-1)+offset, 68)
+                --copy dampened sfx, start at 0xf010-0x220 to offset sfx 0-7
+                memcpy(0x3200+offset, 0xedf0+0x550*(dist-1)+offset, 68)
                 sfx(variant)
 
                 _ambient,_chatter[chatter_id]=false,true

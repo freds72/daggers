@@ -9,10 +9,10 @@ daggers.p8
 --------
 title.p8
 --------
-0x2000-0x240c: px9 - sfx - chatter (packer.p8)
-0x240d-0x2708: px9 - sfx - daggercollect (packer.p8)
-0x2709-0x2c5d: px9 - sfx - musicii (packer.p8)
-0x2c5e-0x38ee: px9 - sfx - musiciii (packer.p8)
+0x2000-0x242c: px9 - sfx - chatter (packer.p8)
+0x242d-0x2728: px9 - sfx - daggercollect (packer.p8)
+0x2729-0x2c7d: px9 - sfx - musicii (packer.p8)
+0x2c7e-0x390e: px9 - sfx - musiciii (packer.p8)
 
 --------
 runtime
@@ -30,7 +30,7 @@ runtime
  
 0x4300-0x43ff - radix sort
 
-0xf340-0xf77f: sfx - chatter damp 0 (title.lua)
-0xf780-0xfbbf: sfx - chatter damp 1 (title.lua)
-0xfbc0-0xffff: sfx - chatter damp 2 (title.lua)
+0xf010-0xf55f: sfx - chatter damp 0 (title.lua)
+0xf560-0xfaaf: sfx - chatter damp 1 (title.lua)
+0xfab0-0xffff: sfx - chatter damp 2 (title.lua)
 
