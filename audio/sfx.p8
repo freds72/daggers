@@ -22,10 +22,10 @@ load("./packer.p8")
 --13: chatterskull2
 --14: chatterskull3
 --15: chatterskull4
---16: chatterspider
---17: chatterspider2
---18: chatterspider3
---19: chatterspider4
+--16: chatterspiderling
+--17: chatterspiderling2
+--18: chatterspiderling3
+--19: chatterspiderling4
 --20: chattercentipede
 --21: chattercentipede2
 --22: chattercentipede3
