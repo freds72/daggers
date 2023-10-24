@@ -728,6 +728,7 @@ function make_spider()
       _spiders[_ENV]=origin
     end
   },_spider_template))
+  sfx"41"
 end
 
 -- squid
