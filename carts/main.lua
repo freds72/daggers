@@ -1696,7 +1696,7 @@ _squid_tentacle;ent,tentacle0,origin,v_zero,zangle,0,is_tentacle,1,shadeless,1,r
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,obituary,sKULLED,target_yangle,0.1;_skull_base_template
 _skull2_template;ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;reg,1,ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
+_spider_template;reg,1,ent,spider1,radius,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
