@@ -341,7 +341,7 @@ function make_player(_origin,_a)
       for i=46,49 do
         local cur_sfx = stat(i)
 
-        if cur_sfx>24 then
+        if cur_sfx>28 then
           --reduce available channels
           _chattermax-=1
         elseif cur_sfx>7 then
@@ -363,8 +363,8 @@ function make_player(_origin,_a)
                 local variant=chatter_id+flr(rnd"4")
                 local offset=variant*68
 
-                --copy dampened sfx, start at 0xf340-0x220 to offset sfx 0-7
-                memcpy(0x3200+offset, 0xf120+0x440*(dist-1)+offset, 68)
+                --copy dampened sfx, start at 0xf010-0x220 to offset sfx 0-7
+                memcpy(0x3200+offset, 0xedf0+0x550*(dist-1)+offset, 68)
                 sfx(variant)
 
                 _ambient,_chatter[chatter_id]=false,true
@@ -379,7 +379,7 @@ function make_player(_origin,_a)
           z0-=1
         end
 
-        if(_ambient) sfx"24"
+        if(_ambient) sfx"28"
       end
 ::end_noise::
 
@@ -700,6 +700,7 @@ function make_spider()
         end
         -- unregister
         dead,_spiders[_ENV]=true
+        sfx"52"
       end
     end,
     update=function(_ENV)
@@ -728,6 +729,7 @@ function make_spider()
       _spiders[_ENV]=origin
     end
   },_spider_template))
+  sfx"41"
 end
 
 -- squid
@@ -1686,7 +1688,7 @@ _worm_head_normal;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,rad
 _worm_head_mega;wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_radius,14,radius,20,scale,1.2,hp,200,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _worm_head_giga;wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_radius,16,radius,22,scale,1.5,hp,400,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _jewel_template;reg,1,ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
-_spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,spawnsfx,41,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
+_spiderling_template;ent,spiderling0,radius,8,friction,0.5,hp,2,on_ground,1,death_sfx,53,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,s_radius,18,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
 _squid_jewel;reg,1,jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
@@ -1694,7 +1696,7 @@ _squid_tentacle;ent,tentacle0,origin,v_zero,zangle,0,is_tentacle,1,shadeless,1,r
 _skull_base_template;;_skull_template
 _skull1_template;ent,skull,radius,8,hp,2,obituary,sKULLED,target_yangle,0.1;_skull_base_template
 _skull2_template;ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;reg,1,ent,spider1,radius,24,shadeless,1,hp,12,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
+_spider_template;reg,1,ent,spider1,radius,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
