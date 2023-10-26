@@ -362,7 +362,7 @@ payloads = {
 	{
 		id = "chatter",
 		addr = 0x3420,
-		ulen = 0x0440,
+		ulen = 0x0550,
 	},
 	{
 		id = "daggercollect",
