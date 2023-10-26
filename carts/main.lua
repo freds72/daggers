@@ -229,7 +229,7 @@ function make_player(_origin,_a)
             -- double click timer still active?
             -- shotgun (repulsive!)
             fire_ttl,fire,dblclick_ttl,attract_power=0,2,0,-1
-            sfx"49"
+            sfx"29"
           elseif fire_frames<4 then
             -- candidate for double click?
             dblclick_ttl=8
