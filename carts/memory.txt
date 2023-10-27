@@ -26,8 +26,9 @@ runtime
 
 0xa380-       - screen copy (for tilt effect)
 0xc400-0xc40a - keyboard stat id's
-0xc500-0xd500 - playground tiles
- 
+0xc500-0xd4ff - playground tiles
+0xd500-0xd51b - hand cycle colors
+
 0x4300-0x43ff - radix sort
 
 0xf010-0xf55f: sfx - chatter damp 0 (title.lua)
