@@ -1,7 +1,7 @@
 -- global arrays
 local _bsp,_things,_futures,_spiders,_squid_templates,_cam,_grid,_entities={},{},{},{},{{},{},{}}
 -- must be globals
-_fire_ttl,_spawn_angle,_spawn_origin=3,0,split"512,0,512"
+_fire_ttl,_piercing,_spawn_angle,_spawn_origin=3,0,0,split"512,0,512"
 local _G,_slow_mo,_hw_pal,_ramp_pal=_ENV,0,0,0x8180
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
@@ -69,7 +69,7 @@ end
 function levelup_async(t)
   -- 30 frames at 1/8 steps
   for j=0.125,t<<2,0.125 do
-    _ramp_pal=0x8280+((j*j)&15)*16
+    _ramp_pal=0x8280+((-127*sin(j/(t<<3)))&15)*16
     _slow_mo+=1
     yield()
   end
@@ -1194,7 +1194,7 @@ levelup_async;3
 //;level 2
 wait_jewels;70
 set;_fire_ttl;2
-set;_shotgun_count;30
+set;_shotgun_count;25
 set;_shotgun_spread;0.033
 set;_piercing;1
 sfx;-1
@@ -1202,7 +1202,7 @@ music;44
 levelup_async;5
 //;level 3
 wait_jewels;150
-set;_shotgun_count;40
+set;_shotgun_count;30
 set;_shotgun_spread;0.037
 set;_piercing;2
 sfx;-1
