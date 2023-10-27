@@ -222,32 +222,32 @@ function make_player(_origin,_a)
 
       -- double-click detector
       dblclick_ttl=max(dblclick_ttl-1)
-      if btn(@0xc415) then
+      if not btn(@0xc415) then
+        sfx(48, -2)
+        if not fire_released then
+          if dblclick_ttl>0  then
+            -- double click timer still active?
+            -- shotgun (repulsive!)
+            fire_ttl,fire,dblclick_ttl,attract_power=0,2,0,-1
+            sfx(29+_piercing, stat"57" and -2 or flr(rnd"4"))
+          elseif fire_frames<4 then
+            -- candidate for double click?
+            dblclick_ttl=8
+          end
+          fire_released,fire_frames=true,0
+        end
+      else
         if fire_released then
           fire_released=false
         end
         fire_frames+=1
         -- regular fire      
         if dblclick_ttl==0 and fire_ttl<=0 then
-          if not stat"57" then
-            sfx"48"
-          end
-
+          sfx(48, stat"57" and -2)
           fire_ttl,fire=_fire_ttl,1
         end
         -- 
         attract_power=0
-      elseif not fire_released then
-        if dblclick_ttl>0  then
-          -- double click timer still active?
-          -- shotgun (repulsive!)
-          fire_ttl,fire,dblclick_ttl,attract_power=0,2,0,-1
-          sfx"49"
-        elseif fire_frames<4 then
-          -- candidate for double click?
-          dblclick_ttl=8
-        end           
-        fire_released,fire_frames=true,0
       end
 
       dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
