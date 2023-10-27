@@ -443,9 +443,9 @@ function draw_dialog()
   pal()
 
   split2d([[1;24;126;24;2
-  1;25;126;25;1
-  1;109;126;109;2
-  1;108;126;108;1]],line)   
+1;25;126;25;1
+1;109;126;109;2
+1;108;126;108;1]],line)   
 end
 
 -- leaderboard
@@ -884,7 +884,15 @@ cartdata;freds72_daggers]]
       src+=1
     end
   end
-
+  -- level up: hand palettes
+  dst=0xd500
+  split2d([[15;15;15;15;15;15;15;15;15
+15;7;6;9;8;9;6;7;15
+15;10;11;13;14;13;11;10;15]],
+  function(...)
+    poke(dst,...)
+    dst+=select('#',...)
+  end)
   -- load background assets
   decompress("freds72_daggers_pic",0,0,function()
     local names={

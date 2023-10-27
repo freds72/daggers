@@ -1,7 +1,7 @@
 -- global arrays
 local _bsp,_things,_futures,_spiders,_squid_templates,_cam,_grid,_entities={},{},{},{},{{},{},{}}
 -- must be globals
-_fire_ttl,_piercing,_spawn_angle,_spawn_origin=3,0,0,split"512,0,512"
+_fire_ttl,_piercing,_hand_pal,_spawn_angle,_spawn_origin=3,0,0xd500,0,split"512,0,512"
 local _G,_slow_mo,_hw_pal,_ramp_pal=_ENV,0,0,0x8180
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
@@ -70,11 +70,10 @@ function levelup_async(t)
   -- 30 frames at 1/8 steps
   for j=0.125,t<<2,0.125 do
     _ramp_pal=0x8280+((-127*sin(j/(t<<3)))&15)*16
-    _slow_mo+=1
+    _slow_mo+=1    
+    if(j==t<<1) sfx"43"
     yield()
   end
-
-  sfx"43"
 
   -- restore state
   _ramp_pal,_slow_mo=0x8180,0
@@ -1066,13 +1065,15 @@ function draw_world()
     exec(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
+pal;15;$
 poke;0x5f0a;0x1a
 poke;0x5f00;0x00
 clip;0;8;128;112
 camera;0;$
 sspr;72;32;64;64;72;72
+pal
 clip
-camera]],-_hand_y))
+camera]],@(_hand_pal+(time()\0.1)%9),-_hand_y))    
   else          
     local r=24+rnd"8"
     exec(scanf([[memset;0x6000;0;512
@@ -1183,7 +1184,8 @@ set;_total_hits;0]]
       exec[[set;_fire_ttl;3
 set;_shotgun_count;10
 set;_shotgun_spread;0.025
-set;_piercing;0
+set;_hand_pal;0xd500
+set;_piercing;1
 //;level 1
 wait_jewels;10
 set;_shotgun_count;20
@@ -1196,6 +1198,7 @@ wait_jewels;70
 set;_fire_ttl;2
 set;_shotgun_count;25
 set;_shotgun_spread;0.033
+set;_hand_pal;0xd509
 set;_piercing;1
 sfx;-1
 music;44
@@ -1204,6 +1207,7 @@ levelup_async;5
 wait_jewels;150
 set;_shotgun_count;30
 set;_shotgun_spread;0.037
+set;_hand_pal;0xd512
 set;_piercing;2
 sfx;-1
 music;44
