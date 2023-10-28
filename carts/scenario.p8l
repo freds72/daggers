@@ -1,6 +1,8 @@
 _scenario=[[random_spawn_angle
 wait_async;90
 inc_spawn_angle;0.25
+set_spawn;96
+make_mine
 set_spawn;200
 make_squid;1
 wait_async;330

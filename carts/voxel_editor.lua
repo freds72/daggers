@@ -68,7 +68,9 @@ local _entities={
     -- sparks
     {id=29,text="sPARK0",angles=0},
     {id=30,text="sPARK1",angles=0},
-    {id=31,text="sPARK2",angles=0}
+    {id=31,text="sPARK2",angles=0},
+    -- ooze mine
+    {id=32,text="mINE",angles=default_angles}
 }
 -- keep some slack in case some more entities mush be pushed before
 local _entities_by_id,sort_min={},10
