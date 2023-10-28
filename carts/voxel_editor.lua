@@ -68,7 +68,9 @@ local _entities={
     -- sparks
     {id=29,text="sPARK0",angles=0},
     {id=30,text="sPARK1",angles=0},
-    {id=31,text="sPARK2",angles=0}
+    {id=31,text="sPARK2",angles=0},
+    -- ooze mine
+    {id=32,text="mINE",angles=default_angles}
 }
 -- keep some slack in case some more entities mush be pushed before
 local _entities_by_id,sort_min={},10
@@ -713,16 +715,11 @@ function make_voxel_editor()
             apply(prev.idx,prev.col)
         end,
         copy=function(self,msg)
-            blah=grid_tostr(_grid)
             local s=str_esc(grid_tostr(_grid))
             printh(s,"@clip")
         end,
         paste=function(self,msg)
-            local s=str_unesc(stat(4))
-            for i=1,#s do
-                assert(blah[i]==s[i],"diff at:"..i.." : "..ord(blah[i]).." / "..ord(s[i]))
-            end
-            _grid=grid_fromstr(blah)
+            _grid=grid_fromstr(str_unesc(stat(4)))
         end,
         load=function(self,msg)            
             _grid={}
