@@ -1115,13 +1115,15 @@ end
 -- gameplay state
 function play_state()
   -- clean up stains!
+  -- force GC
   exec[[_map_display;1
 memcpy;0;0xc500;4096
 memcpy;4096;0xc500;4096
 _map_display;0
 set;_total_jewels;0
 set;_total_bullets;0
-set;_total_hits;0]]
+set;_total_hits;0
+stat;0]]
 
   -- camera & player & reset misc values
   _plyr,_things,_spiders=make_player({512,24,512},0),{},{}
