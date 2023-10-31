@@ -1,7 +1,7 @@
 -- global arrays
 local _bsp,_things,_futures,_spiders,_squid_templates,_cam,_grid,_entities={},{},{},{},{{},{},{}}
 -- must be globals
-_fire_ttl,_piercing,_hand_pal,_spawn_angle,_spawn_origin=3,0,0xd500,0,split"512,0,512"
+_fire_ttl,_piercing,_hand_pal=3,0,0xd500
 local _G,_slow_mo,_hw_pal,_ramp_pal=_ENV,0,0,0x8180
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
@@ -77,6 +77,10 @@ function levelup_async(t)
 
   -- restore state
   _ramp_pal,_slow_mo=0x8180,0
+end
+
+function get_spawn_origin(dist,angle)       
+  return v_rnd(512,0,512,dist,angle)
 end
 
 -- record number of "things" on playground and wait until free slots are available
@@ -325,8 +329,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  --dead=true
+                  --next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -683,9 +687,9 @@ end
 
 -- spider
 function make_spider()
-  local spawn_angle=_spawn_angle
+  local spawn_angle=rnd()
   add(_things,inherit({
-    origin=v_clone(_spawn_origin,48),
+    origin=v_clone(get_spawn_origin(128,spawn_angle),48),
     zangle=spawn_angle,
     hit=function(_ENV,pos)
       if(dead) return
@@ -734,7 +738,8 @@ end
 -- type 1: 3 blocks
 -- type 2: 4 blocks
 function make_squid(type)
-  local _spawns,_origin,_velocity,_dx,_dz,_angle,_dead=select(type,4,4,8),v_clone(_spawn_origin,0),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
+  _spawn_angle+=lerp(0.20,0.30,rnd())
+  local _spawns,_origin,_velocity,_dx,_dz,_angle,_dead=select(type,4,4,8),get_spawn_origin(200,_spawn_angle),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
   local function make_skull_async(template)
     make_skull(template,{_origin[1],64+rnd"16",_origin[3]})
     wait_async(2,2)
@@ -819,8 +824,7 @@ end
 
 -- centipede
 function make_worm(type)  
-
-  local head_template,_origin,segments,prev_angles,prev,head=_ENV["_worm_head_"..type],v_clone(_spawn_origin,-64),{},{},{}  
+  local head_template,_origin,segments,prev_angles,prev,head=_ENV["_worm_head_"..type],v_clone(get_spawn_origin(96,rnd()),-64),{},{},{}  
   local templates=split(head_template.templates,"|")
 
   local function make_dirt(_ENV)
@@ -1034,11 +1038,11 @@ end
 
 -- static "mine"
 function make_mine()
-  local _src,_dst=v_clone(_spawn_origin,128),v_clone(_spawn_origin,12)
   make_skull(inherit({
+    origin=v_clone(_plyr.origin,128),
     update=function(_ENV)
-      origin=v_lerp(origin,_dst,0.01)
-      grid_register(_ENV)
+      origin[2]=lerp(origin[2],12,0.01)
+      -- no need to re-register (same y)
     end
   },_mine_template),_src)
 end
@@ -1106,13 +1110,6 @@ camera]],-_hand_y,r,0.9*r,0.9*r))
   end
 end
 
--- script commands
-function random_spawn_angle() _spawn_angle=rnd() end
-function inc_spawn_angle(inc) _spawn_angle+=lerp(inc-0.05,inc+0.05,rnd()) end
-function set_spawn(dist)       
-  _spawn_origin=v_rnd(512,0,512,dist,_spawn_angle)
-end
-
 -- gameplay state
 function play_state()
   -- clean up stains!
@@ -1127,7 +1124,7 @@ set;_total_hits;0
 stat;0]]
 
   -- camera & player & reset misc values
-  _plyr,_things,_spiders=make_player({512,24,512},0),{},{}
+  _plyr,_things,_spiders,_spawn_angle=make_player({512,24,512},0),{},{},rnd()
   
   -- spatial partitioning grid
   _grid=setmetatable({},{
@@ -1159,7 +1156,7 @@ stat;0]]
     function()
       draw_world()   
 
-      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       --local s=_total_things.."/60 ⧗:".._time_penalty.."S"
       --print(s,64-print(s,0,128)/2,2,7)
 
@@ -1689,20 +1686,20 @@ _goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
 _skull_template;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,chatter,12,ground_limit,8,target_yangle,-0.1,gibs,-1,@gib,_gib_template,@lgib,_lgib_template,cost,1;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
-_worm_seg_normal0;reg,1,ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.5,jewel,1,hp,5
-_worm_seg_mega0;reg,1,ent,worm1,s_radius,10,radius,16,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.7,jewel,1,hp,10
-_worm_seg_giga0;reg,1,ent,worm1,s_radius,11,radius,20,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.9,jewel,1,hp,30
-_worm_seg_tail1;reg,1,ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,1.2,s_radius,7
-_worm_seg_tail2;reg,1,ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,wORMED,scale,0.8,s_radius,4
+_worm_seg_normal0;reg,1,ent,worm1,s_radius,9,radius,12,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.5,jewel,1,hp,5
+_worm_seg_mega0;reg,1,ent,worm1,s_radius,10,radius,16,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.7,jewel,1,hp,10
+_worm_seg_giga0;reg,1,ent,worm1,s_radius,11,radius,20,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.9,jewel,1,hp,30
+_worm_seg_tail1;reg,1,ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.2,s_radius,7
+_worm_seg_tail2;reg,1,ent,worm2,radius,8,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,0.8,s_radius,4
 _worm_seg_normal1;;_worm_seg_tail1
 _worm_seg_mega1;;_worm_seg_tail1
 _worm_seg_giga1;;_worm_seg_tail1
 _worm_seg_normal2;;_worm_seg_tail2
 _worm_seg_mega2;;_worm_seg_tail2
 _worm_seg_giga2;;_worm_seg_tail2
-_worm_head_normal;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,50,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
-_worm_head_mega;wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_radius,14,radius,20,scale,1.2,hp,200,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
-_worm_head_giga;wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_radius,16,radius,22,scale,1.5,hp,400,chatter,20,spawnsfx,42,obituary,wORMED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
+_worm_head_normal;wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,50,chatter,20,spawnsfx,42,obituary,gUTTED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
+_worm_head_mega;wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_radius,14,radius,20,scale,1.2,hp,200,chatter,20,spawnsfx,42,obituary,gUTTED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
+_worm_head_giga;wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_radius,16,radius,22,scale,1.5,hp,400,chatter,20,spawnsfx,42,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _jewel_template;reg,1,ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
 _spiderling_template;ent,spiderling0,radius,8,hp,2,on_ground,1,death_sfx,53,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,s_radius,18,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template

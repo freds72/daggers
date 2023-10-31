@@ -15,7 +15,7 @@ def main():
   args = parser.parse_args()
 
   # game files
-  game_files = ["freds72_daggers_title","freds72_daggers"]
+  game_files = ["freds72_daggers_title","freds72_daggers","freds72_daggers_editor"]
   for game_file in game_files:
     with open(f"carts/{game_file}.p8", "r", encoding='UTF-8') as src: 
       cart = []
@@ -45,7 +45,7 @@ def main():
 
   print("Manual steps: ")
   print("load freds72_daggers_title_mini.p8")
-  print(f"export daggers_{args.release}.html -p fps.html freds72_daggers_mini.p8 freds72_daggers_editor.p8")
+  print(f"export daggers_{args.release}.html -p fps.html freds72_daggers_mini.p8 freds72_daggers_editor_mini.p8")
 
   print("BBS EXPORTS")
   try:
@@ -54,7 +54,6 @@ def main():
     pass
   for game_file in game_files:
     run_cart([os.path.join(args.pico,"pico8"),"-home",".",f"carts/{game_file}_mini.p8","-export",f"carts/{args.release}/{game_file}_mini.p8.png"])
-  run_cart([os.path.join(args.pico,"pico8"),"-home",".",f"carts/freds72_daggers_editor.p8","-export",f"carts/{args.release}/freds72_daggers_editor.p8.png"])
 
 if __name__ == '__main__':
   main()

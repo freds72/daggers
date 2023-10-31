@@ -406,8 +406,9 @@ _main_buttons={
   {"eDITOR",74,
     cb=function(self) 
       -- ensure dev version is loaded first then BBS
-      load("freds72_daggers_editor.p8")
-      load("#freds72_daggers_editor")
+      load"freds72_daggers_editor.p8"
+      load"freds72_daggers_editor_mini.p8"
+      load"#freds72_daggers_editor"
     end},
   {"cONTROLS",84,
     cb=function(self)
@@ -863,6 +864,7 @@ cartdata;freds72_daggers]]
     -- in case player halts generation
     dset(63,1)
     load("freds72_daggers_editor.p8","","generate")
+    load("freds72_daggers_editor_mini.p8","","generate")
     load("#freds72_daggers_editor","","generate")
   end
 
