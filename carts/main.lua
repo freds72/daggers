@@ -1201,7 +1201,7 @@ set;_shotgun_spread;0.025
 set;_hand_pal;0xd500
 set;_piercing;0
 //;level 1
-wait_jewels;1
+wait_jewels;10
 set;_shotgun_count;20
 set;_shotgun_spread;0.030
 sfx;-1
