@@ -1266,7 +1266,10 @@ function gameover_state(obituary,height,height_attract)
   -- max #scores
   if(#_local_scores>5) deli(_local_scores)
   -- save version
-  dset(0,1)
+  -- death music
+  exec[[sfx;-1
+music;36
+dset;0:1]]
   -- number of scores
   dset(1,#_local_scores)
   local mem=0x5e08
@@ -1324,9 +1327,6 @@ function gameover_state(obituary,height,height_attract)
   -- position cursor on retry
   local _,x,y=unpack(buttons[1])
   local mx,my=x+buttons[1].width/2,y+3
-  -- death music
-  sfx"-1"
-  music"36"
   return
     -- update
     function()
