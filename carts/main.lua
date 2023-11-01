@@ -1292,16 +1292,7 @@ function gameover_state(obituary,height,height_attract)
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
         local x=1
-        split2d(scanf([[⧗ ;_;30;3
-$S    ;x;30;0
-🐱 ;x;30;3
-$;x;30;0
-◆ ;_;38;3
-$;x;38;0
-    ● ;x;38;3
-$;x;38;0
-    ☉ ;x;38;3
-$%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_bullets==0 and 0 or 1000*(_total_hits/_total_bullets))/10),
+        split2d(scanf(_localboard,play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_bullets==0 and 0 or 1000*(_total_hits/_total_bullets))/10),
         function(s,_,y,sel)
           -- new line?
           if(_=="_") x=1

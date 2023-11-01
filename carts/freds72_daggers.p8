@@ -7,6 +7,7 @@ __lua__
 #include common.lua
 #include assets.lua
 #include polytex.lua
+#include localboard.p8l
 #include scenario.p8l
 #include main.lua
 
