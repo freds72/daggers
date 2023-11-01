@@ -325,8 +325,8 @@ function make_player(_origin,_a)
                   thing:pickup()
                 else
                   -- avoid reentrancy
-                  dead=true
-                  next_state(gameover_state,thing.obituary)
+                  --dead=true
+                  --next_state(gameover_state,thing.obituary)
                   return
                 end
               end
@@ -1188,7 +1188,7 @@ stat;0]]
       _futures,_total_things,_time_penalty,_hw_pal,_time_wait={},0,0,0
       -- scenario
       local scenario=do_async(function()
-        exec(_scenario)
+        --exec(_scenario)
       end)
 
     -- progression
@@ -1224,6 +1224,15 @@ set;_piercing;2
 sfx;-1
 music;44
 levelup_async;7]]
+    end)
+
+    do_async(function()
+      for i=-3,4 do
+        for j=-3,4 do
+          local s=make_skull(_skull1_template,{512+24*i,16,512+24*j})
+          s.update=nop
+        end
+      end
     end)
 
     do_async(function()
@@ -1398,15 +1407,6 @@ end
 
 -- pico8 entry points
 function _init()
-  -- enable custom font
-  -- enable tile 0 + extended memory
-  -- capture mouse
-  -- enable lock
-  -- increase tline precision
-  -- cartdata
-  -- use "screen" as spritesheet source
-  -- copy tiles to spritesheet 1
-  -- todo: put back tline precision
   exec[[poke;0x5f58;0x81
 poke;0x5f36;9
 poke;0x5f2d;0x7
