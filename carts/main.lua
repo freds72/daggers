@@ -85,14 +85,15 @@ end
 
 -- record number of "things" on playground and wait until free slots are available
 -- note: must be called from a coroutine
-local _total_things,_time_penalty,_time_wait=0,0
+local _total_things,_total_time,_time_inc
 function reserve_async(n)
-  while _total_things>60 do
-    if(not _time_wait) _time_wait=time()
+  while _total_things+n>60 do
+    -- stop watch
+    _time_inc=0
     yield()
   end
+  _time_inc=0x0.0001
   _total_things+=n
-  if(_time_wait) _time_penalty+=time()-_time_wait _time_wait=nil
 end
 
   -- misc helpers
@@ -1153,6 +1154,7 @@ stat;0]]
   return
     -- update
     function()
+      _total_time+=_time_inc
       _plyr:control()
       
       _cam:track(_plyr.eye_pos,_plyr.m,_plyr.tilt)
@@ -1162,19 +1164,13 @@ stat;0]]
       draw_world()   
 
       --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
-      --local s=_total_things.."/60 ⧗:".._time_penalty.."S"
+      --local s=_total_things.."/60 ⧗+"..tostr(_time_inc,2)
       --print(s,64-print(s,0,128)/2,2,7)
 
       if _show_timer then
-        local t,c=((time()-_start_time-_time_penalty)\0.1)/10,2
-        if _time_wait then
-          if(not _actual_time) _actual_time=t
-          t,c=_actual_time,0
-        else
-          _actual_time=nil
-        end
-        if(t\1==t) t..=".0"
-        t..="S"        
+        local t,c,prefix=tostr(_total_time*3,2),2,""
+        if(_time_inc==0) c,prefix=0,"⧗ "
+        t=prefix..sub(t,1,#t-2).."."..sub(t,-2).."S"        
         arizona_print(t,64-print(t,0,128)/2,1,c)
       end
 
@@ -1187,7 +1183,7 @@ stat;0]]
       music"32"
       _start_time=time()
       -- must be done *outside* async update loop!!!
-      _futures,_total_things,_time_penalty,_hw_pal,_time_wait={},0,0,0x8000
+      _futures,_total_things,_total_time,_time_inc,_hw_pal={},0,0,0x0.0001,0x8000
       -- scenario
       local scenario=do_async(function()
         exec(_scenario)
@@ -1251,7 +1247,7 @@ end
 
 function gameover_state(obituary,height,height_attract,music_id)  
   -- remove time spent "waiting"!!
-  local hw_pal,play_time,origin,target,selected_tab,clicked=0,time()-_start_time-_time_penalty,_plyr.eye_pos,v_add(_plyr.origin,{0,height or 4,0})
+  local hw_pal,play_time,origin,target,selected_tab,clicked=0,_total_time,_plyr.eye_pos,v_add(_plyr.origin,{0,height or 4,0})
   -- check if new playtime enters leaderboard?
   -- + handle sorting
   local new_best_i=#_local_scores+1
@@ -1267,8 +1263,9 @@ function gameover_state(obituary,height,height_attract,music_id)
   if(#_local_scores>5) deli(_local_scores)
   -- save version
   -- death music
+  -- time format v2
   exec[[sfx;-1
-dset;0;1]]
+dset;0;2]]
   music(music_id or 36)
 
   -- number of scores
@@ -1296,7 +1293,7 @@ dset;0;1]]
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
         local x=1
-        split2d(scanf(_localboard,play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_bullets==0 and 0 or 1000*(_total_hits/_total_bullets))/10),
+        split2d(scanf(_localboard,(play_time<<16)/30,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_bullets==0 and 0 or 1000*(_total_hits/_total_bullets))/10),
         function(s,_,y,sel)
           -- new line?
           if(_=="_") x=1
@@ -1309,7 +1306,7 @@ dset;0;1]]
       draw=function()
         for i,local_score in ipairs(_local_scores) do
           local t,y,m,d=unpack(local_score)
-          arizona_print(scanf("$.\t$/$/$\t $S",i,y,m,d,t),1,23+i*7,new_best_i==i and 4)
+          arizona_print(scanf("$.\t$/$/$\t $S",i,y,m,d,(t<<16)/30),1,23+i*7,new_best_i==i and 4)
         end
       end},
     {"oNLINE",96,16,
@@ -1418,7 +1415,7 @@ tline;17]]
 
   -- local score version
   _local_scores,_local_best_t={}
-  if dget(0)==1 then
+  if dget(0)==2 then
     -- number of scores    
     local mem=0x5e08
     for i=1,dget(1) do
