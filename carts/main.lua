@@ -1331,7 +1331,7 @@ $%;x;38;0]],play_time,obituary,_total_jewels,tostr(_total_bullets,2),flr(_total_
   local mx,my=x+buttons[1].width/2,y+3
   -- death music
   sfx"-1"
-  music"36"
+  music(obituary == "lIBERATED" and 61 or 36)
   return
     -- update
     function()
