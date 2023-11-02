@@ -1,24 +1,24 @@
 audio = {
 	chatter = {
 		addr = 0x2000,
-		--clen = 0x04be,
+		--clen = 0x04c4,
 		--data = nil,
 		ulen = 0x0550,
 	},
 	daggercollect = {
-		addr = 0x24be,
+		addr = 0x24c4,
 		--clen = 0x02fc,
 		--data = nil,
 		ulen = 0x0448,
 	},
 	musicii = {
-		addr = 0x27ba,
+		addr = 0x27c0,
 		--clen = 0x0555,
 		--data = nil,
 		ulen = 0x1200,
 	},
 	musiciii = {
-		addr = 0x2d0f,
+		addr = 0x2d15,
 		--clen = 0x0c91,
 		--data = nil,
 		ulen = 0x1200,
