@@ -11,6 +11,7 @@ __lua__
 #include audio_load.lua
 #include audio_render.lua
 #include polytex.lua
+#include version.p8l
 #include title.lua
 
 __gfx__

@@ -17,14 +17,19 @@ def main():
 
   args = parser.parse_args()
 
+  # create version cart
+  with open(os.path.join("carts","version.p8l"), "w", encoding='UTF-8') as src:
+    src.write(f'_version="{args.release.upper()}"')
+
   # refresh built-in data assets
   # create tmp cart
-  with open(f"carts/freds72_daggers_assets.p8", "r", encoding='UTF-8') as src: 
+  with open(os.path.join("carts","freds72_daggers_assets.p8"), "r", encoding='UTF-8') as src: 
     cart = []
     while line := src.readline():
       line = line.rstrip('\n')
       if line == "__gfx__":
         cart.append("""__lua__
+-- !!!auto-generated: do not edit!!!                  
 local mem=0x0
 mem+=4
 local version,n=@mem,@(mem+1)

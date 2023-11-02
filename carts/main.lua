@@ -819,7 +819,7 @@ function make_squid(type)
     end,
     post_think=function(_ENV)
       _origin,_dx,_dz=origin,abs(origin[1]-512),abs(origin[3]-512)
-      _origin[2]=0
+      _origin[2]=2
       -- remove squid if out of sight
       if(_dx>300 or _dz>300) _dead=true
     end
@@ -1610,7 +1610,7 @@ tline;17]]
         forces[2]+=wobble*cos(time()/seed-seed)-wobble/8
       end
       -- move head up/down
-      yangle=lerp(yangle,-mid(velocity[2]/seed/3,-0.24,0.24),0.1)
+      yangle=lerp(yangle,-mid(velocity[2]/seed/2,-0.24,0.24),0.1)
     end,
     update=function(_ENV)
       -- some friction
