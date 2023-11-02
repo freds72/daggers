@@ -245,7 +245,7 @@ function menu_state(buttons,default)
   -- leaderboard/retry
   local over_btn,clicked
   -- reset hw palette offset
-  hw_pal=0
+  _hw_pal=0
   -- get actual size
   clip(0,0,0,0)
   for btn in all(buttons) do
@@ -366,7 +366,7 @@ function menu_state(buttons,default)
       -- mouse cursor
       spr(5,mx,my)
       -- hw palette
-      memcpy(0x5f10,0x8000+hw_pal,16)
+      memcpy(0x5f10,0x8000+_hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end,
     function() 
@@ -392,7 +392,7 @@ _main_buttons={
     do_async(function()
       -- fade to black
       for i=0,11 do
-        hw_pal=i<<4
+        _hw_pal=i<<4
         yield()
       end
       next_state(play_state)
@@ -406,9 +406,9 @@ _main_buttons={
   {"eDITOR",74,
     cb=function(self) 
       -- ensure dev version is loaded first then BBS
-      load"freds72_daggers_editor.p8"
-      load"freds72_daggers_editor_mini.p8"
-      load"#freds72_daggers_editor"
+      load("freds72_daggers_editor.p8","back to title")
+      load("freds72_daggers_editor_mini.p8","back to title")
+      load("#freds72_daggers_editor","back to title")
     end},
   {"cONTROLS",84,
     cb=function(self)
@@ -577,7 +577,8 @@ function play_state()
     "jUMP WITH "..jump_key,
     "bEST PLAYED WITH ♪ ON!"
   }
-
+  -- reset pal (to be safe)
+  _hw_pal=0
   return
     -- update
     function()
@@ -646,21 +647,24 @@ function play_state()
           -- avoid reentrancy
           launching=true
 
-          --play daggercollect
-          sfx"-1"
-          music"63"
-
           do_async(function()
+            --play daggercollect
+            sfx"-1"
+            music"63"
+
             for i=0,44 do
               fov=lerp(64,32,easeoutelastic(i/45))
               yield()
             end
 
-            repeat
-              yield()
-            until not stat"57"
-
             -- load dev version first then release then BBS
+            for i=0,11 do
+              _hw_pal=i<<4
+              yield()
+            end
+            while stat"57" do
+              yield()
+            end
             load("freds72_daggers.p8","back to title")
             load("freds72_daggers_mini.p8","back to title")
             load("#freds72_daggers","back to title")
@@ -776,7 +780,7 @@ function play_state()
       end
 
       --pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
-      memcpy(0x5f10,0x8000,16)
+      memcpy(0x5f10,0x8000+_hw_pal,16)
     end
 end
 

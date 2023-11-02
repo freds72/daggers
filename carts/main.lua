@@ -1411,6 +1411,7 @@ _map_display;1
 memcpy;0;0xc500;4096
 memcpy;4096;0xc500;4096
 _map_display;0
+cls
 cartdata;freds72_daggers
 tline;17]]
 
