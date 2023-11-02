@@ -1,6 +1,6 @@
 _scenario=[[wait_async;90
 make_spider
-make_squid;3
+make_squid;1
 wait_async;330
 make_squid;1
 wait_async;150
