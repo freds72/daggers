@@ -675,4 +675,4 @@ make_squid;1
 wait_async;30
 make_squid;2
 set;dead;1;_plyr
-next_state;gameover_state;lIBERATED;256;0.01]]
+next_state;gameover_state;lIBERATED;256;0.01;61]]
