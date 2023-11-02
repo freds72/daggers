@@ -2,7 +2,7 @@
 local _bsp,_things,_futures,_spiders,_squid_templates,_cam,_grid,_entities={},{},{},{},{{},{},{}}
 -- must be globals
 _fire_ttl,_piercing,_hand_pal=3,0,0xd500
-local _G,_slow_mo,_hw_pal,_ramp_pal=_ENV,0,0x8000,0x8180
+local _G,_slow_mo,_ramp_pal=_ENV,0,0x8180
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
 384,0,704,
@@ -54,10 +54,18 @@ function wait_jewels(n)
   local prev=_total_jewels
   while _total_jewels<n do
     if _total_jewels!=prev then
-      for i in all(split"0x80d0,0x80e0,0x80f0,0x80e0,0x80d0,0x8000") do
-        _hw_pal=i
-        yield()
-      end
+      exec[[set;_hw_pal;0x80d0
+yield
+set;_hw_pal;0x80e0
+yield
+set;_hw_pal;0x80f0
+yield
+set;_hw_pal;0x80e0
+yield
+set;_hw_pal;0x80d0
+yield
+set;_hw_pal;0x8000
+yield]]
     end
     -- update with current total (avoids overlapping "flash" effects)
     prev=_total_jewels
@@ -635,8 +643,7 @@ function make_particle(template,_origin,_velocity)
       -- trail
       if trail and ttl%4==0 then
         -- make sure child don't spawn other entities
-        -- no need to clone as origin will be renewed after update
-        make_particle(_ENV[trail],v_clone(origin),{0,0,0})
+        make_particle(trail,v_clone(origin),{0,0,0})
       end
       if _velocity then
         -- if moving, apply gravity
@@ -674,39 +681,32 @@ end
 -- spiderling
 -- egg
 function make_skull(_ENV,_origin)
-  reserve_async(_ENV.cost)
+  reserve_async(cost)
 
-  local thing=add(_things,inherit({
-    origin=_origin,
-    resolved={},
-    seed=lerp(seed0,seed1,rnd()),
-    wobble=lerp(wobble0,wobble1,rnd()),
-    -- grid cells
-    cells={}
-  },_ENV))
+  local _ENV=add(_things,inherit({},_ENV))
+  origin,resolved,seed,wobble=_origin,{},lerp(seed0,seed1,rnd()),lerp(wobble0,wobble1,rnd())
 
   -- custom init function?
-  if(thing.init) thing:init()
+  if(init) init(_ENV)
 
-  grid_register(thing)
+  grid_register(_ENV)
   
   --play spawn sfx
   sfx(spawnsfx or 40)
 
-  return thing
+  return _ENV
 end
 
 -- spider
 function make_spider()
   local spawn_angle=rnd()
-  add(_things,inherit({
-    origin=v_clone(get_spawn_origin(220,spawn_angle),48),
+  make_skull(inherit({
     zangle=spawn_angle,
     hit=function(_ENV,pos)
       if register_hit(_ENV) then
         for i=1,8 do
           local vel=vector_in_cone(0,0,1)
-          make_goo(v_add(origin,vel,rnd"3"),v_scale(vel,1+rnd"2"))
+          make_goo(v_add(origin,vel,rnd"8"),v_scale(vel,2+rnd"4"))
         end
         -- unregister
         dead,_spiders[_ENV]=true
@@ -732,15 +732,10 @@ function make_spider()
           end
         end
       end
-
-      -- todo: move to deck borders
-      -- todo: rotate if HP < 50% ??
-      grid_register(_ENV)
       -- register for jewel attractor
       _spiders[_ENV]=origin
     end
-  },_spider_template))
-  sfx"41"
+  },_spider_template),v_clone(get_spawn_origin(220,spawn_angle),48))
 end
 
 -- squid
@@ -824,6 +819,7 @@ function make_squid(type)
     end,
     post_think=function(_ENV)
       _origin,_dx,_dz=origin,abs(origin[1]-512),abs(origin[3]-512)
+      _origin[2]=0
       -- remove squid if out of sight
       if(_dx>300 or _dz>300) _dead=true
     end
@@ -1179,14 +1175,22 @@ stat;0]]
     end,
     -- init
     function()
-      sfx"-1"
-      music"32"
-      _start_time=time()
+      exec[[sfx;-1
+music;32
+set;_hw_pal;0x8000]]
       -- must be done *outside* async update loop!!!
-      _futures,_total_things,_total_time,_time_inc,_hw_pal={},0,0,0x0.0001,0x8000
+      _futures,_total_things,_total_time,_time_inc={},0,0,0x0.0001
       -- scenario
       local scenario=do_async(function()
         exec(_scenario)
+        -- wait for all things to die
+        while _total_things>0 do
+          _time_inc=0
+          yield()
+        end
+        exec[[wait_async;90
+set;dead;1;_plyr
+next_state;gameover_state;lIBERATED;256;0.01;61]]
       end)
 
     -- progression
@@ -1357,7 +1361,7 @@ dset;0;2]]
         exec[[palt;0;false
 poke;0x5f54;0x00
 memcpy;0x5f00;0x8200;16
-spr;0;0;0;16;16
+sspr;0;24;128;84;0;24
 poke;0x5f54;0x60
 memcpy;0x5f00;0x8270;16
 poke;0x5f00;0x10
@@ -1671,11 +1675,11 @@ tline;17]]
   })
 
   -- global templates
-  split2d([[_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood0,rebound,0.8
-_lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,trail,_gib_trail,ent,blood1,rebound,-1
-_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_trail,rebound,0,stain,5
+  split2d([[_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_trail,rebound,0,stain,5
+_gib_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,@trail,_gib_trail,ent,blood0,rebound,0.8
+_lgib_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,@trail,_gib_trail,ent,blood1,rebound,-1
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
-_goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,trail,_goo_trail,ent,goo0,rebound,-1
+_goo_template;radius,4,zangle,0,yangle,0,ttl,0,scale,1,@trail,_goo_trail,ent,goo0,rebound,-1
 _dagger_hit_template;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
 _skull_template;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,ground_limit,8,target_yangle,-0.1,gibs,-1,@gib,_gib_template,@lgib,_lgib_template,cost,1;_skull_core
 _egg_template;ent,egg,radius,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_template;_skull_template
@@ -1702,7 +1706,7 @@ _squid_tentacle;bright,0,ent,tentacle0,origin,v_zero,zangle,0,is_tentacle,1,shad
 _skull_base_template;;_skull_template
 _skull1_template;chatter,12,ent,skull,radius,8,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_template
 _skull2_template;chatter,12,ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;bright,0,hit_ttl,0,reg,1,ent,spider1,radius,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop,cost,1
+_spider_template;bright,0,ent,spider1,radius,24,shadeless,1,hp,12,spawnsfx,41,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_template
 _mine_template;ent,mine,radius,12,hp,200,spawnsfx,49,death_sfx,53,obituary,pOISONED,@apply,nop,@lgib,_goo_template,gibs,0,ground_limit,12;_skull_template]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
