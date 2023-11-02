@@ -256,8 +256,8 @@ function menu_state(buttons,default)
   end
   clip()
   -- position cursor on "default"
-  default=default or 1
-  active_btn=buttons[default]
+  over_btn=default or 1
+  active_btn=buttons[over_btn]
   local _,y=unpack(active_btn)
   local mx,my=1+active_btn.width/2,y+3
 
@@ -288,6 +288,28 @@ function menu_state(buttons,default)
       end
 
       mx,my=mid(mx+stat(38)/2,0,127),mid(my+stat(39)/2,0,127)
+      -- keyboard override?
+
+      local keyboard
+      if btnp(2) or btnp(0) then
+        keyboard=true
+        over_btn-=1
+        if(over_btn<1) over_btn=#buttons
+      elseif btnp(3) or btnp(1) then
+        keyboard=true
+        over_btn=max(over_btn+1,1)
+        if(over_btn>#buttons) over_btn=1
+      end
+      -- teleport mouse
+      if keyboard then
+        if(over_btn==-1) over_btn=1
+        local btn=buttons[over_btn]
+        if btn then
+          local _,y=unpack(btn)
+          mx,my=1+btn.width/2,y+3
+        end
+      end
+
       -- over button?
       over_btn=-1
       for i,btn in inext,buttons do
@@ -343,6 +365,10 @@ function menu_state(buttons,default)
       ovalfill(r0/3,128-r0*0.95,127-r0/3,128+r0*0.95,1)
       ovalfill(r0/2,128-r0*0.75,127-r0/2,128+r0*0.75,2)
 
+      if buttons.credits then
+        print("+FREDS72+",2,2,1)
+        print("+RIDGEK+",90,2,1)
+      end
       -- 
       draw_things(skulls,cam,64,0.5)
 
@@ -385,6 +411,7 @@ end
 -- main menu buttons
 local _playing
 _main_buttons={
+  credits=true,
   {"pLAY",48,cb=function()      
     if(_playing) return
     _playing=true
