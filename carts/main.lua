@@ -1252,6 +1252,13 @@ end
 function gameover_state(obituary,height,height_attract,music_id)  
   -- remove time spent "waiting"!!
   local hw_pal,play_time,origin,target,selected_tab,clicked=0,_total_time,_plyr.eye_pos,v_add(_plyr.origin,{0,height or 4,0})
+
+  -- if online enabled, post new score
+  if @0x5f80==2 then
+    poke4(0x5f82,play_time)
+    poke(0x5f81,1)
+  end
+
   -- check if new playtime enters leaderboard?
   -- + handle sorting
   local new_best_i=#_local_scores+1

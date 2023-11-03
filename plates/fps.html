@@ -215,10 +215,11 @@
 	// read new score from gpio
 	function postTimeScore(base) {
 		if (pico8_gpio[base] == 1) {
+			console.log("GPIO: " + pico8_gpio);
 			var time = pico8_gpio[base+1] | pico8_gpio[base+2]<<8 | pico8_gpio[base+3]<<16 | pico8_gpio[base+4]<<24;
 			if (time>0) {					
 				console.log("Posting new score: " + time);
-				time = Math.round(1000 * 30 * time);
+				time = Math.round((1000 * time)/30);
 				NGIO.postScore(scoreboard_id, time);
 			}
 			pico8_gpio[base] = 0;
