@@ -365,8 +365,8 @@ function make_player(_origin,_a)
           --reduce available channels
           _chattermax-=1
         elseif cur_sfx>7 then
-          --record chatter_id
-          _ambient,_chatter[cur_sfx-cur_sfx%4]=false,true
+          --record chatter_id, unset _ambient
+          _chatter[cur_sfx-cur_sfx%4], _ambient = cur_sfx
         end
       end
 
@@ -379,15 +379,25 @@ function make_player(_origin,_a)
             local cell=_grid[idx+idx_offset]
             for chatter_id,cnt in pairs(cell.chatter) do
               if cnt>0 then
-                local offset=chatter_id*68
-                --load chatter set corresponding to dist, start at 0xf010-0x220 to offset sfx 0-7
-                memcpy(0x3200+offset, 0xedf0+0x550*(dist-1)+offset, 0x110)
+                local offset, variant
 
-                --queue chatter variant if not in progress
-                if (not _chatter[chatter_id]) sfx(chatter_id+flr(rnd"4"))
+                if _chatter[chatter_id] then
+                  --get offset of in-progress chatter
+                  offset=_chatter[chatter_id] * 68
+                else
+                  --queue new chatter
+                  variant=chatter_id+flr(rnd"4")
+                  offset, _chatter[chatter_id] = variant*68, variant
+                end
 
-                _ambient,_chatter[chatter_id]=false,true
-                _chattered += 1
+                --copy distanced sfx, start at 0xf010-0x220 to offset sfx 0-7
+                memcpy(0x3200+offset, 0xedf0+0x550*(dist-1)+offset, 68)
+
+                --play variant if queued
+                if(variant) sfx(variant)
+
+                _ambient=nil
+                _chattered+=1
 
                 if(_chattered>=_chattermax) goto end_noise
               end
