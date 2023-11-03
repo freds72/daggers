@@ -1,7 +1,8 @@
 ﻿<html><head>
-<title>PICO-8 Cartridge</title>
+<title>DEMI DAGGERS by @ridgek+@freds72</title>
 <meta name="viewport" content="width=device-width, user-scalable=no">
 <link rel="icon" type="image/png" sizes="16x16" href="##label_file##"/>
+<script src="NewgroundsIO.min.js"></script>
 <script type="text/javascript">
 
 	// Default shell for PICO-8 0.2.2 (includes @weeble's gamepad mod 1.0)
@@ -68,6 +69,161 @@
 	document.addEventListener('touchmove', {});
 	document.addEventListener('touchend', {});
 
+	// --------------------------------------------------------------------------------------------------------------------------------
+	// newgrounds API integration
+	// see: https://bitbucket.org/newgrounds/newgrounds.io-for-javascript-html5/src/master/
+	// Set up the options for NGIO.
+
+	var options = {
+		// This should match the version number in your Newgrounds App Settings page
+		version: "1.0.0",
+		// If you aren't using any of these features, set them to false, or delete the line
+    checkHostLicense: true,
+    autoLogNewView: true,
+		preloadScoreBoards: true,
+		debugMode: true
+	};	
+	var scoreboard_id = 13319;
+	var all_scores = Array();
+	var refresh_callback;
+	var refresh_timer = 1000;
+
+	NGIO.init("57247:xRUQZlYM", "do9felVKI3/jtCCj/ax9uw==", options);
+	// gpio layout:
+
+	// 0: 0=nothing, 1=connecting, 2=connected, 3=failed
+	pico8_gpio[0] = 0;
+
+	(function pollNGStatus() {
+		// stop polling
+		if(refresh_timer<0) return;
+
+		setTimeout(() => {
+			NGIO.getConnectionStatus(function(status) {				
+				// check the actual connection status
+				console.log("NGIO - status: " + status);
+
+				switch (status) {
+					// we have version and license info
+					case NGIO.STATUS_LOCAL_VERSION_CHECKED:
+						// notify game connection in progress
+						pico8_gpio[0] = 1;
+
+						if (NGIO.isDeprecated) {
+								// this copy of the game is out of date
+								// (or you forgot to update the version number in your init() call)
+								// Show a 'new version available' button that calls
+								// NGIO.loadOfficialUrl();
+						}
+						if (!NGIO.legalHost) {
+								// the site hosting this copy has been blocked
+								// show the player a message ("This site is illegally hosting this game") , and add a button that calls
+								// NGIO.loadOfficialUrl();
+						}
+						break;
+					// user needs to log in
+
+					case NGIO.STATUS_LOGIN_REQUIRED:
+						// present the user with a message ("This game uses features that require a Newgrounds account")
+						// along with 2 buttons:
+						NGIO.openLoginPage();
+						// A "Log In" button that calls NGIO.openLoginPage();
+						// A "No Thanks: button that calls NGIO.skipLogin();
+						break;
+					// We are waiting for the user to log in (they should have a login page in a new browser tab)
+
+					case NGIO.STATUS_WAITING_FOR_USER:
+						// It's possible the user may close the login page without signing in.
+						// Show a "Cancel Login" button that calls NGIO.cancelLogin();			
+						break;
+
+					case NGIO.STATUS_SERVER_UNAVAILABLE:
+						// some kind of server outage
+						refresh_timer = -1;
+						pico8_gpio[0] = 3;
+						break;
+
+					case NGIO.STATUS_WAITING_FOR_SERVER:
+					case NGIO.STATUS_EXCEEDED_MAX_ATTEMPTS:
+						// some kind of server outage
+						refresh_timer = 5000;
+						break;
+
+					// user needs to log in
+					case NGIO.STATUS_READY:
+						// Everything should be loaded.
+						// If NGIO.hasUser is false, the user opted not to sign in, so you may
+						// need to do some special handling in your game.
+
+						if(NGIO.hasUser) {
+							// connected!
+							pico8_gpio[0] = 2;
+
+							// get all time best (max. 10)
+							NGIO.getScores(scoreboard_id, {
+								period: NGIO.PERIOD_ALL_TIME,
+								limit: 10
+							}, onScoresLoaded);
+
+							// listen for pending local scores
+							(function pollLastScore() {		
+								if(NGIO.hasUser) {
+									setTimeout(() => {
+										postTimeScore(1);
+										pollLastScore();								
+									},1000);
+								}
+							})();
+
+							// refresh online scores
+							(function pollOnlineScores() {		
+								if(NGIO.hasUser) {
+									setTimeout(() => {
+										NGIO.getScores(scoreboard_id, {
+											period: NGIO.PERIOD_ALL_TIME,
+											limit: 10
+										}, onScoresLoaded);
+										pollOnlineScores();								
+									},30000);
+								}
+							})();					
+
+						} else {
+							pico8_gpio[0] = 0;
+							// stop polling for status
+							refresh_timer = -1;
+						}
+						break;
+				}
+			});
+			pollNGStatus();
+		}, refresh_timer);
+	})();
+
+	// handler
+
+	function onScoresLoaded(board, scores, options) {
+		console.log("NGIO - onScoresLoaded");
+		var gpioid=1;
+		// to read through the scores:
+		scores.forEach(score => {
+			console.log("Score: ", score.user.name, " ", score.value);
+			
+		}); 
+	}	
+
+	// read new score from gpio
+	function postTimeScore(base) {
+		if (pico8_gpio[base] == 1) {
+			var time = pico8_gpio[base+1] | pico8_gpio[base+2]<<8 | pico8_gpio[base+3]<<16 | pico8_gpio[base+4]<<24;
+			if (time>0) {					
+				console.log("Posting new score: " + time);
+				time = Math.round(1000 * 30 * time);
+				NGIO.postScore(scoreboard_id, time);
+			}
+			pico8_gpio[base] = 0;
+		}			
+	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------
 	// pico-8 0.2.2: allow dropping files

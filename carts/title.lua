@@ -252,14 +252,15 @@ function menu_state(buttons,default)
     local txt=btn[1]
     if(type(txt)=="function") txt=txt(btn)
     btn.width=print(txt)
-    btn.x=-btn.width-2
+    btn._x=-btn.width-2    
+    btn.x=btn.x or 2
   end
   clip()
   -- position cursor on "default"
   over_btn=default or 1
   active_btn=buttons[over_btn]
   local _,y=unpack(active_btn)
-  local mx,my=1+active_btn.width/2,y+3
+  local mx,my=active_btn.x+active_btn.width/2,y+3
 
   local cam=setmetatable({
     origin=v_zero(),    
@@ -313,7 +314,7 @@ function menu_state(buttons,default)
       -- over button?
       over_btn=-1
       for i,btn in inext,buttons do
-        local x,_,y=1,unpack(btn)          
+        local x,_,y=btn.x,unpack(btn)          
         if mx>=x and my>=y and mx<=x+btn.width and my<=y+6 then            
           over_btn=i
           -- click?
@@ -382,10 +383,10 @@ function menu_state(buttons,default)
 
       -- draw menu & all
       for i,btn in inext,buttons do
-        btn.x=lerp(btn.x,2,0.4)
+        btn._x=lerp(btn._x,btn.x,0.4)
         local s,y=unpack(btn)  
         if(type(s)=="function") s=s(btn)
-        arizona_print(s,btn.x,y,i==over_btn and 1)
+        arizona_print(s,btn.x,y,i==over_btn and 1 or btn.c)
       end
       if(active_btn.draw) active_btn:draw()
 
@@ -476,10 +477,10 @@ function draw_dialog()
 1;108;126;108;1]],line)   
 end
 
--- leaderboard
+-- local leaderboard
 function leaderboard_state()
   -- local score version
-  local local_scores={}
+  local scores={}
   if dget(0)==2 then
     -- number of scores    
     local mem=0x5e08
@@ -487,26 +488,69 @@ function leaderboard_state()
       -- duration (seconds)
       -- timestamp yyyy,mm,dd
       local t,y,m,d=peek4(mem,4)
-      add(local_scores,scanf("$.\t$/$/$\t\t$S",i,y,m,d,(t<<16)/30))
+      add(scores,scanf("$.\t$/$/$\t\t$S",i,y,m,d,(t<<16)/30))
       mem+=16
     end    
   end
 
-  local delay_print=delayed_print(local_scores)
+  local delay_print=delayed_print(scores)
 
   next_state(menu_state,{
-    {"bACK",111,
-    cb=function() 
-      -- back to main menu
-      next_state(menu_state, _main_buttons)
-    end,
-    draw=function()
-      draw_dialog()
-      arizona_print("lOCAL hIGHSCORES",1,16,2)
-      delay_print(function(s,x,i)
-        arizona_print(s,x,23+i*7)
-      end)
-    end}
+    {
+      "bACK",111,
+      cb=function() 
+        -- back to main menu
+        next_state(menu_state, _main_buttons)
+      end,
+      draw=function()
+        draw_dialog()
+        delay_print(function(s,x,i)
+          arizona_print(s,x,23+i*7)
+        end)
+      end
+    },
+    {
+      "lOCAL",16,
+      cb=leaderboard_state,
+      c=2
+    },
+    {
+      "oNLINE",16,x=127-print("oNLINE",0,512),
+      cb=onlineboard_state
+    }
+  })
+end
+
+-- online leaderboard
+function onlineboard_state()
+  -- local score version
+  local scores={}
+  local delay_print=delayed_print(scores)
+
+  next_state(menu_state,{
+    {
+      "bACK",111,
+      cb=function() 
+        -- back to main menu
+        next_state(menu_state, _main_buttons)
+      end,
+      draw=function()
+        draw_dialog()
+        delay_print(function(s,x,i)
+          arizona_print(s,x,23+i*7)
+        end)
+        print("STATUS: "..peek(0x5f80),2,100,7)
+      end
+    },
+    {
+      "lOCAL",16,
+      cb=leaderboard_state
+    },
+    {
+      "oNLINE",16,x=127-print("oNLINE",0,512),
+      c=2,
+      cb=onlineboard_state
+    }
   })
 end
 
