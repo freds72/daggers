@@ -378,14 +378,13 @@ function make_player(_origin,_a)
           for _,idx_offset in inext,offsets do
             local cell=_grid[idx+idx_offset]
             for chatter_id,cnt in pairs(cell.chatter) do
-              --queue new chatter
-              if cnt>0 and not _chatter[chatter_id] then
-                local variant=chatter_id+flr(rnd"4")
-                local offset=variant*68
+              if cnt>0 then
+                local offset=chatter_id*68
+                --load chatter set corresponding to dist, start at 0xf010-0x220 to offset sfx 0-7
+                memcpy(0x3200+offset, 0xedf0+0x550*(dist-1)+offset, 0x110)
 
-                --copy dampened sfx, start at 0xf010-0x220 to offset sfx 0-7
-                memcpy(0x3200+offset, 0xedf0+0x550*(dist-1)+offset, 68)
-                sfx(variant)
+                --queue chatter variant if not in progress
+                if (not _chatter[chatter_id]) sfx(chatter_id+flr(rnd"4"))
 
                 _ambient,_chatter[chatter_id]=false,true
                 _chattered += 1
