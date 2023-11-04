@@ -438,7 +438,7 @@ _main_buttons={
       load("freds72_daggers_editor_mini.p8","back to title")
       load("#freds72_daggers_editor","back to title")
     end},
-  {"cONTROLS",84,
+  {"sETTINGS",84,
     cb=function(self)
       next_state(menu_state,_settings)
     end},
@@ -524,8 +524,11 @@ end
 -- online leaderboard
 function onlineboard_state()
   -- local score version
-  local scores={}
-  local delay_print=delayed_print(scores)
+  local enabled=dget(43)==0
+  if enabled then
+    -- force refresh
+    poke(0x5f83,1)
+  end
 
   next_state(menu_state,{
     {
@@ -536,10 +539,16 @@ function onlineboard_state()
       end,
       draw=function()
         draw_dialog()
-        delay_print(function(s,x,i)
-          arizona_print(s,x,23+i*7)
-        end)
-        print("STATUS: "..peek(0x5f80),2,100,7)
+        if not enabled then
+          arizona_print("DISABLED IN SETTINGS",2,28)
+        else
+          local mem=0x5f91
+          for i=1,@0x5f90 do
+            arizona_print(scanf("$. $\t$S",i,chr(peek(mem,16)),peek4(mem+16)*65.536),1,23+i*7)
+            mem+=20
+          end
+        end
+        print("STATUS: "..peek(0x5f81),2,100,7)
       end
     },
     {
@@ -1067,6 +1076,7 @@ cartdata;freds72_daggers]]
   end
   local function save_value(btn)
     local id=data_id(btn)
+    -- printh(btn[1](btn).." id:"..id)
     dset(id,1)
     dset(id+1,btn.value)
   end
@@ -1183,6 +1193,18 @@ cartdata;freds72_daggers]]
       poke4(0xc416,sensitivity[btn.value+1]/100)
     end
     },
+    {function(btn)
+      return "oNLINE LADDER\t"..(btn.value==0 and "YES" or "NO")
+    end,88,
+    value=0,
+    id=8,
+    load=load_value,
+    save=save_value,
+    cb=flip_bool,
+    pack=function(btn)
+      -- uses standard dget in game
+    end
+    },
     {"aCCEPT",111,
     cb=function()
       -- save version
@@ -1206,13 +1228,19 @@ cartdata;freds72_daggers]]
     end
   }
   -- restore previous
-  local control_version=dget(25)
-  if control_version==1 then
+  local settings_version=dget(25)
+  if settings_version==1 then
     for _,btn in inext,_settings do
       if(btn.load) btn:load()
     end
   end
   pack_settings()
+
+  -- enable online if allowed
+  poke(0x5f80,0)
+  if dget(43)==0 then
+    poke(0x5f80,1)
+  end
 
   -- back to main menu
   menuitem(1,"main menu",function()

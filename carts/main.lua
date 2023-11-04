@@ -1254,9 +1254,11 @@ function gameover_state(obituary,height,height_attract,music_id)
   local hw_pal,play_time,origin,target,selected_tab,clicked=0,_total_time,_plyr.eye_pos,v_add(_plyr.origin,{0,height or 4,0})
 
   -- if online enabled, post new score
-  if @0x5f80==2 then
-    poke4(0x5f82,play_time)
-    poke(0x5f81,1)
+  if @0x5f81==4 then
+    poke4(0x5f88,play_time)
+    poke(0x5f82,1)
+    -- force online refresh
+    poke(0x5f83,1)
   end
 
   -- check if new playtime enters leaderboard?
@@ -1323,7 +1325,11 @@ dset;0;2]]
     {"oNLINE",96,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
-        arizona_print("tO BE ANNOUNCED...",1,30)
+        local mem=0x5f91
+        for i=1,@0x5f90 do
+          arizona_print(scanf("$. $\t$S",i,chr(peek(mem,16)),peek4(mem+16)*65.536),1,23+i*7)          
+          mem+=20
+        end
       end
     }
   }
