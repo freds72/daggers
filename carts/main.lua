@@ -779,7 +779,7 @@ function make_squid(type)
                 make_jewel(origin,{u,3,v},16)
                 -- change appearance + avoid reentrancy (jewel can't be null!!)
                 ent,jewel=_entities.squid2,false
-                if(type==1) _dead=true sfx"39"
+                if(type==1) _dead=true music"39"
                 -- "downgrade" squid!!
                 type-=1
               end
