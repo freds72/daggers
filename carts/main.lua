@@ -1325,10 +1325,12 @@ dset;0;2]]
     {"oNLINE",96,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
-        local mem=0x5f91
+        local y,mem=30,0x5f91
         for i=1,@0x5f90 do
-          arizona_print(scanf("$. $\t$S",i,chr(peek(mem,16)),peek4(mem+16)*65.536),1,23+i*7)          
-          mem+=20
+          local c=@mem==1 and 4
+          arizona_print(i..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
+          arizona_print("\t"..(peek4(mem+17)*65.536).."S",1,y,c) y+=7
+          mem+=21
         end
       end
     }

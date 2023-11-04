@@ -171,7 +171,7 @@
 									// get all time best (max. 8)
 									NGIO.getScores(scoreboard_id, {
 										period: NGIO.PERIOD_ALL_TIME,
-										limit: 8
+										limit: 5
 									}, onScoresLoaded);			
 
 								} else {
@@ -216,7 +216,7 @@
 				if(NGIO.isReady) {
 					NGIO.getScores(scoreboard_id, {
 						period: NGIO.PERIOD_ALL_TIME,
-						limit: 8
+						limit: 5
 					}, onScoresLoaded);
 				}
 		}
@@ -235,11 +235,12 @@
 			console.log("Score: ", score.user.name, " ", score.value);
 
 			var name = score.user.name; 
+			// me?
+			pico8_gpio[gpioid++] = score.user.id == NGIO.user.id?1:0;
+			
 			var id = gpioid;
 			for(var i=0;i<16;i++) pico8_gpio[id + i] = 32;
 			for(var i=0;i<Math.min(name.length,16);i++) {
-				// allow only printable chars (and avoid p8scii )
-				pico8_gpio[id] = 32;
 				var c;
 				// flip case
 				var ch = name[i];
@@ -252,11 +253,12 @@
 					pico8_gpio[id] = c;
 				}
 				id++;
-			}			
+			}
+			// end long names with ... char
+			if(name.length>16) pico8_gpio[gpioid+15]=27;
 			gpioid+=16;
 			for(var i=0;i<4;i++) {
-				pico8_gpio[gpioid] = (score.value>>(8*i)) & 255;
-				gpioid++;
+				pico8_gpio[gpioid++] = (score.value>>(8*i)) & 255;
 			}
 		});
 	}	
