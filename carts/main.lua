@@ -761,7 +761,7 @@ function make_squid(type)
   make_skull(inherit({
     zangle=_spawn_angle,
     init=function(_ENV)
-      age=time(),
+      age=time()
       -- spill skulls every x seconds
       ai=do_async(function()
         wait_async(60)
