@@ -271,7 +271,6 @@ function menu_state(buttons,default)
   over_btn=default or 1
   active_btn=buttons[over_btn]
   local _,y=unpack(active_btn)
-  local mx,my=btn_x(active_btn)+active_btn.width/2,y+3
 
   local cam=setmetatable({
     origin=v_zero(),    
@@ -298,8 +297,12 @@ function menu_state(buttons,default)
         audio_load"musiciii"
         music(0, 1000)
       end
-
-      mx,my=mid(mx+stat(38)/2,0,127),mid(my+stat(39)/2,0,127)
+      
+      if not _mx then
+        _mx,_my=stat(32),stat(33)
+      else
+        _mx,_my=mid(_mx+stat(38)/2,0,127),mid(_my+stat(39)/2,0,127)
+      end
       -- keyboard override?
 
       local keyboard
@@ -318,7 +321,7 @@ function menu_state(buttons,default)
         local btn=buttons[over_btn]
         if btn then
           local _,y=unpack(btn)
-          mx,my=1+btn.width/2,y+3
+          _mx,_my=1+btn.width/2,y+3
         end
       end
 
@@ -326,7 +329,7 @@ function menu_state(buttons,default)
       over_btn=-1
       for i,btn in inext,buttons do
         local x,_,y=btn_x(btn),unpack(btn)          
-        if mx>=x and my>=y and mx<=x+btn.width and my<=y+6 then            
+        if _mx>=x and _my>=y and _mx<=x+btn.width and _my<=y+6 then            
           over_btn=i
           -- click?
           if not clicked and btnp(5) then
@@ -406,7 +409,7 @@ function menu_state(buttons,default)
       if(active_btn.draw) active_btn:draw()
 
       -- mouse cursor
-      spr(5,mx,my)
+      spr(5,_mx,_my)
       -- hw palette
       memcpy(0x5f10,0x8000+_hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
