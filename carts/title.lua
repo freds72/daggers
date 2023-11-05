@@ -240,26 +240,38 @@ function draw_things(things,cam,fov,lightshift)
   end
 end
 
+function btn_x(btn)
+  local x=btn.x or 2    
+  if(type(x)=="function") x=x(btn)
+  return x
+end
+function btn_static(btn)
+  local s=btn.static
+  if(type(s)=="function") s=s(btn)
+  return s
+end
+
 function menu_state(buttons,default)
   local skulls,ent={},_entities.skull
   -- leaderboard/retry
   local over_btn,clicked
   -- reset hw palette offset
   _hw_pal=0
-  -- get actual size
-  clip(0,0,0,0)
   for btn in all(buttons) do
     local txt=btn[1]
     if(type(txt)=="function") txt=txt(btn)
-    btn.width=print(txt)
-    btn.x=-btn.width-2
+    btn.width=print(txt,0,512)
+    if btn_x(btn)>64 then
+      btn._x=130
+    else
+      btn._x=-btn.width-2
+    end
   end
-  clip()
   -- position cursor on "default"
   over_btn=default or 1
   active_btn=buttons[over_btn]
   local _,y=unpack(active_btn)
-  local mx,my=1+active_btn.width/2,y+3
+  local mx,my=btn_x(active_btn)+active_btn.width/2,y+3
 
   local cam=setmetatable({
     origin=v_zero(),    
@@ -313,7 +325,7 @@ function menu_state(buttons,default)
       -- over button?
       over_btn=-1
       for i,btn in inext,buttons do
-        local x,_,y=1,unpack(btn)          
+        local x,_,y=btn_x(btn),unpack(btn)          
         if mx>=x and my>=y and mx<=x+btn.width and my<=y+6 then            
           over_btn=i
           -- click?
@@ -382,10 +394,14 @@ function menu_state(buttons,default)
 
       -- draw menu & all
       for i,btn in inext,buttons do
-        btn.x=lerp(btn.x,2,0.4)
+        btn._x=lerp(btn._x,btn_x(btn),0.4)
         local s,y=unpack(btn)  
         if(type(s)=="function") s=s(btn)
-        arizona_print(s,btn.x,y,i==over_btn and 1)
+        if btn_static(btn) then
+          print(s,btn._x,y,6)
+        else
+          arizona_print(s,btn._x,y,i==over_btn and 1 or btn.c)
+        end
       end
       if(active_btn.draw) active_btn:draw()
 
@@ -395,6 +411,7 @@ function menu_state(buttons,default)
       memcpy(0x5f10,0x8000+_hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end,
+    -- init
     function() 
       reload(0, 0, 0x3100) 
       px9_decomp(0,0,0x1240,sget,sset)
@@ -410,6 +427,15 @@ end
 
 -- main menu buttons
 local _playing
+_ng_messages={
+  [0]="ONLINE NOT AVAILABLE",
+  "ONLINE - INIT",
+  "ONLINE - CONNECT",
+  "ONLINE - CONNECTING",
+  "ONLINE - CONNECTED",
+  [255]="ONLINE - ERROR"
+}
+
 _main_buttons={
   credits=true,
   {"pLAY",48,cb=function()      
@@ -437,14 +463,35 @@ _main_buttons={
       load("freds72_daggers_editor_mini.p8","back to title")
       load("#freds72_daggers_editor","back to title")
     end},
-  {"cONTROLS",84,
+  {"sETTINGS",84,
     cb=function(self)
       next_state(menu_state,_settings)
     end},
   {"cREDITS",94,
     cb=function(self) 
       credits_state()
-    end}
+    end},
+  {msg=function()
+      if(dget(43)!=0) return "ONLINE DISABLED"
+      return _ng_messages[@0x5f81]
+    end,
+    function(self)
+      return self:msg()    
+    end,120,
+    x=function(self) 
+      return 127-print(self:msg(),0,512)
+    end,
+    static=function(self)
+      return @0x5f81!=2
+    end,
+    cb=function(self)
+      if(@0x5f81!=2) return
+      if not self.connecting then
+        self.connecting=true
+        poke(0x5f80,2)
+      end
+    end
+  }
 }
 
 function delayed_print(text,centered)
@@ -476,10 +523,10 @@ function draw_dialog()
 1;108;126;108;1]],line)   
 end
 
--- leaderboard
+-- local leaderboard
 function leaderboard_state()
   -- local score version
-  local local_scores={}
+  local scores={}
   if dget(0)==2 then
     -- number of scores    
     local mem=0x5e08
@@ -487,26 +534,83 @@ function leaderboard_state()
       -- duration (seconds)
       -- timestamp yyyy,mm,dd
       local t,y,m,d=peek4(mem,4)
-      add(local_scores,scanf("$.\t$/$/$\t\t$S",i,y,m,d,(t<<16)/30))
+      add(scores,scanf("$.\t$/$/$\t\t$S",i,y,m,d,(t<<16)/30))
       mem+=16
     end    
   end
 
-  local delay_print=delayed_print(local_scores)
+  local delay_print=delayed_print(scores)
 
   next_state(menu_state,{
-    {"bACK",111,
-    cb=function() 
-      -- back to main menu
-      next_state(menu_state, _main_buttons)
-    end,
-    draw=function()
-      draw_dialog()
-      arizona_print("lOCAL hIGHSCORES",1,16,2)
-      delay_print(function(s,x,i)
-        arizona_print(s,x,23+i*7)
-      end)
-    end}
+    {
+      "bACK",111,
+      cb=function() 
+        -- back to main menu
+        next_state(menu_state, _main_buttons)
+      end,
+      draw=function()
+        draw_dialog()
+        delay_print(function(s,x,i)
+          arizona_print(s,x,23+i*7)
+        end)
+      end
+    },
+    {
+      "lOCAL",16,
+      cb=leaderboard_state,
+      c=2
+    },
+    {
+      "oNLINE",16,x=127-print("oNLINE",0,512),
+      cb=onlineboard_state
+    }
+  })
+end
+
+-- online leaderboard
+function onlineboard_state()
+  -- local score version
+  local enabled=dget(43)==0
+  if enabled then
+    -- force refresh
+    poke(0x5f83,1)
+  end
+
+  next_state(menu_state,{
+    {
+      "bACK",111,
+      cb=function() 
+        -- back to main menu
+        next_state(menu_state, _main_buttons)
+      end,
+      draw=function()
+        draw_dialog()
+        if not enabled then
+          arizona_print("DISABLED IN SETTINGS",2,28)
+        else
+          local y,mem=30,0x5f91
+          for i=1,@0x5f90 do
+            local c=@mem==1 and 4
+            arizona_print(i..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
+            arizona_print("\t"..(peek4(mem+17)*65.536).."S",1,y,c) y+=7
+            mem+=21
+          end
+          -- no scores? (yet)
+          if mem==0x5f91 then
+            arizona_print("nO ONLINE SCORES",1,30)
+          end
+        end
+      end
+    },
+    {
+      "lOCAL",16,
+      cb=leaderboard_state
+    },
+    {
+      "oNLINE",16,x=127-print("oNLINE",0,512),
+      c=2,
+      cb=onlineboard_state
+    }
   })
 end
 
@@ -851,7 +955,7 @@ end
 function _init()
   -- custom font
   -- source: https://somepx.itch.io/humble-fonts-tiny-ii
-  ?"\^@56000800⁴⁸⁶\0\0¹\0\0\0\0\0\0\0\0\0\0\0 \0²\0\0\0\0■■■■■\0\0\0▮¹■■▒■ ■■■」!■\0\0\0▮■■▮\0■!■■■■!■\0\0²\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0⁷⁷⁷⁷⁷\0\0\0\0⁷⁷⁷\0\0\0\0\0⁷⁵⁷\0\0\0\0\0⁵²⁵\0\0\0\0\0⁵\0⁵\0\0\0\0\0⁵⁵⁵\0\0\0\0⁴⁶⁷⁶⁴\0\0\0¹³⁷³¹\0\0\0⁷¹¹¹\0\0\0\0\0⁴⁴⁴⁷\0\0\0⁵⁷²⁷²\0\0\0\0\0²\0\0\0\0\0\0\0\0¹²\0\0\0\0\0\0³³\0\0\0⁵⁵\0\0\0\0\0\0²⁵²\0\0\0\0\0\0\0\0\0\0\0\0\0²²²²\0²\0\0\n⁵\0\0\0\0\0\0\n゜\n゜⁸\0\0\0⁷³⁶⁷²\0\0\0⁵⁴²¹⁵\0\0\0\0⁴²◀\t◀\0\0²¹\0\0\0\0\0\0²¹¹¹¹²\0\0²⁴⁴⁴⁴²\0\0⁵²⁷²⁵\0\0\0\0²⁷²\0\0\0\0\0\0\0²¹\0\0\0\0\0⁷\0\0\0\0\0\0\0\0\0²\0\0\0⁴²²²¹\0\0\0⁶\t\rᵇ⁶\0\0\0²³²²⁷\0\0\0⁷ᶜ⁶¹ᶠ\0\0\0⁷ᶜ⁶⁸ᶠ\0\0\0⁵⁵ᶠ⁴⁴\0\0\0ᶠ¹⁶ᶜ⁷\0\0\0⁴²⁷\t⁶\0\0\0ᶠ⁸⁴²²\0\0\0⁶\t⁶\t⁶\0\0\0⁶\tᵉ⁴²\0\0\0\0²\0²\0\0\0\0\0²\0²¹\0\0\0⁴²¹²⁴\0\0\0\0⁷\0⁷\0\0\0\0¹²⁴²¹\0\0\0²⁵⁴²\0²\0\0²⁵⁵¹⁶\0\0\0\0⁶⁸ᵇ⁶\0\0\0¹⁵\t\t⁶\0\0\0\0⁶¹¹⁶\0\0\0⁸\n\t\t⁶\0\0\0\0ᵉ\t⁵ᵉ\0\0\0ᶜ²ᵉ³²¹\0\0\0ᵉ\t\r\n⁴\0\0¹⁵ᵇ\t\t⁴\0\0²\0³²²⁷\0\0\0ᶜ⁸⁸\t⁶\0\0¹\t⁵ᵇ\t⁴\0\0¹¹¹¹⁶\0\0\0\0\n▶‖‖\0\0\0\0⁶\t\t\t\0\0\0\0⁶\t\t⁶\0\0\0\0⁶\t\t⁵¹\0\0\0⁶\t\t\n⁸\0\0\0\rᵇ¹¹\0\0\0\0ᵉ³⁸ᶠ\0\0\0\0²ᵉ³²ᶜ\0\0\0\t\t\t⁶\0\0\0\0\t\t⁵³\0\0\0\0‖‖‖ᵇ\0\0\0\0\t⁶⁴\t\0\0\0\0\t\tᵇ⁴³\0\0\0⁷⁴²⁷\0\0\0³¹¹¹¹³\0\0¹¹³²²\0\0\0⁶⁴⁴⁴⁴⁶\0\0²⁵\0\0\0\0\0\0\0\0\0\0⁷\0\0\0²⁴\0\0\0\0\0\0⁶\tᵇ\r\t\t\0\0⁶\t⁵ᵇ\t⁷\0\0⁶\t¹¹\t⁶\0\0³⁵\t\t\t⁷\0\0⁶¹⁵³\t⁶\0\0⁶¹⁵³¹¹\0\0⁶¹¹\r\t⁶\0\0⁵⁵⁵⁷⁵⁵\0\0⁷²²²²⁷\0\0ᵉ⁸⁸⁸\t⁶\0\0\t\t⁵ᵇ\t\t\0\0²¹¹¹\t⁷\0\0\n▶‖‖‖‖\0\0\nᵇ\r\t\t\t\0\0⁶\t\t\t\t⁶\0\0⁶\t\t\r¹¹\0\0⁶\t\t\t\r\n\0\0⁶\t\t⁵ᵇ\t\0\0ᵉ³⁶⁸⁸⁷\0\0ᶜ³²²²²\0\0\t\t\t\t\t⁶\0\0\t\t\t\t⁵³\0\0‖‖‖‖▶\r\0\0\t\t\t⁶\t\t\0\0\t\t\tᵇ⁴³\0\0⁷⁴²¹¹⁷\0\0⁶²³²⁶\0\0\0²²²²²\0\0\0³²⁶²³\0\0\0\0²‖ᶜ\0\0\0\0\0²⁵²\0\0\0\0○○○○○\0\0\0U*U*U\0\0\0<~j4、\0\0\0>ccw>\0\0\0■D■D■\0\0\0⁴<、゛▮\0\0\0⁸*>、、⁸\0\0006>>、⁸\0\0\0、\"*\"、\0\0\0、、>、⁘\0\0\0、>○*:\0\0\0>gcg>\0\0\0○]○A○\0\0\0008⁸⁸ᵉᵉ\0\0\0>ckc>\0\0\0⁸、>、⁸\0\0\0\0\0U\0\0\0\0\0>scs>\0\0\0⁸、○>\"\0\0\0「$JZ$「\0\0>wcc>\0\0\0\0⁵R \0\0\0\0\0■*D\0\0\0\0>kwk>\0\0\0○\0○\0○\0\0\0UUUUU\0\0\0ᵉ⁴゛-&\0\0\0■!!%²\0\0\0ᶜ゛  、\0\0\0⁸゛⁸$¥\0\0\0N⁴>E&\0\0\0\"_□□\n\0\0\0゛⁸<■⁶\0\0\0▮ᶜ²ᶜ▮\0\0\0\"z\"\"□\0\0\0゛ \0²<\0\0\0⁸<▮²ᶜ\0\0\0²²²\"、\0\0\0⁸>⁸ᶜ⁸\0\0\0□?□²、\0\0\0<▮~⁴8\0\0\0²⁷2²2\0\0\0ᶠ²ᵉ▮、\0\0\0>@@ 「\0\0\0>▮⁸⁸▮\0\0\0⁸8⁴²<\0\0\0002⁷□x「\0\0\0zB²\nr\0\0\0\t>Kmf\0\0\0¥'\"s2\0\0\0<JIIF\0\0\0□:□:¥\0\0\0#b\"\"、\0\0\0ᶜ\0⁸*M\0\0\0\0ᶜ□!@\0\0\0}y■=]\0\0\0><⁸゛.\0\0\0⁶$~&▮\0\0\0$N⁴F<\0\0\0\n<ZF0\0\0\0゛⁴゛D8\0\0\0⁘>$⁸⁸\0\0\0:VR0⁸\0\0\0⁴、⁴゛⁶\0\0\0⁸²> 、\0\0\0\"\"& 「\0\0\0>「$r0\0\0\0⁴6,&d\0\0\0>「$B0\0\0\0¥'\"#□\0\0\0ᵉd、(x\0\0\0⁴²⁶+」\0\0\0\0\0ᵉ▮⁸\0\0\0\0\n゜□⁴\0\0\0\0⁴ᶠ‖\r\0\0\0\0⁴ᶜ⁶ᵉ\0\0\0> ⁘⁴²\0\0\0000⁸ᵉ⁸⁸\0\0\0⁸>\" 「\0\0\0>⁸⁸⁸>\0\0\0▮~「⁘□\0\0\0⁴>$\"2\0\0\0⁸>⁸>⁸\0\0\0<$\"▮⁸\0\0\0⁴|□▮⁸\0\0\0>   >\0\0\0$~$ ▮\0\0\0⁶ &▮ᶜ\0\0\0> ▮「&\0\0\0⁴>$⁴8\0\0\0\"$ ▮ᶜ\0\0\0>\"-0ᶜ\0\0\0、⁸>⁸⁴\0\0\0** ▮ᶜ\0\0\0、\0>⁸⁴\0\0\0⁴⁴、$⁴\0\0\0⁸>⁸⁸⁴\0\0\0\0、\0\0>\0\0\0> (▮,\0\0\0⁸>0^⁸\0\0\0   ▮ᵉ\0\0\0▮$$DB\0\0\0²゛²²、\0\0\0>  ▮ᶜ\0\0\0ᶜ□!@\0\0\0\0⁸>⁸**\0\0\0> ⁘⁸▮\0\0\0<\0>\0゛\0\0\0⁸⁴$B~\0\0\0@(▮h⁶\0\0\0゛⁴゛⁴<\0\0\0⁴>$⁴⁴\0\0\0、▮▮▮>\0\0\0゛▮゛▮゛\0\0\0>\0> 「\0\0\0$$$ ▮\0\0\0⁘⁘⁘T2\0\0\0²²\"□ᵉ\0\0\0>\"\"\">\0\0\0>\" ▮ᶜ\0\0\0> < 「\0\0\0⁶  ▮ᵉ\0\0\0\0‖▮⁸⁶\0\0\0\0⁴゛⁘⁴\0\0\0\0\0ᶜ⁸゛\0\0\0\0、「▮、\0\0\0⁸⁴c▮⁸\0\0\0⁸▮c⁴⁸\0\0\0"
+  ?"\^@56000800⁴⁸⁶\0\0¹\0\0\0\0\0\0\0▮\0\0\0 \0²\0\0\0\0■■■■■\0\0\0▮¹■■▒■ ■■■」!■\0\0\0▮■■▮\0■!■■■■!■\0\0²\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0⁷⁷⁷⁷⁷\0\0\0\0⁷⁷⁷\0\0\0\0\0⁷⁵⁷\0\0\0\0\0⁵²⁵\0\0\0\0\0⁵\0⁵\0\0\0\0\0⁵⁵⁵\0\0\0\0⁴⁶⁷⁶⁴\0\0\0¹³⁷³¹\0\0\0⁷¹¹¹\0\0\0\0\0⁴⁴⁴⁷\0\0\0⁵⁷²⁷²\0\0\0\0\0\0\0‖\0\0\0\0\0\0¹²\0\0\0\0\0\0³³\0\0\0⁵⁵\0\0\0\0\0\0²⁵²\0\0\0\0\0\0\0\0\0\0\0\0\0²²²²\0²\0\0\n⁵\0\0\0\0\0\0\n゜\n゜⁸\0\0\0⁷³⁶⁷²\0\0\0⁵⁴²¹⁵\0\0\0\0⁴²◀\t◀\0\0²¹\0\0\0\0\0\0²¹¹¹¹²\0\0²⁴⁴⁴⁴²\0\0⁵²⁷²⁵\0\0\0\0²⁷²\0\0\0\0\0\0\0²¹\0\0\0\0\0⁷\0\0\0\0\0\0\0\0\0²\0\0\0⁴²²²¹\0\0\0⁶\t\rᵇ⁶\0\0\0²³²²⁷\0\0\0⁷ᶜ⁶¹ᶠ\0\0\0⁷ᶜ⁶⁸ᶠ\0\0\0⁵⁵ᶠ⁴⁴\0\0\0ᶠ¹⁶ᶜ⁷\0\0\0⁴²⁷\t⁶\0\0\0ᶠ⁸⁴²²\0\0\0⁶\t⁶\t⁶\0\0\0⁶\tᵉ⁴²\0\0\0\0²\0²\0\0\0\0\0²\0²¹\0\0\0⁴²¹²⁴\0\0\0\0⁷\0⁷\0\0\0\0¹²⁴²¹\0\0\0²⁵⁴²\0²\0\0²⁵⁵¹⁶\0\0\0\0⁶⁸ᵇ⁶\0\0\0¹⁵\t\t⁶\0\0\0\0⁶¹¹⁶\0\0\0⁸\n\t\t⁶\0\0\0\0ᵉ\t⁵ᵉ\0\0\0ᶜ²ᵉ³²¹\0\0\0ᵉ\t\r\n⁴\0\0¹⁵ᵇ\t\t⁴\0\0²\0³²²⁷\0\0\0ᶜ⁸⁸\t⁶\0\0¹\t⁵ᵇ\t⁴\0\0¹¹¹¹⁶\0\0\0\0\n▶‖‖\0\0\0\0⁶\t\t\t\0\0\0\0⁶\t\t⁶\0\0\0\0⁶\t\t⁵¹\0\0\0⁶\t\t\n⁸\0\0\0\rᵇ¹¹\0\0\0\0ᵉ³⁸ᶠ\0\0\0\0²ᵉ³²ᶜ\0\0\0\t\t\t⁶\0\0\0\0\t\t⁵³\0\0\0\0‖‖‖ᵇ\0\0\0\0\t⁶⁴\t\0\0\0\0\t\tᵇ⁴³\0\0\0⁷⁴²⁷\0\0\0³¹¹¹¹³\0\0¹¹³²²\0\0\0⁶⁴⁴⁴⁴⁶\0\0²⁵\0\0\0\0\0\0\0\0\0\0⁷\0\0\0²⁴\0\0\0\0\0\0⁶\tᵇ\r\t\t\0\0⁶\t⁵ᵇ\t⁷\0\0⁶\t¹¹\t⁶\0\0³⁵\t\t\t⁷\0\0⁶¹⁵³\t⁶\0\0⁶¹⁵³¹¹\0\0⁶¹¹\r\t⁶\0\0⁵⁵⁵⁷⁵⁵\0\0⁷²²²²⁷\0\0ᵉ⁸⁸⁸\t⁶\0\0\t\t⁵ᵇ\t\t\0\0²¹¹¹\t⁷\0\0\n▶‖‖‖‖\0\0\nᵇ\r\t\t\t\0\0⁶\t\t\t\t⁶\0\0⁶\t\t\r¹¹\0\0⁶\t\t\t\r\n\0\0⁶\t\t⁵ᵇ\t\0\0ᵉ³⁶⁸⁸⁷\0\0ᶜ³²²²²\0\0\t\t\t\t\t⁶\0\0\t\t\t\t⁵³\0\0‖‖‖‖▶\r\0\0\t\t\t⁶\t\t\0\0\t\t\tᵇ⁴³\0\0⁷⁴²¹¹⁷\0\0⁶²³²⁶\0\0\0²²²²²\0\0\0³²⁶²³\0\0\0\0²‖ᶜ\0\0\0\0\0²⁵²\0\0\0\0○○○○○\0\0\0U*U*U\0\0\0<~j4、\0\0\0>ccw>\0\0\0■D■D■\0\0\0⁴<、゛▮\0\0\0⁸*>、、⁸\0\0006>>、⁸\0\0\0、\"*\"、\0\0\0、、>、⁘\0\0\0、>○*:\0\0\0>gcg>\0\0\0○]○A○\0\0\0008⁸⁸ᵉᵉ\0\0\0>ckc>\0\0\0⁸、>、⁸\0\0\0\0\0U\0\0\0\0\0>scs>\0\0\0⁸、○>\"\0\0\0「$JZ$「\0\0>wcc>\0\0\0\0⁵R \0\0\0\0\0■*D\0\0\0\0>kwk>\0\0\0○\0○\0○\0\0\0UUUUU\0\0\0ᵉ⁴゛-&\0\0\0■!!%²\0\0\0ᶜ゛  、\0\0\0⁸゛⁸$¥\0\0\0N⁴>E&\0\0\0\"_□□\n\0\0\0゛⁸<■⁶\0\0\0▮ᶜ²ᶜ▮\0\0\0\"z\"\"□\0\0\0゛ \0²<\0\0\0⁸<▮²ᶜ\0\0\0²²²\"、\0\0\0⁸>⁸ᶜ⁸\0\0\0□?□²、\0\0\0<▮~⁴8\0\0\0²⁷2²2\0\0\0ᶠ²ᵉ▮、\0\0\0>@@ 「\0\0\0>▮⁸⁸▮\0\0\0⁸8⁴²<\0\0\0002⁷□x「\0\0\0zB²\nr\0\0\0\t>Kmf\0\0\0¥'\"s2\0\0\0<JIIF\0\0\0□:□:¥\0\0\0#b\"\"、\0\0\0ᶜ\0⁸*M\0\0\0\0ᶜ□!@\0\0\0}y■=]\0\0\0><⁸゛.\0\0\0⁶$~&▮\0\0\0$N⁴F<\0\0\0\n<ZF0\0\0\0゛⁴゛D8\0\0\0⁘>$⁸⁸\0\0\0:VR0⁸\0\0\0⁴、⁴゛⁶\0\0\0⁸²> 、\0\0\0\"\"& 「\0\0\0>「$r0\0\0\0⁴6,&d\0\0\0>「$B0\0\0\0¥'\"#□\0\0\0ᵉd、(x\0\0\0⁴²⁶+」\0\0\0\0\0ᵉ▮⁸\0\0\0\0\n゜□⁴\0\0\0\0⁴ᶠ‖\r\0\0\0\0⁴ᶜ⁶ᵉ\0\0\0> ⁘⁴²\0\0\0000⁸ᵉ⁸⁸\0\0\0⁸>\" 「\0\0\0>⁸⁸⁸>\0\0\0▮~「⁘□\0\0\0⁴>$\"2\0\0\0⁸>⁸>⁸\0\0\0<$\"▮⁸\0\0\0⁴|□▮⁸\0\0\0>   >\0\0\0$~$ ▮\0\0\0⁶ &▮ᶜ\0\0\0> ▮「&\0\0\0⁴>$⁴8\0\0\0\"$ ▮ᶜ\0\0\0>\"-0ᶜ\0\0\0、⁸>⁸⁴\0\0\0** ▮ᶜ\0\0\0、\0>⁸⁴\0\0\0⁴⁴、$⁴\0\0\0⁸>⁸⁸⁴\0\0\0\0、\0\0>\0\0\0> (▮,\0\0\0⁸>0^⁸\0\0\0   ▮ᵉ\0\0\0▮$$DB\0\0\0²゛²²、\0\0\0>  ▮ᶜ\0\0\0ᶜ□!@\0\0\0\0⁸>⁸**\0\0\0> ⁘⁸▮\0\0\0<\0>\0゛\0\0\0⁸⁴$B~\0\0\0@(▮h⁶\0\0\0゛⁴゛⁴<\0\0\0⁴>$⁴⁴\0\0\0、▮▮▮>\0\0\0゛▮゛▮゛\0\0\0>\0> 「\0\0\0$$$ ▮\0\0\0⁘⁘⁘T2\0\0\0²²\"□ᵉ\0\0\0>\"\"\">\0\0\0>\" ▮ᶜ\0\0\0> < 「\0\0\0⁶  ▮ᵉ\0\0\0\0‖▮⁸⁶\0\0\0\0⁴゛⁘⁴\0\0\0\0\0ᶜ⁸゛\0\0\0\0、「▮、\0\0\0⁸⁴c▮⁸\0\0\0⁸▮c⁴⁸\0\0\0"
   -- reset screen rebasing
   -- enable custom font
   -- enable tile 0 + extended memory
@@ -1023,6 +1127,7 @@ cartdata;freds72_daggers]]
   end
   local function save_value(btn)
     local id=data_id(btn)
+    -- printh(btn[1](btn).." id:"..id)
     dset(id,1)
     dset(id+1,btn.value)
   end
@@ -1139,6 +1244,18 @@ cartdata;freds72_daggers]]
       poke4(0xc416,sensitivity[btn.value+1]/100)
     end
     },
+    {function(btn)
+      return "oNLINE LADDER\t"..(btn.value==0 and "YES" or "NO")
+    end,88,
+    value=0,
+    id=8,
+    load=load_value,
+    save=save_value,
+    cb=flip_bool,
+    pack=function(btn)
+      -- uses standard dget in game
+    end
+    },
     {"aCCEPT",111,
     cb=function()
       -- save version
@@ -1162,13 +1279,19 @@ cartdata;freds72_daggers]]
     end
   }
   -- restore previous
-  local control_version=dget(25)
-  if control_version==1 then
+  local settings_version=dget(25)
+  if settings_version==1 then
     for _,btn in inext,_settings do
       if(btn.load) btn:load()
     end
   end
   pack_settings()
+
+  -- enable online if allowed
+  poke(0x5f80,0)
+  if dget(43)==0 then
+    poke(0x5f80,1)
+  end
 
   -- back to main menu
   menuitem(1,"main menu",function()

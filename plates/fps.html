@@ -1,7 +1,8 @@
 ﻿<html><head>
-<title>PICO-8 Cartridge</title>
+<title>DEMI DAGGERS by @ridgek+@freds72</title>
 <meta name="viewport" content="width=device-width, user-scalable=no">
 <link rel="icon" type="image/png" sizes="16x16" href="##label_file##"/>
+<script src="NewgroundsIO.min.js"></script>
 <script type="text/javascript">
 
 	// Default shell for PICO-8 0.2.2 (includes @weeble's gamepad mod 1.0)
@@ -68,6 +69,210 @@
 	document.addEventListener('touchmove', {});
 	document.addEventListener('touchend', {});
 
+	// --------------------------------------------------------------------------------------------------------------------------------
+	// newgrounds API integration
+	// see: https://bitbucket.org/newgrounds/newgrounds.io-for-javascript-html5/src/master/
+	// Set up the options for NGIO.
+
+	var scoreboard_id = 13319;
+	var all_scores = Array();
+	var refresh_callback;
+	var refresh_timer = 1000;
+
+	// channel 0: command channel	
+	// 0: do nothing
+	// 1: enable
+	// 2: log in
+	// 3: skip log in
+	// 4: cancel log in
+	pico8_gpio[0] = 0;
+
+	// channel 1: response channel
+	// 0: online not available
+	// 1: api initialized
+	// 2: request for login
+	// 3: waiting
+	// 4: connected
+	// 255: failed
+	pico8_gpio[1] = 0;
+
+	// channel 2: 
+	// 1: post user score
+	pico8_gpio[2] = 0;
+	// channel 3:
+	// 1: refresh online score
+	pico8_gpio[3] = 0;
+
+	// RFU
+	
+	// channel 8-11: user time
+	// channel 12-15: kill#
+	// channel 16: online scores#
+	// channel 17-32: user name
+	// channel 33-36: time
+	// ...
+
+	(function pollGPIO() {
+		// main command channel
+		switch (pico8_gpio[0]) {
+			case 0:
+				break;
+			case 1:				
+				var options = {
+					autoLogNewView: true,
+					preloadScoreBoards: true,
+					debugMode: true
+				};	
+				NGIO.init("57247:xRUQZlYM", "do9felVKI3/jtCCj/ax9uw==", options);
+				(function pollNGStatus() {
+					// stop polling
+					if(refresh_timer<0) return;
+
+					setTimeout(() => {
+					NGIO.getConnectionStatus(function(status) {				
+						// check the actual connection status
+						console.log("NGIO - status: " + status);
+
+						switch (status) {
+							// user needs to log in
+							case NGIO.STATUS_LOGIN_REQUIRED:
+								pico8_gpio[1] = 2;
+								break;
+
+							// We are waiting for the user to log in (they should have a login page in a new browser tab)
+							case NGIO.STATUS_WAITING_FOR_USER:
+								pico8_gpio[1] = 3;
+								// It's possible the user may close the login page without signing in.
+								// Show a "Cancel Login" button that calls ;			
+								break;
+
+							case NGIO.STATUS_SERVER_UNAVAILABLE:
+							case NGIO.STATUS_EXCEEDED_MAX_ATTEMPTS:
+								// some kind of server outage
+								refresh_timer = -1;
+								pico8_gpio[1] = 255;
+								break;
+
+							case NGIO.STATUS_WAITING_FOR_SERVER:
+								// some kind of server outage
+								refresh_timer = 5000;
+								break;
+
+							// user needs to log in
+							case NGIO.STATUS_READY:
+								// Everything should be loaded.
+								// If NGIO.hasUser is false, the user opted not to sign in, so you may
+								// need to do some special handling in your game.
+
+								if(NGIO.hasUser) {
+									// connected!
+									pico8_gpio[1] = 4;
+
+									// get all time best (max. 8)
+									NGIO.getScores(scoreboard_id, {
+										period: NGIO.PERIOD_ALL_TIME,
+										limit: 5
+									}, onScoresLoaded);			
+
+								} else {
+									pico8_gpio[1] = 0;
+									// stop polling for status
+									refresh_timer = -1;
+								}
+								break;
+						}
+					});
+					pollNGStatus();
+				}, refresh_timer);
+			})();
+			break;
+
+			case 2:
+				if(!NGIO.isReady){
+					NGIO.openLoginPage();
+				}
+				break;
+
+			case 3:
+			case 4:
+				NGIO.cancelLogin();
+				pico8_gpio[1] = 0;
+				return;
+			
+			case 8:
+		}
+		pico8_gpio[0]=0;
+
+		switch(pico8_gpio[2]) {
+			case 1:
+				// still connected?
+				if(NGIO.isReady) {
+					postUserScore(8);
+				}
+		}
+		pico8_gpio[2]=0;
+
+		switch(pico8_gpio[3]) {
+			case 1:
+				// still connected?
+				if(NGIO.isReady) {
+					NGIO.getScores(scoreboard_id, {
+						period: NGIO.PERIOD_ALL_TIME,
+						limit: 5
+					}, onScoresLoaded);
+				}
+		}
+		pico8_gpio[3] = 0; 
+		
+		requestAnimationFrame(pollGPIO);
+	})();
+
+	function onScoresLoaded(board, scores, options) {
+		console.log("NGIO - onScoresLoaded");
+		var gpioid = 16;
+		pico8_gpio[gpioid] = scores.length;
+		gpioid++;
+		// to read through the scores:
+		scores.forEach(score => {
+			console.log("Score: ", score.user.name, " ", score.value);
+
+			var name = score.user.name; 
+			// me?
+			pico8_gpio[gpioid++] = score.user.id == NGIO.user.id?1:0;
+			
+			var id = gpioid;
+			for(var i=0;i<16;i++) pico8_gpio[id + i] = 32;
+			for(var i=0;i<Math.min(name.length,16);i++) {
+				var c;
+				// flip case
+				var ch = name[i];
+				if (ch == ch.toUpperCase()) {
+					c = ch.toLowerCase().charCodeAt(0);
+				} else {
+					c = ch.toUpperCase().charCodeAt(0);
+				}					
+				if(c>15 && c<256) {					
+					pico8_gpio[id] = c;
+				}
+				id++;
+			}
+			// end long names with ... char
+			if(name.length>16) pico8_gpio[gpioid+15]=27;
+			gpioid+=16;
+			for(var i=0;i<4;i++) {
+				pico8_gpio[gpioid++] = (score.value>>(8*i)) & 255;
+			}
+		});
+	}	
+
+	// read new score from gpio
+	function postUserScore(base) {
+		var time = pico8_gpio[base] | pico8_gpio[base+1]<<8 | pico8_gpio[base+2]<<16 | pico8_gpio[base+3]<<24;
+		if (time>0) {					
+			time = Math.round((1000 * time)/30);
+			NGIO.postScore(scoreboard_id, time);
+		}
+	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------
 	// pico-8 0.2.2: allow dropping files

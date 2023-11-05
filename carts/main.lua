@@ -1260,6 +1260,15 @@ end
 function gameover_state(obituary,height,height_attract,music_id)  
   -- remove time spent "waiting"!!
   local hw_pal,play_time,origin,target,selected_tab,clicked=0,_total_time,_plyr.eye_pos,v_add(_plyr.origin,{0,height or 4,0})
+
+  -- if online enabled, post new score
+  if @0x5f81==4 then
+    poke4(0x5f88,play_time)
+    poke(0x5f82,1)
+    -- force online refresh
+    poke(0x5f83,1)
+  end
+
   -- check if new playtime enters leaderboard?
   -- + handle sorting
   local new_best_i=#_local_scores+1
@@ -1324,7 +1333,13 @@ dset;0;2]]
     {"oNLINE",96,16,
       cb=function(self) selected_tab,clicked=self end,
       draw=function()
-        arizona_print("tO BE ANNOUNCED...",1,30)
+        local y,mem=30,0x5f91
+        for i=1,@0x5f90 do
+          local c=@mem==1 and 4
+          arizona_print(i..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
+          arizona_print("\t"..(peek4(mem+17)*65.536).."S",1,y,c) y+=7
+          mem+=21
+        end
       end
     }
   }
