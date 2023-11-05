@@ -16,7 +16,11 @@ Run
 
     python tools/minify.py --pico <path to pico> --release <relase name>
 
-Will generate BBS carts (png files) into carts/<release> folder
+Example (Windows)
+
+    python .\tools\minify.py --pico D:\pico-8_0.2.5\ --release v1.0
+
+Will generate the minified files for release + BBS carts (png files) into carts/<release> folder 
 
 > note: html export doesn't work, follow script instructions :/
 
