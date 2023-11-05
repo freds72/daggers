@@ -240,27 +240,38 @@ function draw_things(things,cam,fov,lightshift)
   end
 end
 
+function btn_x(btn)
+  local x=btn.x or 2    
+  if(type(x)=="function") x=x(btn)
+  return x
+end
+function btn_static(btn)
+  local s=btn.static
+  if(type(s)=="function") s=s(btn)
+  return s
+end
+
 function menu_state(buttons,default)
   local skulls,ent={},_entities.skull
   -- leaderboard/retry
   local over_btn,clicked
   -- reset hw palette offset
   _hw_pal=0
-  -- get actual size
-  clip(0,0,0,0)
   for btn in all(buttons) do
     local txt=btn[1]
     if(type(txt)=="function") txt=txt(btn)
-    btn.width=print(txt)
-    btn._x=-btn.width-2    
-    btn.x=btn.x or 2
+    btn.width=print(txt,0,512)
+    if btn_x(btn)>64 then
+      btn._x=130
+    else
+      btn._x=-btn.width-2
+    end
   end
-  clip()
   -- position cursor on "default"
   over_btn=default or 1
   active_btn=buttons[over_btn]
   local _,y=unpack(active_btn)
-  local mx,my=active_btn.x+active_btn.width/2,y+3
+  local mx,my=btn_x(active_btn)+active_btn.width/2,y+3
 
   local cam=setmetatable({
     origin=v_zero(),    
@@ -314,7 +325,7 @@ function menu_state(buttons,default)
       -- over button?
       over_btn=-1
       for i,btn in inext,buttons do
-        local x,_,y=btn.x,unpack(btn)          
+        local x,_,y=btn_x(btn),unpack(btn)          
         if mx>=x and my>=y and mx<=x+btn.width and my<=y+6 then            
           over_btn=i
           -- click?
@@ -383,10 +394,14 @@ function menu_state(buttons,default)
 
       -- draw menu & all
       for i,btn in inext,buttons do
-        btn._x=lerp(btn._x,btn.x,0.4)
+        btn._x=lerp(btn._x,btn_x(btn),0.4)
         local s,y=unpack(btn)  
         if(type(s)=="function") s=s(btn)
-        arizona_print(s,btn.x,y,i==over_btn and 1 or btn.c)
+        if btn_static(btn) then
+          print(s,btn._x,y,6)
+        else
+          arizona_print(s,btn._x,y,i==over_btn and 1 or btn.c)
+        end
       end
       if(active_btn.draw) active_btn:draw()
 
@@ -396,6 +411,7 @@ function menu_state(buttons,default)
       memcpy(0x5f10,0x8000+_hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end,
+    -- init
     function() 
       reload(0, 0, 0x3100) 
       px9_decomp(0,0,0x1240,sget,sset)
@@ -411,6 +427,15 @@ end
 
 -- main menu buttons
 local _playing
+_ng_messages={
+  [0]="ONLINE NOT AVAILABLE",
+  "ONLINE - INIT",
+  "ONLINE - CONNECT",
+  "ONLINE - CONNECTING",
+  "ONLINE - CONNECTED",
+  [255]="ONLINE - ERROR"
+}
+
 _main_buttons={
   credits=true,
   {"pLAY",48,cb=function()      
@@ -445,7 +470,28 @@ _main_buttons={
   {"cREDITS",94,
     cb=function(self) 
       credits_state()
-    end}
+    end},
+  {msg=function()
+      if(dget(43)!=0) return "ONLINE DISABLED"
+      return _ng_messages[@0x5f81]
+    end,
+    function(self)
+      return self:msg()    
+    end,120,
+    x=function(self) 
+      return 127-print(self:msg(),0,512)
+    end,
+    static=function(self)
+      return @0x5f81!=2
+    end,
+    cb=function(self)
+      if(@0x5f81!=2) return
+      if not self.connecting then
+        self.connecting=true
+        poke(0x5f80,2)
+      end
+    end
+  }
 }
 
 function delayed_print(text,centered)
@@ -551,8 +597,7 @@ function onlineboard_state()
           end
           -- no scores? (yet)
           if mem==0x5f91 then
-            local code=peek(0x5f81)
-            arizona_print("nEWGROUNDS status: "..code,1,30,code==255 and 3)
+            arizona_print("nO ONLINE SCORES",1,30)
           end
         end
       end

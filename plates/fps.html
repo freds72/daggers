@@ -188,7 +188,9 @@
 			break;
 
 			case 2:
-				NGIO.openLoginPage();
+				if(!NGIO.isReady){
+					NGIO.openLoginPage();
+				}
 				break;
 
 			case 3:
