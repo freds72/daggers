@@ -749,22 +749,24 @@ end
 -- squid
 -- type 1: 3 blocks
 -- type 2: 4 blocks
+-- type 3: 5 blocks
 function make_squid(type)
   _spawn_angle+=lerp(0.20,0.30,rnd())
-  local _spawns,_origin,_velocity,_dx,_dz,_angle,_dead=select(type,4,4,8),get_spawn_origin(256,_spawn_angle),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},32000,32000,0
+  local _spawns,_origin,_velocity,_dist,_angle,_dead=select(type,4,4,8),get_spawn_origin(256,_spawn_angle),{-cos(_spawn_angle)/16,0,sin(_spawn_angle)/16},1.35,0
   local function make_skull_async(template)
     make_skull(template,{_origin[1],64+rnd"16",_origin[3]})
     wait_async(2,2)
   end
 
   make_skull(inherit({
+    zangle=_spawn_angle,
     init=function(_ENV)
       -- spill skulls every x seconds
       ai=do_async(function()
         wait_async(90)
         while true do
           -- don't spawn while outside
-          if _dx<200 and _dz<200 then
+          if _dist==1 then
             for i=1,_spawns do
               make_skull_async(_skull1_template)
             end
@@ -779,7 +781,8 @@ function make_squid(type)
       for part_template in all(_squid_templates[type]) do
         add(_things,inherit({
           hit=function(_ENV,pos,bullet) 
-            if jewel then
+            -- cannot shoot squids outside of playground!
+            if jewel and _dist==1 then
               -- feedback
               make_particle(_lgib_template,pos,{u,-3*bullet.velocity[2],v})
               sfx"56"
@@ -787,7 +790,7 @@ function make_squid(type)
                 make_jewel(origin,{u,3,v},16)
                 -- change appearance + avoid reentrancy (jewel can't be null!!)
                 ent,jewel=_entities.squid2,false
-                if(type==1) _dead=true music"39"
+                if(type==1) _dead=1 music"39"
                 -- "downgrade" squid!!
                 type-=1
               end
@@ -796,11 +799,11 @@ function make_squid(type)
           update=function(_ENV)
             if _dead then
               if(dead) return
-              make_blood(origin) 
+              if(_dead==1) make_blood(origin) 
               dead=true
               return
             end
-            bright=lerp(bright,1,0.022)
+            bright=max(2-_dist*_dist)
             zangle=_angle+a_offset
             -- store u/v angle
             local cc,ss,offset=cos(zangle),-sin(zangle),r_offset
@@ -826,10 +829,10 @@ function make_squid(type)
       forces=v_add(forces,_velocity,30)
     end,
     post_think=function(_ENV)
-      _origin,_dx,_dz=origin,abs(origin[1]-512),abs(origin[3]-512)
+      _origin,_dist=origin,max(max(abs(origin[1]-512),abs(origin[3]-512)),190)/190
       _origin[2]=2
       -- remove squid if out of sight
-      if(_dx>300 or _dz>300) _dead=true
+      if(_dist>1.4) _dead=2
     end
   },_squid_core),_origin)
 end
