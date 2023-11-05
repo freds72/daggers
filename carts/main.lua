@@ -357,7 +357,7 @@ function make_player(_origin,_a)
       end
 
       --chatter stats
-      local _ambient,_chatter,_chattered,_chattermax=true,{},0,3
+      local _ambient, _chatter, _chattermax = true, {}, 3
       for i=46,49 do
         local cur_sfx = stat(i)
 
@@ -365,8 +365,8 @@ function make_player(_origin,_a)
           --reduce available channels
           _chattermax-=1
         elseif cur_sfx>7 then
-          --record chatter_id
-          _ambient,_chatter[cur_sfx-cur_sfx%4]=false,true
+          --record chatter_id, unset _ambient
+          _chatter[cur_sfx-cur_sfx%4], _ambient = cur_sfx
         end
       end
 
@@ -378,19 +378,27 @@ function make_player(_origin,_a)
           for _,idx_offset in inext,offsets do
             local cell=_grid[idx+idx_offset]
             for chatter_id,cnt in pairs(cell.chatter) do
-              --queue new chatter
-              if cnt>0 and not _chatter[chatter_id] then
-                local variant=chatter_id+flr(rnd"4")
-                local offset=variant*68
+              if cnt>0 then
+                local offset, variant
 
-                --copy dampened sfx, start at 0xf010-0x220 to offset sfx 0-7
+                if _chatter[chatter_id] then
+                  --get offset of in-progress chatter, unset ambient
+                  offset, _ambient = _chatter[chatter_id] * 68
+                else
+                  --queue new chatter, unset ambient
+                  variant=chatter_id+flr(rnd"4")
+                  offset, _chatter[chatter_id], _ambient = variant*68, variant
+                end
+
+                --copy distanced sfx, start at 0xf010-0x220 to offset sfx 0-7
                 memcpy(0x3200+offset, 0xedf0+0x550*(dist-1)+offset, 68)
-                sfx(variant)
 
-                _ambient,_chatter[chatter_id]=false,true
-                _chattered += 1
+                --play variant if queued
+                if(variant) sfx(variant)
 
-                if(_chattered>=_chattermax) goto end_noise
+                _chattermax -= 1
+
+                if(_chattermax < 1) goto end_noise
               end
             end
           end
