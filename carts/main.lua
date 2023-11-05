@@ -357,7 +357,7 @@ function make_player(_origin,_a)
       end
 
       --chatter stats
-      local _ambient,_chatter,_chattered,_chattermax=true,{},0,3
+      local _ambient, _chatter, _chattermax = true, {}, 3
       for i=46,49 do
         local cur_sfx = stat(i)
 
@@ -382,12 +382,12 @@ function make_player(_origin,_a)
                 local offset, variant
 
                 if _chatter[chatter_id] then
-                  --get offset of in-progress chatter
-                  offset=_chatter[chatter_id] * 68
+                  --get offset of in-progress chatter, unset ambient
+                  offset, _ambient = _chatter[chatter_id] * 68
                 else
-                  --queue new chatter
+                  --queue new chatter, unset ambient
                   variant=chatter_id+flr(rnd"4")
-                  offset, _chatter[chatter_id] = variant*68, variant
+                  offset, _chatter[chatter_id], _ambient = variant*68, variant
                 end
 
                 --copy distanced sfx, start at 0xf010-0x220 to offset sfx 0-7
@@ -396,10 +396,9 @@ function make_player(_origin,_a)
                 --play variant if queued
                 if(variant) sfx(variant)
 
-                _ambient=nil
-                _chattered+=1
+                _chattermax -= 1
 
-                if(_chattered>=_chattermax) goto end_noise
+                if(_chattermax < 1) goto end_noise
               end
             end
           end
