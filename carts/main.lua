@@ -761,9 +761,10 @@ function make_squid(type)
   make_skull(inherit({
     zangle=_spawn_angle,
     init=function(_ENV)
+      age=time(),
       -- spill skulls every x seconds
       ai=do_async(function()
-        wait_async(90)
+        wait_async(60)
         while true do
           -- don't spawn while outside
           if _dist==1 then
@@ -771,6 +772,8 @@ function make_squid(type)
               make_skull_async(_skull1_template)
             end
             make_skull_async(_skull2_template)
+            -- spawn a second skull2 for "old" squids
+            if(time()-age>30) make_skull_async(_skull2_template)
             -- wait 10s
             wait_async(300)            
           end
