@@ -154,8 +154,8 @@ function grid_register(thing)
 
     -- noise emitter?
     if chatter then
-      -- \64(=6) + >>16
-      local cell=grid[x>>22|z\64]
+      -- \32(=5) + >>16+5=21
+      local cell=grid[x>>21|z\32]
       cell.chatter[chatter]+=1
       -- for fast unregister
       chatter_cell=cell
@@ -184,41 +184,34 @@ end
 
 -- range index generator
 --[[
-  done={}
-
-function visit(x0,y0,len)
- local s=""
-	for x=x0,x0+len-1 do
-	 for y=y0,y0+len-1 do
-	 	local idx=(x-x0)>>16|(y-y0)
-	 	if not done[x|y<<6] then
-	 	 done[x|y<<6]=true
-	 	 s..=tostr(idx,1)..","
-	 	end
-	 end
+local clip=""
+for dmax=0,5 do
+	local s=""
+	for i=-5,5 do
+	 for j=-5,5 do
+	  local dx,dy=i,j
+	  local d=sqrt(dx*dx+dy*dy)\1
+		 if d==dmax then
+		  if(#s!=0) s..=";"
+				s..=tostr((dx>>16)+dy,1)
+		 end
+	 end  
 	end
-	return s
+	clip..=(dmax+1)..";"..tostr(0xedf0+0x550*dmax,1)..";"..s.."\n"
 end
-
-local s="{{"..visit(2,2,2).."},\n"
-s..="{"..visit(1,1,4).."},\n"
-s..="{"..visit(0,0,6).."}}"
-printh(s,"@clip")
+printh(clip,"@clip")
 ]]
--- concentric offset around player in chatter grid
---  2222
--- 211112
--- 210012
--- 210012
--- 211112
---  2222
-
 function make_player(_origin,_a)
-  local _chatter_ranges,on_ground,prev_jump={
-    split"0x0,0x0001,0x0.0001,0x0001.0001",
-    split"0x0,0x0001,0x0002,0x0003,0x0.0001,0x0003.0001,0x0.0002,0x0003.0002,0x0.0003,0x0001.0003,0x0002.0003,0x0003.0003",
-    split"0x0001,0x0002,0x0003,0x0004,0x0.0001,0x0005.0001,0x0.0002,0x0005.0002,0x0.0003,0x0005.0003,0x0.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
-  }    
+  local _chatter_ranges,on_ground,prev_jump={}    
+  split2d([[0xedf0;0x0
+0xf340;0xfffe.ffff;0xffff.ffff;0x0.ffff;0xffff;0x0001;0xffff.0001;0x0.0001;0x0001.0001
+0xf890;0xfffd.fffe;0xfffe.fffe;0xffff.fffe;0x0.fffe;0x0001.fffe;0xfffd.ffff;0x0001.ffff;0xfffe;0x0002;0xfffe.0001;0x0002.0001;0xfffe.0002;0xffff.0002;0x0.0002;0x0001.0002;0x0002.0002
+0xfde0;0xfffd.fffd;0xfffe.fffd;0xffff.fffd;0x0.fffd;0x0001.fffd;0xfffc.fffe;0x0002.fffe;0xfffc.ffff;0x0002.ffff;0xfffd;0x0003;0xfffd.0001;0x0003.0001;0xfffd.0002;0x0003.0002;0xfffe.0003;0xffff.0003;0x0.0003;0x0001.0003;0x0002.0003
+0x0330;0xfffd.fffc;0xfffe.fffc;0xffff.fffc;0x0.fffc;0x0001.fffc;0xfffc.fffd;0x0002.fffd;0xfffb.fffe;0x0003.fffe;0xfffb.ffff;0x0003.ffff;0xfffc;0x0004;0xfffc.0001;0x0004.0001;0xfffc.0002;0x0004.0002;0xfffd.0003;0x0003.0003;0xfffe.0004;0xffff.0004;0x0.0004;0x0001.0004;0x0002.0004
+0x0880;0xfffc.fffb;0xfffd.fffb;0xfffe.fffb;0xffff.fffb;0x0.fffb;0x0001.fffb;0x0002.fffb;0xfffb.fffc;0xfffc.fffc;0x0002.fffc;0x0003.fffc;0xfffa.fffd;0xfffb.fffd;0x0003.fffd;0x0004.fffd;0xfffa.fffe;0x0004.fffe;0xfffa.ffff;0x0004.ffff;0xfffb;0x0005;0xfffb.0001;0x0005.0001;0xfffb.0002;0x0005.0002;0xfffb.0003;0xfffc.0003;0x0004.0003;0x0005.0003;0xfffc.0004;0xfffd.0004;0x0003.0004;0x0004.0004;0xfffd.0005;0xfffe.0005;0xffff.0005;0x0.0005;0x0001.0005;0x0002.0005;0x0003.0005]],
+  function(src,...)
+  add(_chatter_ranges,{src=src,...})
+end)
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,eye_pos,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
     origin=v_add(_origin,split"0,1,0"), 
@@ -357,57 +350,52 @@ function make_player(_origin,_a)
       end
 
       --chatter stats
-      local _ambient, _chatter, _chattermax = true, {}, 3
+      local _grid,ambient, chatter, chattermax = _grid, true, {}, 3
       for i=46,49 do
         local cur_sfx = stat(i)
 
         if cur_sfx>28 then
           --reduce available channels
-          _chattermax-=1
+          chattermax-=1
         elseif cur_sfx>7 then
-          --record chatter_id, unset _ambient
-          _chatter[cur_sfx-cur_sfx%4], _ambient = cur_sfx
+          --record chatter_id, unset ambient
+          chatter[cur_sfx-cur_sfx%4], ambient = cur_sfx
         end
       end
 
       --chatter playback
-      if _chattermax > 0 and not stat"57" then
-        local x0,z0=x>>22,z\64
+      if chattermax > 0 and not stat"57" then
+        local idx=x>>21|z\32
         for dist,offsets in inext,_chatter_ranges do
-          local idx=x0|z0
           for _,idx_offset in inext,offsets do
-            local cell=_grid[idx+idx_offset]
-            for chatter_id,cnt in pairs(cell.chatter) do
+            for chatter_id,cnt in pairs(_grid[idx+idx_offset].chatter) do
               if cnt>0 then
                 local offset, variant
 
-                if _chatter[chatter_id] then
+                if chatter[chatter_id] then
                   --get offset of in-progress chatter, unset ambient
-                  offset, _ambient = _chatter[chatter_id] * 68
+                  offset, ambient = chatter[chatter_id] * 68
                 else
                   --queue new chatter, unset ambient
                   variant=chatter_id+flr(rnd"4")
-                  offset, _chatter[chatter_id], _ambient = variant*68, variant
+                  offset, chatter[chatter_id], ambient = variant*68, variant
                 end
 
                 --copy distanced sfx, start at 0xf010-0x220 to offset sfx 0-7
-                memcpy(0x3200+offset, 0xedf0+0x550*(dist-1)+offset, 68)
+                memcpy(0x3200+offset, offsets.src+offset, 68)
 
                 --play variant if queued
                 if(variant) sfx(variant)
 
-                _chattermax -= 1
+                chattermax -= 1
 
-                if(_chattermax < 1) goto end_noise
+                if(chattermax < 1) goto end_noise
               end
             end
           end
-          -- next range
-          x0-=0x0.0001
-          z0-=1
         end
 
-        if(_ambient) sfx"28"
+        if(ambient) sfx"28"
       end
 ::end_noise::
 
@@ -761,7 +749,7 @@ function make_squid(type)
   make_skull(inherit({
     zangle=_spawn_angle,
     init=function(_ENV)
-      age=time(),
+      age=time()
       -- spill skulls every x seconds
       ai=do_async(function()
         wait_async(60)
@@ -1510,9 +1498,9 @@ tline;17]]
     -- ##6: vertex index
     -- ##7: vertex index
     -- ##8: tex coords
-    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0000.1010;1; -2;32.0;0;2;58;55;52;49;0x0014.0404;0; -3;-384.0;0;1;13;22;58;49;0x0010.0404;0; 3;640.0;0;1;19;16;52;55;0x0010.0404;0; -1;-320.0;2;1;49;52;16;13;0x0010.0404;0
-2; 2;0.0;0;2;1;4;7;10;0x0000.1010;1; -2;32.0;0;2;46;43;40;37;0x0014.0404;0; -3;-320.0;0;1;1;10;46;37;0x0010.0404;0; 3;704.0;0;1;7;4;40;43;0x0010.0404;0; -1;-384.0;2;1;22;1;37;58;0x0010.0404;0; -1;-384.0;2;1;4;19;55;40;0x0010.0404;0; 1;640.0;2;1;28;7;43;64;0x0010.0404;0; 1;640.0;2;1;10;25;61;46;0x0010.0404;0
-3; 2;0.0;0;2;25;28;31;34;0x0000.1010;1; -2;32.0;0;2;70;67;64;61;0x0014.0404;0; -3;-384.0;0;1;25;34;70;61;0x0010.0404;0; 1;704.0;2;1;70;34;31;67;0x0010.0404;0; 3;640.0;0;1;31;28;64;67;0x0010.0404;0
+    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0.1010;1; -2;32.0;0;2;58;55;52;49;0x0014.0404;0; -3;-384.0;0;1;13;22;58;49;0x0010.0404;0; 3;640.0;0;1;19;16;52;55;0x0010.0404;0; -1;-320.0;2;1;49;52;16;13;0x0010.0404;0
+2; 2;0.0;0;2;1;4;7;10;0x0.1010;1; -2;32.0;0;2;46;43;40;37;0x0014.0404;0; -3;-320.0;0;1;1;10;46;37;0x0010.0404;0; 3;704.0;0;1;7;4;40;43;0x0010.0404;0; -1;-384.0;2;1;22;1;37;58;0x0010.0404;0; -1;-384.0;2;1;4;19;55;40;0x0010.0404;0; 1;640.0;2;1;28;7;43;64;0x0010.0404;0; 1;640.0;2;1;10;25;61;46;0x0010.0404;0
+3; 2;0.0;0;2;25;28;31;34;0x0.1010;1; -2;32.0;0;2;70;67;64;61;0x0014.0404;0; -3;-384.0;0;1;25;34;70;61;0x0010.0404;0; 1;704.0;2;1;70;34;31;67;0x0010.0404;0; 3;640.0;0;1;31;28;64;67;0x0010.0404;0
 ]],function(id,...)
       -- localize
       local planes={...}
