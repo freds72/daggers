@@ -982,20 +982,20 @@ cartdata;freds72_daggers]]
   end
 
   ---chatter pre-rendering
-  --loop dampen levels
-  for damp = 0, 2 do
-    --dampened chatter bank destination address
-    local addr = 0xf010 + 0x550 * damp
+  --loop attenuation levels
+  for attn = 0, 4 do
+    --attenuated bank address
+    local addr = 0xe570 + 0x550 * attn
 
-    --dump chatter sfx bank
+    --dump unmodified chatter bank
     audio_load("chatter", addr)
 
-    --loop chatter sfx stored in map ram
-    for i = 0, 15 do
-      --set dampen level
-      sfx_damp(addr + i * 68, damp)
+    --attenuate chatter sfx
+    for i = 0, 19 do
       --atennuate volume
-      sfx_volume(addr + i * 68, damp < 2 and -damp or -3)
+      sfx_volume(addr + i * 68, ceil(attn / 2))
+      --set dampen level
+      sfx_damp(addr + i * 68, attn \ 2)
     end
   end
 
