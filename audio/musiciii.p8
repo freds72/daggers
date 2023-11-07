@@ -4,8 +4,13 @@ __lua__
 --"this is a cover of devil daggers iii"
 --by ridgek
 
+--prevent run if loaded from packer.p8
+if stat(6) == "stop" then
+	stop()
+end
+
 --run packer.p8
-load("./audio/packer.p8")
+load("./audio/packer.p8", nil, "./audio/musiciii.p8")
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

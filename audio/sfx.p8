@@ -4,6 +4,11 @@ __lua__
 --devil daggers sfx
 --by ridgek
 
+--prevent run if loaded from packer.p8
+if stat(6) == "stop" then
+	stop()
+end
+
 --copy all sfx/music to daggers.p8
 cstore(0x3100,0x3100,0x1200,"../carts/freds72_daggers.p8")
 
@@ -11,7 +16,7 @@ cstore(0x3100,0x3100,0x1200,"../carts/freds72_daggers.p8")
 cstore(0x3420,0x3420, 20 * 68, "./chatter.p8")
 
 --run packer.p8
-load("./audio/packer.p8")
+load("./audio/packer.p8", nil, "./audio/sfx.p8")
 
 --sfx
 --08: chattersquid
