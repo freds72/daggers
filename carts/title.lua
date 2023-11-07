@@ -991,7 +991,7 @@ cartdata;freds72_daggers]]
     audio_load("chatter", addr)
 
     --loop chatter sfx stored in map ram
-    for i = 0, 15 do
+    for i = 0, 19 do
       --set dampen level
       sfx_damp(addr + i * 68, damp)
       --atennuate volume
