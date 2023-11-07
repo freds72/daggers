@@ -31,8 +31,7 @@ runtime
 
 0x4300-0x43ff - radix sort
 
-0xe020-0xe56f: sfx - chatter damp 0 (title.lua)
-0xe570-0xeabf: sfx - chatter damp 1 (title.lua)
+0xe570-0xeabf: sfx - chatter damp 0/1 (title.lua)
 0xeac0-0xf09f: sfx - chatter damp 2 (title.lua)
 0xf010-0xf55f: sfx - chatter damp 3 (title.lua)
 0xf560-0xfaaf: sfx - chatter damp 4 (title.lua)

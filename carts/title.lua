@@ -983,21 +983,19 @@ cartdata;freds72_daggers]]
 
   ---chatter pre-rendering
   --loop attenuation levels
-  for attn = 0, 5 do
+  for attn = 0, 4 do
     --attenuated bank address
-    local addr = 0xe020 + 0x550 * attn
+    local addr = 0xe570 + 0x550 * attn
 
     --dump unmodified chatter bank
     audio_load("chatter", addr)
 
     --attenuate chatter sfx
-    if attn > 1 then
-      for i = 0, 19 do
-        --atennuate volume
-        sfx_volume(addr + i * 68, ceil((attn - 1) / 2))
-        --set dampen level
-        sfx_damp(addr + i * 68, (attn - 1) \ 2)
-      end
+    for i = 0, 19 do
+      --atennuate volume
+      sfx_volume(addr + i * 68, ceil(attn / 2))
+      --set dampen level
+      sfx_damp(addr + i * 68, attn \ 2)
     end
   end
 
