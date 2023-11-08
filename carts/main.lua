@@ -140,7 +140,7 @@ function grid_register(thing)
     for idx=x0,x1,0x0.0001 do
       for idx=idx|z0,idx|z1 do
         local cell=grid[idx]
-        cell.things[thing]=true
+        cell[thing]=true
         -- for fast unregister
         if(not cells) cells={}
         cells[idx]=cell
@@ -151,27 +151,14 @@ function grid_register(thing)
     grid_x1=x1
     grid_z0=z0
     grid_z1=z1
-
-    -- noise emitter?
-    if chatter then
-      -- \32(=5) + >>16+5=21
-      local cell=grid[x>>21|z\32]
-      cell.chatter[chatter]+=1
-      -- for fast unregister
-      chatter_cell=cell
-    end
   end
 end
 
 -- removes thing from the collision grid
 function grid_unregister(_ENV)
   for idx,cell in pairs(cells) do
-    cell.things[_ENV],cells[idx]=nil
+    cell[_ENV],cells[idx]=nil
   end  
-  if chatter_cell then
-    chatter_cell.chatter[chatter]-=1
-    chatter_cell=nil
-  end    
 end
 
 function register_hit(_ENV)  
@@ -185,36 +172,23 @@ end
 -- range index generator
 --[[
 local clip=""
-for dmax=0,5 do
+for dmax=0,4 do
 	local s=""
 	for i=-5,5 do
 	 for j=-5,5 do
 	  local dx,dy=i,j
 	  local d=sqrt(dx*dx+dy*dy)\1
 		 if d==dmax then
-		  if(#s!=0) s..=";"
-				s..=tostr((dx>>16)+dy,1)
+		  if(#clip!=0) clip..=","
+				clip..=tostr((dx>>16)+dy,1)..","..max(1,dmax)
 		 end
 	 end  
 	end
-	--set sfx offset
-  --dmax=0, dmax=1 receive same offset for total of 5 offsets
-  --for dmax > 0, start at 0xe020-0x220 to offset sfx 0-7
-	clip..=(dmax+1)..";"..tostr(dmax == 0 and 0xe350 or 0xde00+0x550*dmax,1)..";"..s.."\n"
 end
 printh(clip,"@clip")
 ]]
 function make_player(_origin,_a)
-  local _chatter_ranges,on_ground,prev_jump={}    
-  split2d([[0xe350;0x0
-0xe350;0xfffe.ffff;0xffff.ffff;0x0.ffff;0xffff;0x0001;0xffff.0001;0x0.0001;0x0001.0001
-0xe8a0;0xfffd.fffe;0xfffe.fffe;0xffff.fffe;0x0.fffe;0x0001.fffe;0xfffd.ffff;0x0001.ffff;0xfffe;0x0002;0xfffe.0001;0x0002.0001;0xfffe.0002;0xffff.0002;0x0.0002;0x0001.0002;0x0002.0002
-0xedf0;0xfffd.fffd;0xfffe.fffd;0xffff.fffd;0x0.fffd;0x0001.fffd;0xfffc.fffe;0x0002.fffe;0xfffc.ffff;0x0002.ffff;0xfffd;0x0003;0xfffd.0001;0x0003.0001;0xfffd.0002;0x0003.0002;0xfffe.0003;0xffff.0003;0x0.0003;0x0001.0003;0x0002.0003
-0xf340;0xfffd.fffc;0xfffe.fffc;0xffff.fffc;0x0.fffc;0x0001.fffc;0xfffc.fffd;0x0002.fffd;0xfffb.fffe;0x0003.fffe;0xfffb.ffff;0x0003.ffff;0xfffc;0x0004;0xfffc.0001;0x0004.0001;0xfffc.0002;0x0004.0002;0xfffd.0003;0x0003.0003;0xfffe.0004;0xffff.0004;0x0.0004;0x0001.0004;0x0002.0004
-0xf890;0xfffc.fffb;0xfffd.fffb;0xfffe.fffb;0xffff.fffb;0x0.fffb;0x0001.fffb;0x0002.fffb;0xfffb.fffc;0xfffc.fffc;0x0002.fffc;0x0003.fffc;0xfffa.fffd;0xfffb.fffd;0x0003.fffd;0x0004.fffd;0xfffa.fffe;0x0004.fffe;0xfffa.ffff;0x0004.ffff;0xfffb;0x0005;0xfffb.0001;0x0005.0001;0xfffb.0002;0x0005.0002;0xfffb.0003;0xfffc.0003;0x0004.0003;0x0005.0003;0xfffc.0004;0xfffd.0004;0x0003.0004;0x0004.0004;0xfffd.0005;0xfffe.0005;0xffff.0005;0x0.0005;0x0001.0005;0x0002.0005;0x0003.0005]],
-  function(src,...)
-  add(_chatter_ranges,{src=src,...})
-end)
+  local on_ground,prev_jump={}
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,eye_pos,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
     origin=v_add(_origin,split"0,1,0"), 
@@ -351,56 +325,6 @@ end)
           end
         end)
       end
-
-      --chatter stats
-      local _grid,ambient, chatter, chattermax = _grid, true, {}, 3
-      for i=46,49 do
-        local cur_sfx = stat(i)
-
-        if cur_sfx>28 then
-          --reduce available channels
-          chattermax-=1
-        elseif cur_sfx>7 then
-          --record chatter_id, unset ambient
-          chatter[cur_sfx-cur_sfx%4], ambient = cur_sfx
-        end
-      end
-
-      --chatter playback
-      if chattermax > 0 and not stat"57" then
-        local idx=x>>21|z\32
-        for dist,offsets in inext,_chatter_ranges do
-          for _,idx_offset in inext,offsets do
-            for chatter_id,cnt in pairs(_grid[idx+idx_offset].chatter) do
-              if cnt>0 then
-                local offset, variant
-
-                if chatter[chatter_id] then
-                  --get offset of in-progress chatter, unset ambient
-                  offset, ambient = chatter[chatter_id] * 68
-                else
-                  --queue new chatter, unset ambient
-                  variant=chatter_id+flr(rnd"4")
-                  offset, chatter[chatter_id], ambient = variant*68, variant
-                end
-
-                --copy distanced sfx
-                memcpy(0x3200+offset, offsets.src+offset, 68)
-
-                --play variant if queued
-                if(variant) sfx(variant)
-
-                chattermax -= 1
-
-                if(chattermax < 1) goto end_noise
-              end
-            end
-          end
-        end
-
-        if(ambient) sfx"28"
-      end
-::end_noise::
 
       -- refresh angles
       m=make_m_from_euler(unpack(angle))    
@@ -714,7 +638,7 @@ function make_spider()
     end,
     update=function(_ENV)
       bright=lerp(bright,1,0.022)
-      for thing in pairs(_grid[origin[1]>>21|origin[3]\32].things) do
+      for thing in pairs(_grid[origin[1]>>21|origin[3]\32]) do
         if thing.pickup and not thing.dead then
           local dir,len=v_dir(origin,thing.origin)
           if len<radius then
@@ -1131,26 +1055,17 @@ set;_total_hits;0
 stat;0]]
 
   -- camera & player & reset misc values
-  _plyr,_things,_spiders,_spawn_angle=make_player({512,24,512},0),{},{},rnd()
+  _plyr,_things,_spiders,_spawn_angle=make_player(split"512,24,512",0),{},{},rnd()
   
   -- spatial partitioning grid
   _grid=setmetatable({},{
       __index=function(self,k)
         -- automatic creation of buckets
-        -- + array to store things at cell
-        local t={
-          things={},
-          chatter=setmetatable({},{       
-            __index=function(self,k)
-              self[k]=0
-              return 0
-            end
-          })
-        }
+        local t={}
         self[k]=t
         return t
       end
-    })    
+    })
 
   return
     -- update
@@ -1164,7 +1079,7 @@ stat;0]]
     function()
       draw_world()   
 
-      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
       --local s=_total_things.."/60 ⧗+"..tostr(_time_inc,2)
       --print(s,64-print(s,0,128)/2,2,7)
 
@@ -1336,6 +1251,9 @@ dset;0;2]]
           arizona_print(i..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
           arizona_print("\t"..(peek4(mem+17)*65.536).."S",1,y,c) y+=7
           mem+=21
+        end
+        if mem==0x5f91 then
+          print("NO SCORES",2,30,5)
         end
       end
     }
@@ -1644,7 +1562,7 @@ tline;17]]
         -- avoid others (noted: limited to a single grid cell)
         -- 21 = (x\32)>>16
         local idx,fx,fy,fz=origin[1]>>21|origin[3]\32,unpack(forces)
-        for other in pairs(_grid[idx].things) do
+        for other in pairs(_grid[idx]) do
           -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
             local other_radius,avoid,avoid_dist=other.radius,v_dir(origin,other.origin)
@@ -1782,6 +1700,8 @@ _squid_hood;a_offset,0.8333,r_offset,22]]} do
     end)
   end
 
+  -- offset to distance lookup table (for sfx)
+  _offset_to_dist=with_properties"0x0000.0000,1,0xfffe.ffff,1,0xffff.ffff,1,0x0000.ffff,1,0xffff.0000,1,0x0001.0000,1,0xffff.0001,1,0x0000.0001,1,0x0001.0001,1,0xfffd.fffe,2,0xfffe.fffe,2,0xffff.fffe,2,0x0000.fffe,2,0x0001.fffe,2,0xfffd.ffff,2,0x0001.ffff,2,0xfffe.0000,2,0x0002.0000,2,0xfffe.0001,2,0x0002.0001,2,0xfffe.0002,2,0xffff.0002,2,0x0000.0002,2,0x0001.0002,2,0x0002.0002,2,0xfffd.fffd,3,0xfffe.fffd,3,0xffff.fffd,3,0x0000.fffd,3,0x0001.fffd,3,0xfffc.fffe,3,0x0002.fffe,3,0xfffc.ffff,3,0x0002.ffff,3,0xfffd.0000,3,0x0003.0000,3,0xfffd.0001,3,0x0003.0001,3,0xfffd.0002,3,0x0003.0002,3,0xfffe.0003,3,0xffff.0003,3,0x0000.0003,3,0x0001.0003,3,0x0002.0003,3,0xfffd.fffc,4,0xfffe.fffc,4,0xffff.fffc,4,0x0000.fffc,4,0x0001.fffc,4,0xfffc.fffd,4,0x0002.fffd,4,0xfffb.fffe,4,0x0003.fffe,4,0xfffb.ffff,4,0x0003.ffff,4,0xfffc.0000,4,0x0004.0000,4,0xfffc.0001,4,0x0004.0001,4,0xfffc.0002,4,0x0004.0002,4,0xfffd.0003,4,0x0003.0003,4,0xfffe.0004,4,0xffff.0004,4,0x0000.0004,4,0x0001.0004,4,0x0002.0004,4"
   -- run game
   next_state(play_state)
 end
@@ -1792,7 +1712,7 @@ function collect_grid(a,b,u,v,cb)
   -- check first cell (always)
   -- pack lookup index into a single 16:16 value
   local dest_idx,map_idx=b[3]\32|b[1]\32>>16,mapy|mapx>>16
-  cb(_grid[map_idx].things)
+  cb(_grid[map_idx])
   -- early exit
   if dest_idx==map_idx then    
     return
@@ -1820,7 +1740,7 @@ function collect_grid(a,b,u,v,cb)
       disty+=ddy
       map_idx+=mapdy
     end
-    cb(_grid[map_idx].things)
+    cb(_grid[map_idx])
   end
 end
 
@@ -1843,13 +1763,25 @@ function _update()
     -- draw on tiles setup
     exec[[_map_display;1
 poke;0x5f54;0x00;0x60
-poke;0x5f5e;0b11110110]]
+poke;0x5f5e;0b11110110]]  
+
+    -- distance based sfx
+    local _offset_to_dist,sfx_grid,px,_,pz=_offset_to_dist,{{},{},{},{},{}},unpack(_plyr.origin)
     -- physic must run *before* general updates
     for _,_ENV in inext,_things do
       if(physic) physic(_ENV)
     end
     for i=#_things,1,-1 do
       local _ENV=_things[i]
+      -- common sfx management
+      -- note: must be done before "dead"
+      local sfx=chatter or noise
+      if sfx then
+        local dist=_offset_to_dist[((origin[1]-px)>>21)+(origin[3]-pz)\32]
+        if(dist) sfx_grid[dist][sfx]=1
+        -- kill any insta sfx
+        noise=nil
+      end
       if dead then
         if(cost) _total_things=max(_total_things-cost)
         if(reg) grid_unregister(_ENV)
@@ -1857,11 +1789,55 @@ poke;0x5f5e;0b11110110]]
         if(ai) ai.co=nil
         deli(_things,i)
       else
-        -- common timers
         if(hit_ttl) hit_ttl=max(hit_ttl-1)
         if(update) update(_ENV)
       end
     end
+
+    --chatter playback
+    --chatter stats
+    local _grid,ambient, chatter, chattermax = _grid, true, {}, 3
+    for i=46,49 do
+      local cur_sfx = stat(i)
+
+      if cur_sfx>28 then
+        --reduce available channels
+        chattermax-=1
+      elseif cur_sfx>7 then
+        --record chatter_id, unset ambient
+        chatter[cur_sfx-cur_sfx%4], ambient = cur_sfx
+      end
+    end       
+    if chattermax > 0 and not stat"57" then
+      for _,sfxs in inext,sfx_grid do
+        for chatter_id in pairs(sfxs) do
+          local offset, variant
+
+          if chatter[chatter_id] then
+            --get offset of in-progress chatter, unset ambient
+            offset, ambient = chatter[chatter_id] * 68
+          else
+            --queue new chatter, unset ambient
+            variant=chatter_id+flr(rnd"4")
+            offset, chatter[chatter_id], ambient = variant*68, variant
+          end
+
+          --copy distanced sfx
+          memcpy(0x3200+offset, 0xfab0+offset, 68)
+
+          --play variant if queued
+          if(variant) sfx(variant)
+
+          chattermax -= 1
+
+          if(chattermax < 1) goto end_noise
+        end
+      end
+
+      if(ambient) sfx"28"
+    end
+::end_noise::   
+
     -- revert
     exec[[poke;0x5f5e;0xff
 poke;0x5f54;0x60;0x00
