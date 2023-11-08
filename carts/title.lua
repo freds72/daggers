@@ -993,7 +993,7 @@ cartdata;freds72_daggers]]
     --attenuate chatter sfx
     for i = 0, 19 do
       --atennuate volume
-      sfx_volume(addr + i * 68, ceil(attn / 2))
+      sfx_volume(addr + i * 68, -ceil(attn / 2))
       --set dampen level
       sfx_damp(addr + i * 68, attn \ 2)
     end
