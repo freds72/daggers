@@ -589,18 +589,18 @@ function onlineboard_state()
       draw=function()
         draw_dialog()
         if not enabled then
-          arizona_print("DISABLED IN SETTINGS",2,28)
+          print("DISABLED IN SETTINGS",2,28,6)
         else
           local y,mem=30,0x5f91
           for i=1,@0x5f90 do
-            local c=@mem==1 and 4
-            arizona_print(i..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
+            local c=@mem&0x80!=0 and 4
+            arizona_print((@mem&0x7f)..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
             arizona_print("\t"..(peek4(mem+17)*65.536).."S",1,y,c) y+=7
             mem+=21
           end
           -- no scores? (yet)
-          if mem==0x5f91 then
-            arizona_print("nO ONLINE SCORES",1,30)
+          if @0x5f83==1 then
+            print("⧗",120,30,6)
           end
         end
       end
