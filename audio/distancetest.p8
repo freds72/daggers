@@ -21,19 +21,27 @@ __lua__
 reload(0x3100, 0x3100, 0x1300, "./sfx.p8")
 reload(0x4300, 0x0000, 36 + (32 * 36) + 0x300 + 0x300, "./noisedata.p8")
 
-dist = 0
-noise = 8
+function _init()
+	--test distance
+	dist = 0
+	--test sfx
+	noise = 8
 
-stats = {}
-avg = 0
+	--benchmark stats
+	avg = 0
+	cpu = 0
+	stats = {}
+end
 
 function _update()
+	--##############
+	--# pre-flight #
+	--##############
+	--get input
 	if (btnp(0)) noise = max(8, noise - 1)
 	if (btnp(1)) noise = min(63, noise + 1)
 	if (btnp(2)) dist = min(4, dist + 1)
 	if (btnp(3)) dist = max(0, dist - 1)
-
-	cpu = stat(1)
 
 	--simulate _chatter_ranges offsets
 	local offsets = {
@@ -41,9 +49,15 @@ function _update()
 		damp = 0x47a4 + dist \ 2 * 256
 	}
 
+	--init cpu benchmark
+	cpu = stat(1)
+
+	--########
+	--# main #
+	--########
+	---noise playback
 	local in_progress
 
-	--noise playback
 	for i = 0, 3 do
 		local cur_sfx = stat(46 + i)
 
@@ -52,15 +66,14 @@ function _update()
 		end
 
 		if cur_sfx ~= -1 then
-			local cur_sfx_8 = cur_sfx - 8
-
-			--poke sfx byte
-			poke(0x3240 + cur_sfx * 68, @offsets.damp + @(0x4300 + cur_sfx_8))
+			--poke effect byte
+			--offset: 0x4300 + (cur_sfx - 8)
+			poke(0x3240 + cur_sfx * 68, @(offsets.damp + @(0x42f8 + cur_sfx)))
 
 			--poke note bytes
 			--@todo set i to stat(50-53)
 			for i = stat(50 + i), 31 do
-					poke(0x3201 + cur_sfx * 68 + i * 2, @(offsets.attn + @(0x4324 + cur_sfx_8 * 32 + i)))
+					poke(0x3201 + cur_sfx * 68 + i * 2, @(offsets.attn + @(0x4324 + (cur_sfx - 8) * 32 + i)))
 			end
 		end
 	end
@@ -69,6 +82,9 @@ function _update()
 		sfx(noise)
 	end
 
+	--#########
+	--# stats #
+	--#########
 	cpu = stat(1) - cpu
 
 	add(stats, cpu)
