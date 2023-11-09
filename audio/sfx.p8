@@ -12,6 +12,70 @@ end
 --copy all sfx/music to daggers.p8
 cstore(0x3100,0x3100,0x1200,"../carts/freds72_daggers.p8")
 
+---prepare noise engine data
+--0x0000-0x23: sfx effect bytes (title.lua)
+--0x0024-0x04a3: note high bytes (title.lua)
+--0x04a4-0x05a3: sfx effect bytes damp 0 (title.lua)
+--0x05a4-0x0603: sfx effect bytes damp 1 (title.lua)
+--0x06a4-0x07a3: sfx effect bytes damp 2 (title.lua)
+--0x07a4-0x08a3: note high bytes attn 0 (title.lua)
+--0x08a4-0x09a3: note high bytes attn 1 (title.lua)
+--0x09a4-0x0aa3: note high bytes attn 2 (title.lua)
+for sfx_idx = 8, 43 do
+		local offset = sfx_idx * 68
+
+		--write effect byte
+		local effect_byte = @(0x3200 + offset + 64)
+
+		poke(0x0000 + (sfx_idx - 8), effect_byte)
+
+		--write note high bytes
+		for note_idx = 0, 31 do
+			local hi_byte = @(0x3200 + offset + (note_idx * 2) + 1)
+
+			poke(0x0024 + ((sfx_idx - 8) * 32) + note_idx, hi_byte)
+		end
+end
+
+--loop attenuation levels
+for attn = 0, 2 do
+		--loop all possible bytes
+		for i = 0, 255 do
+				local byte = i
+
+				--set editormode + noiz + buzz
+				byte = i & 0b111
+				--set detune
+				byte += (i \ 8 % 3) * 8
+				--set reverb
+				--@todo test this
+				--byte += max(byte \ 24 % 3, attn) * 24
+				byte += (i \ 24 % 3) * 24
+				--set dampen
+				byte += attn * 72
+
+				poke(0x04a4 + (attn * 256) + i, byte)
+		end
+end
+
+--loop attenuation levels
+for attn = 0, 2 do
+		--loop all possible bytes
+		for i = 0, 255 do
+				local byte = i
+				--decoded volume bits of byte
+				local vol = (i & 0b00001110) >>> 1
+				local new_vol = max(1, vol - attn)
+
+				byte = (i & 0b11110001) | (new_vol << 1)
+
+				poke(0x07a4 + (256 * attn) + i, byte)
+		end
+end
+
+--copy noise engine data to noise.p8
+cstore(0, 0, 36 + (32 * 36) + 0x0300 + 0x0300, "./noisedata.p8")
+
 --copy chatter sfx to chatter.p8
 cstore(0x3420,0x3420, 20 * 68, "./chatter.p8")
 
