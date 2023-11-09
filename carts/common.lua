@@ -29,16 +29,16 @@ function rsort(data)
   -- radix shift (multiplied by 128 to get more precision)
   for shift=-7,-2,5 do
   	-- faster than for each/zeroing count array
-    memset(0x4300,0,32)
+    memset(0xd51c,0,32)
 	  for i,b in pairs(buffer1) do
-		  local c=0x4300+((b.key>>shift)&31)
+		  local c=0xd51c+((b.key>>shift)&31)
 		  poke(c,@c+1)
 		  idx[i]=c
 	  end
 				
     -- shifting array
-    local c0=@0x4300
-    for mem=0x4301,0x431f do
+    local c0=@0xd51c
+    for mem=0xd51d,0xd61b do
       local c1=@mem+c0
       poke(mem,c1)
       c0=c1

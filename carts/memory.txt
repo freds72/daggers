@@ -28,8 +28,7 @@ runtime
 0xc400-0xc40a - keyboard stat id's
 0xc500-0xd4ff - playground tiles
 0xd500-0xd51b - hand cycle colors
-
-0x4300-0x43ff - radix sort
+0xd51c-0xd61b - radix sort
 
 0xe570-0xeabf: sfx - chatter damp 0/1 (title.lua)
 0xeac0-0xf09f: sfx - chatter damp 2 (title.lua)
