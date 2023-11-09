@@ -1270,9 +1270,8 @@ function gameover_state(obituary,height,height_attract,music_id)
   -- if online enabled, post new score
   if @0x5f81==4 then
     poke4(0x5f88,play_time)
-    poke(0x5f82,1)
-    -- force online refresh
-    poke(0x5f83,1)
+    -- post + force online refresh
+    poke2(0x5f82,0x0101)
   end
 
   -- check if new playtime enters leaderboard?
@@ -1341,11 +1340,15 @@ dset;0;2]]
       draw=function()
         local y,mem=30,0x5f91
         for i=1,@0x5f90 do
-          local c=@mem==1 and 4
-          arizona_print(i..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
+          local c=@mem&0x80!=0 and 4
+          arizona_print((@mem&0x7f)..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
           arizona_print("\t"..(peek4(mem+17)*65.536).."S",1,y,c) y+=7
           mem+=21
         end
+        -- no scores? (yet)
+        if @0x5f83==1 then
+          print("⧗",120,30,6)
+        end        
       end
     }
   }
