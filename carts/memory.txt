@@ -3,16 +3,17 @@ daggers.p8
 ----------
 0x3100-0x31ff: music - game
 0x3200-0x341f: sfx - game instruments
-0x3420-0x385f: sfx - game chatter
-0x3860-0x42ff: sfx - game miscellaneous
+0x3420-0x3daf: sfx - game noise
+0x3db0-0x42ff: sfx - game miscellaneous
 
 --------
 title.p8
 --------
-0x2000-0x24ec: px9 - sfx - chatter (packer.p8)
-0x24ed-0x27e8: px9 - sfx - daggercollect (packer.p8)
-0x27e9-0x2d3d: px9 - sfx - musicii (packer.p8)
-0x2d3e-0x39cf: px9 - sfx - musiciii (packer.p8)
+0x2000-0x2554: px9 - sfx - musicii (packer.p8)
+0x2555-0x31e5: px9 - sfx - musiciii (packer.p8)
+0x31e6-0x34e1: px9 - sfx - daggercollect (packer.p8)
+0x34e2-0x3adc: px9 - sfx - noise (packer.p8)
+0x3ad5-0x3fc1: px9 - sfx - chatter (packer.p8)
 
 --------
 runtime

@@ -360,16 +360,6 @@ paths = {
 
 payloads = {
 	{
-		id = "chatter",
-		addr = 0x3420,
-		ulen = 0x0550,
-	},
-	{
-		id = "daggercollect",
-		addr = 0x31f8,
-		ulen = 0x0448,
-	},
-	{
 		id = "musicii",
 		addr = 0x3100,
 		ulen = 0x1200,
@@ -378,6 +368,21 @@ payloads = {
 		id = "musiciii",
 		addr = 0x3100,
 		ulen = 0x1200,
+	},
+	{
+		id = "daggercollect",
+		addr = 0x31f8,
+		ulen = 0x0448,
+	},
+	{
+		id = "noisedata",
+		addr = 0,
+		ulen = 0x0aa4,
+	},
+	{
+		id = "chatter",
+		addr = 0x3420,
+		ulen = 0x0550,
 	},
 }
 
