@@ -981,6 +981,9 @@ cartdata;freds72_daggers]]
     payload.data = ram_to_tbl(0x6000, payload.ulen)
   end
 
+  --dump noise engine data
+  audio_load("noisedata", 0x4300)
+
   ---chatter pre-rendering
   --loop attenuation levels
   for attn = 0, 4 do
