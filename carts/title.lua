@@ -984,24 +984,6 @@ cartdata;freds72_daggers]]
   --dump noise engine data
   audio_load("noisedata", 0x4300)
 
-  ---chatter pre-rendering
-  --loop attenuation levels
-  for attn = 0, 4 do
-    --attenuated bank address
-    local addr = 0xe570 + 0x550 * attn
-
-    --dump unmodified chatter bank
-    audio_load("chatter", addr)
-
-    --attenuate chatter sfx
-    for i = 0, 19 do
-      --atennuate volume
-      sfx_volume(addr + i * 68, -ceil(attn / 2))
-      --set dampen level
-      sfx_damp(addr + i * 68, attn \ 2)
-    end
-  end
-
   -- generate assets if not there
   if reload(0x6000,0x0,0x1,"freds72_daggers_pic_0.p8")==0 or dget(63)!=0 then
     -- in case player halts generation

@@ -23,11 +23,5 @@ audio = {
 		--data = nil,
 		ulen = 0x0aa4,
 	},
-	chatter = {
-		addr = 0x3ad5,
-		--clen = 0x04ed,
-		--data = nil,
-		ulen = 0x0550,
-	},
 }
 

@@ -76,9 +76,6 @@ end
 --copy noise engine data to noise.p8
 cstore(0, 0, 36 + (32 * 36) + 0x0300 + 0x0300, "./noisedata.p8")
 
---copy chatter sfx to chatter.p8
-cstore(0x3420,0x3420, 20 * 68, "./chatter.p8")
-
 --run packer.p8
 load("./audio/packer.p8", nil, "./audio/sfx.p8")
 

@@ -379,11 +379,6 @@ payloads = {
 		addr = 0,
 		ulen = 0x0aa4,
 	},
-	{
-		id = "chatter",
-		addr = 0x3420,
-		ulen = 0x0550,
-	},
 }
 
 --init manifest
