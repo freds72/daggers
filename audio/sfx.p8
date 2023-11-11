@@ -37,7 +37,7 @@ __lua__
 --37: killcentipede
 --38: killcentipede
 --39: burrowcentipede
---40: unburrowcentipede (unused? previously 60)
+--40: unburrowcentipede
 --41: highscore1
 --42: highscore1
 --43: highscore1

@@ -1,8 +1,23 @@
 -- global arrays
-local _bsp,_things,_futures,_spiders,_squid_templates,_cam,_grid,_entities={},{},{},{},{{},{},{}}
+local _bsp,_things,_futures,_spiders,_squid_templates,_chatter_offsets,_noise_offsets,_cam,_grid,_entities={},{},{},{},{{},{},{}},{},{}
 -- must be globals
 _fire_ttl,_piercing,_hand_pal=3,0,0xd500
 local _G,_slow_mo,_ramp_pal=_ENV,0,0x8180
+
+for i=8,24,4 do
+  _chatter_offsets[i]=0
+end
+
+split2d([[0x47a4;0x4aa4
+0x47a4;0x4aa4
+0x47a4;0x4ba4
+0x47a4;0x4ba4
+0x48a4;0x4ba4
+0x48a4;0x4ba4
+0x48a4;0x4ca4
+0x48a4;0x4ca4
+0x49a4;0x4ca4
+0x49a4;0x4ca4]], function(...) add(_noise_offsets, {...}) end)
 
 local _vertices,_ground_extents=split[[384.0,0,320.0,
 384,0,704,
@@ -589,15 +604,12 @@ function make_skull(_ENV,_origin)
   reserve_async(cost)
 
   local _ENV=add(_things,inherit({},_ENV))
-  origin,resolved,seed,wobble=_origin,{},lerp(seed0,seed1,rnd()),lerp(wobble0,wobble1,rnd())
+  noise,origin,resolved,seed,wobble=spawnsfx or 29,_origin,{},lerp(seed0,seed1,rnd()),lerp(wobble0,wobble1,rnd())
 
   -- custom init function?
   if(init) init(_ENV)
 
   grid_register(_ENV)
-  
-  --play spawn sfx
-  sfx(spawnsfx or 29)
 
   return _ENV
 end
@@ -614,8 +626,7 @@ function make_spider()
           make_goo(v_add(origin,vel,rnd"8"),v_scale(vel,2+rnd"4"))
         end
         -- unregister
-        dead,_spiders[_ENV]=true
-        sfx"35"
+        dead,noise,_spiders[_ENV]=true,35
       end
     end,
     update=function(_ENV)
@@ -690,7 +701,7 @@ function make_squid(type)
                 make_jewel(origin,{u,3,v},16)
                 -- change appearance + avoid reentrancy (jewel can't be null!!)
                 ent,jewel=_entities.squid2,false
-                if(type==1) _dead=1 music"28"
+                if(type==1) _dead=1
                 -- "downgrade" squid!!
                 type-=1
               end
@@ -701,6 +712,7 @@ function make_squid(type)
               if(dead) return
               if(_dead==1) make_blood(origin) 
               dead=true
+              music"28"
               return
             end
             bright=max(2-_dist*_dist)
@@ -763,6 +775,7 @@ function make_worm(type)
       end)
     end,
     init=function(_ENV)
+      noise=40
       -- create segments
       for id in all(templates) do
         add(segments,add(_things,inherit({
@@ -776,7 +789,7 @@ function make_worm(type)
               make_jewel(origin,head.velocity)
               -- change sprite (no jewels)
               touched,ent=true,_entities.worm2
-              sfx"56"
+              sfx"59"
             end
           end},_ENV["_worm_seg_"..type..id])))
       end
@@ -824,9 +837,9 @@ function make_worm(type)
     post_think=function(_ENV)
       local curr_y,dirt=origin[2]
       if sgn(curr_y)!=sgn(prev_y) then
-        sfx"39"
         make_dirt(_ENV)
-        dirt=true
+        --@todo sfx40?
+        dirt,noise=true,39
       end
       prev_y=curr_y
       add(prev,{v_clone(origin),zangle,yangle,dirt},1)
@@ -854,7 +867,7 @@ function make_jewel(_origin,_velocity)
       -- no feedback when gobbed by spider
       if(spider) return
       _G._total_jewels+=1 
-      sfx"57"      
+      sfx"57"
     end,
     update=function(_ENV)
       ttl-=1
@@ -924,8 +937,7 @@ function make_egg(_origin,_velocity)
             init=function()
               -- kill egg
               local _ENV=egg
-              sfx"34"
-              dead=true
+              dead,noise=true,34
               for i=1,2+rnd"2" do
                 local a=rnd()
                 make_goo(origin,{cos(a),rnd"5",sin(a)})
@@ -1490,12 +1502,10 @@ tline;17]]
   _skull_core=inherit({
     hit=function(_ENV,pos,bullet)
       if register_hit(_ENV) then
-        dead=true
+        dead,noise=true,deathsfx or 35
         -- custom death function?
         if die then
           die(_ENV)
-        else
-          sfx(death_sfx or 35)
         end
         -- drop jewel?
         if jewel then
@@ -1618,7 +1628,7 @@ _worm_head_normal;hit_ttl,0,wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_rad
 _worm_head_mega;hit_ttl,0,wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_radius,14,radius,20,scale,1.2,hp,200,chatter,20,spawnsfx,31,obituary,mINCED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _worm_head_giga;hit_ttl,0,wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_radius,16,radius,22,scale,1.5,hp,400,chatter,20,spawnsfx,31,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _jewel_template;reg,1,ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
-_spiderling_template;ent,spiderling0,radius,8,hp,2,on_ground,1,death_sfx,36,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
+_spiderling_template;ent,spiderling0,radius,8,hp,2,on_ground,1,deathsfx,36,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,s_radius,18,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;bright,0,ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
 _squid_jewel;bright,0,hit_ttl,0,reg,1,jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
@@ -1627,7 +1637,7 @@ _skull_base_template;;_skull_template
 _skull1_template;chatter,12,ent,skull,radius,8,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_template
 _skull2_template;chatter,12,ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
 _spider_template;bright,0,ent,spider1,radius,24,shadeless,1,hp,12,spawnsfx,30,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_template
-_mine_template;ent,mine,radius,12,hp,200,spawnsfx,32,death_sfx,53,obituary,pOISONED,@apply,nop,@lgib,_goo_template,gibs,0,ground_limit,12;_skull_template]],
+_mine_template;ent,mine,radius,12,hp,30,spawnsfx,32,deathsfx,36,obituary,pOISONED,@apply,nop,@lgib,_goo_template,gibs,0,ground_limit,12;_skull_template]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
@@ -1696,7 +1706,7 @@ _squid_hood;a_offset,0.8333,r_offset,22]]} do
         if(#clip!=0) clip..=","
           clip..=tostr((dx>>16)+dy,1)..","..max(1,dmax)
        end
-     end  
+     end
     end
   end
   printh(clip,"@clip")
@@ -1766,7 +1776,7 @@ poke;0x5f54;0x00;0x60
 poke;0x5f5e;0b11110110]]  
 
     -- distance based sfx
-    local _offset_to_dist,sfx_grid,px,_,pz=_offset_to_dist,{{},{},{},{},{}},unpack(_plyr.origin)
+    local _offset_to_dist,sfx_grid,px,_,pz=_offset_to_dist,{{},{},{},{},{},{},{},{},{},{}},unpack(_plyr.origin)
     -- physic must run *before* general updates
     for _,_ENV in inext,_things do
       if(physic) physic(_ENV)
@@ -1775,10 +1785,10 @@ poke;0x5f5e;0b11110110]]
       local _ENV=_things[i]
       -- common sfx management
       -- note: must be done before "dead"
-      local sfx=chatter or noise
+      local sfx=noise or not stat"57" and chatter
       if sfx then
         local dist=_offset_to_dist[((origin[1]-px)>>21)+(origin[3]-pz)\32]
-        if(dist) sfx_grid[dist][sfx]=1
+        if(dist) sfx_grid[2*dist-(noise and 1 or 0)][sfx]=dist
         -- kill any insta sfx
         noise=nil
       end
@@ -1794,49 +1804,60 @@ poke;0x5f5e;0b11110110]]
       end
     end
 
-    --chatter playback
-    --chatter stats
-    local _grid,ambient, chatter, chattermax = _grid, true, {}, 3
-    for i=46,49 do
-      local cur_sfx = stat(i)
+    --noise playback
+    local ambient,noise_max,noise_state=not stat"57",4,{}
 
-      if cur_sfx>28 then
-        --reduce available channels
-        chattermax-=1
-      elseif cur_sfx>7 then
-        --record chatter_id, unset ambient
-        chatter[cur_sfx-cur_sfx%4], ambient = cur_sfx
+    for i=0,3 do
+      local sfx_id=stat(46+i)
+
+      if sfx_id>27 then
+        noise_max-=1
+      elseif sfx_id>7 then
+        ambient=nil
       end
-    end       
-    if chattermax > 0 and not stat"57" then
-      for _,sfxs in inext,sfx_grid do
-        for chatter_id in pairs(sfxs) do
-          local offset, variant
 
-          if chatter[chatter_id] then
-            --get offset of in-progress chatter, unset ambient
-            offset, ambient = chatter[chatter_id] * 68
-          else
-            --queue new chatter, unset ambient
-            variant=chatter_id+flr(rnd"4")
-            offset, chatter[chatter_id], ambient = variant*68, variant
+      noise_state[sfx_id]=stat(50+i)
+    end
+
+    for dist,sfx_ids in inext,sfx_grid do
+      for base_id in pairs(sfx_ids) do
+        if(noise_max<1) goto end_noise
+
+        local sfx_id=base_id
+
+        if base_id<28 then
+          if not noise_state[base_id+_chatter_offsets[base_id]] then
+            _chatter_offsets[base_id]+=1
+            _chatter_offsets[base_id]%=4
           end
 
-          --copy distanced sfx
-          memcpy(0x3200+offset, 0xfab0+offset, 68)
-
-          --play variant if queued
-          if(variant) sfx(variant)
-
-          chattermax -= 1
-
-          if(chattermax < 1) goto end_noise
+          ambient=nil
+          sfx_id+=_chatter_offsets[base_id]
         end
-      end
 
-      if(ambient) sfx"51"
+        --current note index
+        local sfx_state=noise_state[sfx_id]
+
+        --already processed
+        if(sfx_state==-1) break
+
+        --@todo test lua lookup table vs peeks
+        --effect byte
+        poke(0x3240+sfx_id*68,@(_noise_offsets[dist][1]+@(0x42f8+sfx_id)))
+        --note high bytes
+        for i=max(sfx_state),31 do
+          poke(0x3201+sfx_id*68+i*2,@(_noise_offsets[dist][2]+@(0x4324+(sfx_id-8)*32+i)))
+        end
+
+        if(not sfx_state) sfx(sfx_id)
+
+        noise_state[sfx_id]=-1
+        noise_max-=1
+      end
     end
-::end_noise::   
+
+    if(ambient and not noise_state[51]) sfx"51"
+::end_noise::
 
     -- revert
     exec[[poke;0x5f5e;0xff
