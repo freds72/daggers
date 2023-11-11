@@ -169,24 +169,6 @@ function register_hit(_ENV)
   return hp<=0
 end
 
--- range index generator
---[[
-local clip=""
-for dmax=0,4 do
-	local s=""
-	for i=-5,5 do
-	 for j=-5,5 do
-	  local dx,dy=i,j
-	  local d=sqrt(dx*dx+dy*dy)\1
-		 if d==dmax then
-		  if(#clip!=0) clip..=","
-				clip..=tostr((dx>>16)+dy,1)..","..max(1,dmax)
-		 end
-	 end  
-	end
-end
-printh(clip,"@clip")
-]]
 function make_player(_origin,_a)
   local on_ground,prev_jump={}
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,eye_pos,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
@@ -1701,7 +1683,25 @@ _squid_hood;a_offset,0.8333,r_offset,22]]} do
   end
 
   -- offset to distance lookup table (for sfx)
-  _offset_to_dist=with_properties"0x0000.0000,1,0xfffe.ffff,1,0xffff.ffff,1,0x0000.ffff,1,0xffff.0000,1,0x0001.0000,1,0xffff.0001,1,0x0000.0001,1,0x0001.0001,1,0xfffd.fffe,2,0xfffe.fffe,2,0xffff.fffe,2,0x0000.fffe,2,0x0001.fffe,2,0xfffd.ffff,2,0x0001.ffff,2,0xfffe.0000,2,0x0002.0000,2,0xfffe.0001,2,0x0002.0001,2,0xfffe.0002,2,0xffff.0002,2,0x0000.0002,2,0x0001.0002,2,0x0002.0002,2,0xfffd.fffd,3,0xfffe.fffd,3,0xffff.fffd,3,0x0000.fffd,3,0x0001.fffd,3,0xfffc.fffe,3,0x0002.fffe,3,0xfffc.ffff,3,0x0002.ffff,3,0xfffd.0000,3,0x0003.0000,3,0xfffd.0001,3,0x0003.0001,3,0xfffd.0002,3,0x0003.0002,3,0xfffe.0003,3,0xffff.0003,3,0x0000.0003,3,0x0001.0003,3,0x0002.0003,3,0xfffd.fffc,4,0xfffe.fffc,4,0xffff.fffc,4,0x0000.fffc,4,0x0001.fffc,4,0xfffc.fffd,4,0x0002.fffd,4,0xfffb.fffe,4,0x0003.fffe,4,0xfffb.ffff,4,0x0003.ffff,4,0xfffc.0000,4,0x0004.0000,4,0xfffc.0001,4,0x0004.0001,4,0xfffc.0002,4,0x0004.0002,4,0xfffd.0003,4,0x0003.0003,4,0xfffe.0004,4,0xffff.0004,4,0x0000.0004,4,0x0001.0004,4,0x0002.0004,4"
+  -- range index generator
+  --[[
+  local clip=""
+  for dmax=0,5 do
+    local s=""
+    for i=-5,5 do
+     for j=-5,5 do
+      local dx,dy=i,j
+      local d=sqrt(dx*dx+dy*dy)\1
+       if d==dmax then
+        if(#clip!=0) clip..=","
+          clip..=tostr((dx>>16)+dy,1)..","..max(1,dmax)
+       end
+     end  
+    end
+  end
+  printh(clip,"@clip")
+  ]]
+  _offset_to_dist=with_properties"0x0000.0000,1,0xfffe.ffff,1,0xffff.ffff,1,0x0000.ffff,1,0xffff.0000,1,0x0001.0000,1,0xffff.0001,1,0x0000.0001,1,0x0001.0001,1,0xfffd.fffe,2,0xfffe.fffe,2,0xffff.fffe,2,0x0000.fffe,2,0x0001.fffe,2,0xfffd.ffff,2,0x0001.ffff,2,0xfffe.0000,2,0x0002.0000,2,0xfffe.0001,2,0x0002.0001,2,0xfffe.0002,2,0xffff.0002,2,0x0000.0002,2,0x0001.0002,2,0x0002.0002,2,0xfffd.fffd,3,0xfffe.fffd,3,0xffff.fffd,3,0x0000.fffd,3,0x0001.fffd,3,0xfffc.fffe,3,0x0002.fffe,3,0xfffc.ffff,3,0x0002.ffff,3,0xfffd.0000,3,0x0003.0000,3,0xfffd.0001,3,0x0003.0001,3,0xfffd.0002,3,0x0003.0002,3,0xfffe.0003,3,0xffff.0003,3,0x0000.0003,3,0x0001.0003,3,0x0002.0003,3,0xfffd.fffc,4,0xfffe.fffc,4,0xffff.fffc,4,0x0000.fffc,4,0x0001.fffc,4,0xfffc.fffd,4,0x0002.fffd,4,0xfffb.fffe,4,0x0003.fffe,4,0xfffb.ffff,4,0x0003.ffff,4,0xfffc.0000,4,0x0004.0000,4,0xfffc.0001,4,0x0004.0001,4,0xfffc.0002,4,0x0004.0002,4,0xfffd.0003,4,0x0003.0003,4,0xfffe.0004,4,0xffff.0004,4,0x0000.0004,4,0x0001.0004,4,0x0002.0004,4,0xfffc.fffb,5,0xfffd.fffb,5,0xfffe.fffb,5,0xffff.fffb,5,0x0000.fffb,5,0x0001.fffb,5,0x0002.fffb,5,0xfffb.fffc,5,0xfffc.fffc,5,0x0002.fffc,5,0x0003.fffc,5,0xfffa.fffd,5,0xfffb.fffd,5,0x0003.fffd,5,0x0004.fffd,5,0xfffa.fffe,5,0x0004.fffe,5,0xfffa.ffff,5,0x0004.ffff,5,0xfffb.0000,5,0x0005.0000,5,0xfffb.0001,5,0x0005.0001,5,0xfffb.0002,5,0x0005.0002,5,0xfffb.0003,5,0xfffc.0003,5,0x0004.0003,5,0x0005.0003,5,0xfffc.0004,5,0xfffd.0004,5,0x0003.0004,5,0x0004.0004,5,0xfffd.0005,5,0xfffe.0005,5,0xffff.0005,5,0x0000.0005,5,0x0001.0005,5,0x0002.0005,5,0x0003.0005,5"
   -- run game
   next_state(play_state)
 end
