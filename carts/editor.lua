@@ -384,11 +384,9 @@ function make_cam(x0,y0,scale,fov)
 			local pos=v_add(lookat,m_fwd(m),dist)   
 
             self.lookat=v_clone(lookat)
-
-            -- debug
             self.fwd=m_fwd(m)
-            self.up=m_up(m)
             self.right=m_right(m)
+            self.up=m_up(m)
 
 			-- inverse view matrix
 			-- only invert orientation part
@@ -860,30 +858,26 @@ function collect_frames(ent,cb)
         return finish
     end
             
-    local xy,zoffset=(_grid_size+1)/2,(zmax+zmin+1)/2
-    local count,zangles,yangles,angles=0,{},{},ent.angles
-    if ent.angles&0xf!=0 then
-        local step=1/(ent.angles&0xf)
-
-        for i=0,0.5,step/2 do
+    local xy,zoffset,count,zangles,yangles,angles=(_grid_size+1)/2,(zmax+zmin+1)/2,0,{},{},ent.angles
+    local zsteps,ysteps=angles&0xf,angles\16
+    if zsteps!=0 then
+        for i=0,0.5,0.5/zsteps do
             add(zangles,i)
         end
     else
         -- single frame
         zangles={0.25}
     end
-    if ent.angles\16!=0 then
-        local step=1/(ent.angles\16)
-
-        for i=0,0.5,step/2 do
+    if ysteps!=0 then
+        for i=0,0.5,0.5/ysteps do
             add(yangles,i)
         end
     else
         -- single frame
         yangles={0.25}
     end    
-    for _,y in ipairs(yangles) do
-        for i,z in ipairs(zangles) do
+    for _,y in inext,yangles do
+        for i,z in inext,zangles do
             -- assumes color 15 is not used :)
             cls(15)
             cam:control({xy,xy,zoffset},-y,z,2*_grid_size)
@@ -908,7 +902,7 @@ function collect_frames(ent,cb)
                 end
             end
             -- flip()
-            if(cb) cb(count)
+            if(cb) cb(count,count/(#yangles*#zangles))
             count+=1
         end
     end 
@@ -949,15 +943,13 @@ function pack_sprites()
     for i,ent in inext,sorted_entities do
         if ent.data and not ent.no_export then
             holdframe()
-            local frames,count=collect_frames(ent,function(count)
+            local frames,count=collect_frames(ent,function(count,ratio)
                 if(count%2!=0) return
                 cls()
                 fillp()
                 rectfill(0,0,127,7,8)
                 print("gENERATING aSSETS ["..flr(100*(i/#sorted_entities)).."%]",1,1,7)
-                local total_frames=(ent.angles\16)+(ent.angles&0xf)
-                local x=128*count/total_frames
-                rectfill(0,9,x,10,9)
+                rectfill(0,9,128*ratio,10,9)
                 -- print(_entities[i].text..": "..flr(100*count/40).."%",2,i*6+4,7)
                 flip()
                 pal(_hw_palette,1)
@@ -1108,7 +1100,11 @@ load;#freds72_daggers_title]]
     -- preview images
     right_panel:add(make_button("\156 PREVIEW",binding(function()
         _current_entity.data=grid_tostr(_grid)
-        local frames,count=collect_frames(_current_entity)
+        local frames,count=collect_frames(_current_entity,function(count,ratio)
+            cls()
+            rectfill(0,1,128*ratio,2,0x99)
+            flip()
+        end)
 
         local dyangle,dzangle,yangle,zangle,zmax,ymax,zoom,gif_ttl,gif_mode=0,0,0.25,0,_current_entity.angles\16,_current_entity.angles&0xf,1,0
         local dialog=_main:dialog()
@@ -1217,7 +1213,10 @@ load;#freds72_daggers_title]]
         -- commit latest changes
         if(_current_entity) _current_entity.data=grid_tostr(_grid)
         -- 
-        pack_sprites()
+        exec[[pack_sprites
+load;freds72_daggers_title.p8
+load;freds72_daggers_title_mini.p8
+load;#freds72_daggers_title_mini]]            
     end)),8)
     right_panel:add(make_button("\138TO TITLE",binding(function()
         cstore(0x0,0x0,pack_archive(),"freds72_daggers_assets.p8")

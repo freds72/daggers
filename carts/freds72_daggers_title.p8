@@ -4,7 +4,12 @@ __lua__
 -- dEMI dAGGERS
 -- by freds72 & ridgek
 #include main_maths.lua
-#include common.lua
+#include print.lua
+#include string.lua
+#include exec.lua
+#include env.lua
+#include sort.lua
+#include states.lua
 #include plain.lua
 #include assets.lua
 #include titleaudio.p8l
