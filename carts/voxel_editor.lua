@@ -687,8 +687,7 @@ function make_voxel_editor()
             apply(prev.idx,prev.col)
         end,
         copy=function(self,msg)
-            local s=str_esc(grid_tostr(_grid))
-            printh(s,"@clip")
+            printh(str_esc(grid_tostr(_grid)),"@clip")
         end,
         paste=function(self,msg)
             _grid=grid_fromstr(str_unesc(stat(4)))
