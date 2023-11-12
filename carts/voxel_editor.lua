@@ -1071,6 +1071,11 @@ load;#freds72_daggers_title]]
     local left_panel=_main:add(make_vpanel(true))
     left_panel:add(make_button("MODELS\152",binding(function()
         local dialog=_main:dialog()
+        dialog:add(is_window{
+            draw=function()
+                print("SELECT MODEL",32,0,6)
+            end
+        })
         local left_panel=dialog:add(make_vpanel(true))
         left_panel:add(make_button("BACK\138",binding(function() dialog:close() end)))
         local lists={
@@ -1121,7 +1126,7 @@ load;#freds72_daggers_title]]
             gif_mode=true
         end)))
 
-        dialog:add(is_window({
+        dialog:add(is_window{
             update=function()
                 gif_ttl=max(gif_ttl-1)
                 left_panel:show(not gif_mode) 
@@ -1172,7 +1177,10 @@ load;#freds72_daggers_title]]
                     sspr(64+frame.xmin,0,w,h,sx,sy,w*zoom+(sx&0x0.ffff),h*zoom+(sy&0x0.ffff),flip)
                     palt()
                 end
-                if(not gif_mode) print(_current_entity.text.." PREVIEW",2,122,6)
+                if not gif_mode then
+                    local s=_current_entity.text.." PREVIEW"
+                    ?s,64-print(s,0,512)/2,120,6
+                end
                 if(gif_mode) ?"#DEMIDAGGERS",2,122,8
                 if(gif_ttl==0 and gif_mode) gif_mode=nil extcmd("video") 
             end,
@@ -1203,7 +1211,7 @@ load;#freds72_daggers_title]]
                     dzangle=dzangle*0.7
                 end
             end
-        }))
+        })
     end)))
 
     right_panel:add(make_button("\161PLAY",binding(function()
