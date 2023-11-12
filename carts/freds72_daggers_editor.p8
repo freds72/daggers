@@ -3,11 +3,14 @@ version 41
 __lua__
 -- voxel editor
 -- @freds72
-#include debug.lua
+#include print.lua
+#include string.lua
+#include exec.lua
+#include env.lua
+#include editor_maths.lua
 #include ui.lua
-#include maths.lua
 #include poly.lua
-#include voxel_editor.lua
+#include editor.lua
 
 
 __gfx__

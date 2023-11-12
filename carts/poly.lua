@@ -67,11 +67,4 @@ function polyline(p,np,c)
 	end
 end
 
-function polyset(p,np,c)
-	color(c)
-	for i=1,np do
-		local v1=p[i]
-		pset(v1.x,v1.y)
-	end
-end
 
