@@ -4,7 +4,7 @@ function arizona_print(s,x,y,sel)
   -- shadow
   local pos=?s,x,y+1,1
   for j=0,6 do
-    clip(0,y+j,127,1)
+    clip(0,y+j,128,1)
     ?s,x,y,sget(32+sel,j)
   end
   clip()

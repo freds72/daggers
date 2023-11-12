@@ -3,10 +3,12 @@ version 41
 __lua__
 #include common.lua
 #include maths.lua
+#include ui2.lua
+
 local _hw_palette={[0]=0,128,130,133,5,134,137,7,136,8,138,139,3,131,129,6}
 local _panels={}
 local _mx,_my
-local _selected_control
+
 
 function _init()
   -- custom font
@@ -23,129 +25,47 @@ poke;0x5f36;0x8
 poke;0x5f2d;0x7]]
 
     -- register buttons
+    -- local left_panel=make_vpanel(true)
+    -- left_panel:add(make_icotext_button{txt="PEN\154"})
+    -- left_panel:add(make_icotext_action{txt="UNDO\158"},8)
+    -- left_panel:add(make_icotext_action{txt="COPY\159"})
+    -- left_panel:add(make_icotext_action{txt="PASTE\160"})
+    -- add(_panels,left_panel)
+-- 
+    -- local right_panel=make_vpanel()
+    -- right_panel:add(make_button{txt="\156 PREVIEW"})
+    -- right_panel:add(make_button{txt="\163 GIF"})
+    -- right_panel:add(make_button{txt="\161 PLAY"},8)
+    -- right_panel:add(make_button{txt="\162SAVE"},8)
+    -- right_panel:add(make_button{txt="\157EXPORT"})
+    -- add(_panels,right_panel)
+-- 
+    -- add(_panels,make_colorbar())
+
+    local props={
+        selected_color=7
+    }
+
+    _main=main_window({cursor=0,pal=_hw_palette})
     local left_panel=make_vpanel(true)
-    left_panel:add(make_button{txt="PEN\154"})
-    left_panel:add(make_button{txt="UNDO\158"},8)
-    left_panel:add(make_button{txt="COPY\159"})
-    left_panel:add(make_button{txt="PASTE\160"})
-    add(_panels,left_panel)
-
-    local right_panel=make_vpanel()
-    right_panel:add(make_button{txt="\156 PREVIEW"})
-    right_panel:add(make_button{txt="\163 GIF"})
-    right_panel:add(make_button{txt="\161 PLAY"},8)
-    right_panel:add(make_button{txt="\162SAVE"},8)
-    right_panel:add(make_button{txt="\157EXPORT"})
-    add(_panels,right_panel)
-
-    add(_panels,make_colorbar())
-end
-
--- vertical list of sliding controls
-function make_vpanel(isleft)
-    local controls={}
-    local last_y=1
-    return {
-        add=function(self,c,vpadding)     
-            last_y+=(vpadding or 0)       
-            local width=print(c.txt,0,512)
-            local hiddenx=isleft and -print(sub(c.txt,1,#c.txt-1),0,512) or 128-print(c.txt[1],0,512)
-            c=add(controls,inherit({
-                visiblex=isleft and 1 or 127-width,
-                hiddenx=hiddenx,
-                targetx=hiddenx,
-                x=isleft and -width or 128,
-                y=last_y,
-                width=width,
-                height=c.height or 8,
-                ttl=0
-            },c))
-            last_y+=c.height
-        end,
-        update=function()
-            for c in all(controls) do
-                -- over?
-                c.hover=nil
-                c.targetx=c.hiddenx
-                if _mx>c.x and _mx<c.x+c.width and _my>c.y and _my<c.y+c.height then
-                    c.hover=true
-                    c.ttl+=1
-                    if(c.ttl>15) c.targetx=c.visiblex
-                    if btnp(5) then
-                        _selected_control=c
-                        -- call action (if any)
-                        if(c.cb) c:cb()
-                    end
-                else
-                    c.ttl=max(c.ttl-1)
-                end                
-                c.x=lerp(c.x,c.targetx,0.3)
-                if(abs(c.x-c.targetx)<0.5) c.x=c.targetx
-            end
-        end,
-        draw=function()
-            for c in all(controls) do
-                c:draw()
-            end
-        end
-    }
-end
-
-function make_colorbar(cb)
-    local selected=7
-    return {
-        -- change color selection
-        select=function(_,sel)
-            selected=sel
-        end,
-        update=function()
-            if _my>122 then
-                if btnp(5) then
-                    selected=_mx\4
-                    if(cb) cb(selected)
-                end
-            end
-        end,
-        draw=function()
-            rect(0,122,128,127,1)
-            for i=0,31 do
-                local x,y=i*4,123
-                rectfill(x,y,x+3,126,i)
-            end
-            local x,y=selected*4,123
-            rect(x-1,y-1,x+4,127,7)
-        end
-    }
-end
-
-function make_button(properties)
-    return inherit({
-        draw=function(_ENV)
-            arizona_print(txt,x,y,_selected_control==_ENV and 2 or hover and 1 or 0)
-        end
-    },inherit(properties))
-end
-
-function _update()
-    local prevx,prevy=_mx,_my
-    _mx,_my=mid(stat(32),0,127),mid(stat(33),0,127)
-
-    for p in all(_panels) do
-        p:update()
-    end
-end
-
-function _draw()
-    cls()
+    left_panel:add(make_button("PEN\154"))
+    left_panel:add(make_button("UNDO\158"),8)
+    left_panel:add(make_button("COPY\159"))
+    left_panel:add(make_button("PASTE\160"))
     
-    for p in all(_panels) do
-        p:draw()
-    end
+    local right_panel=make_vpanel()
+    right_panel:add(make_button("\156 PREVIEW"))
+    right_panel:add(make_button("\163 GIF",binding(function() printh("create gif") end)))
+    right_panel:add(make_button("\161 PLAY"),8)
+    right_panel:add(make_button("\162SAVE"),8)
+    right_panel:add(make_button("\157EXPORT"))
 
-    spr(0,_mx,_my)
-
-    pal(_hw_palette,1)
+    _main:add(left_panel)
+    _main:add(right_panel)
+    _main:add(make_colorbar(binding(props,"selected_color")))
 end
+
+
 
 __gfx__
 011110000001000000010000000000005557c0005557c00000000000000000000000000000000000000000000000000000000000000000000000000000000000
