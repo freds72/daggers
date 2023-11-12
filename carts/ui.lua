@@ -96,18 +96,7 @@ function main_window(params,is_dialog)
       win:onmessage({
         name="update"
       })
-      win:onmessage({
-          name="mousemove",
-          mx=stat(32),
-          my=stat(33),
-          lmb=stat(34)&1!=0,
-          rmb=stat(34)&2!=0,
-          mmb=stat(34)&4!=0,
-          wheel=stat(36),
-          mdx=stat(38),
-          mdy=stat(39)
-      })  
-      
+
       -- capture keys
       local keys={}
       while stat(30) do
@@ -129,6 +118,19 @@ function main_window(params,is_dialog)
           end
       end
       kstate=keys
+
+      win:onmessage({
+          name="mousemove",
+          mx=stat(32),
+          my=stat(33),
+          lmb=stat(34)&1!=0,
+          rmb=stat(34)&2!=0,
+          mmb=stat(34)&4!=0,
+          wheel=stat(36),
+          mdx=stat(38),
+          mdy=stat(39),
+          btn=btn()
+      })     
 
       -- drag&drop?
       if stat(120) then

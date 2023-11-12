@@ -589,20 +589,27 @@ function make_voxel_editor()
         mousemove=function(self,msg)
             local prev_mode=rotation_mode
             if msg.mmb then
+                dyangle+=msg.mdy
+                dzangle-=msg.mdx
+                rotation_mode,current_voxel=true
+            elseif msg.btn&0xf!=0 then
+                local b=msg.btn
+                local dx,dy=b\2%2-b%2,b\8%2-b\4%2
+                dyangle-=2*dy
+                dzangle+=2*dx
+                rotation_mode,current_voxel=true
+            else
+                rotation_mode=nil
+            end
+            if rotation_mode then
                 -- hide cursor
                 self:send({
                     name="cursor"
                 })
-                dyangle+=msg.mdy
-                dzangle-=msg.mdx
-                rotation_mode=true
-                current_voxel=nil
-            else
-                rotation_mode=nil
             end
+            yangle=mid(yangle+dyangle/512,-0.5,0)
+            zangle+=dzangle/512
 
-            yangle+=dyangle/512
-            zangle+=dzangle/512            
             -- friction
             dyangle=dyangle*0.7
             dzangle=dzangle*0.7
@@ -1187,17 +1194,27 @@ load;#freds72_daggers_title]]
                         name="cursor"
                     })
                 else
+                    local rotating
                     if msg.mmb then
-                        -- capture mouse
+                        dzangle-=msg.mdx
+                        dyangle+=msg.mdy
+                        rotating=true
+                    elseif msg.btn&0xf!=0 then
+                        local b=msg.btn
+                        local dx,dy=b\2%2-b%2,b\8%2-b\4%2
+                        dyangle-=2*dy
+                        dzangle+=2*dx
+                        rotating=true
+                    else
+                        zoom=mid(zoom+msg.wheel/4,0.25,8)
+                    end
+                    if rotating then
                         -- hide cursor
                         self:send({
                             name="cursor"
                         })
-                        dzangle-=msg.mdx
-                        dyangle+=msg.mdy
-                    else
-                        zoom=mid(zoom+msg.wheel/4,0.25,8)
                     end
+                        
                     zangle+=dzangle/1024
                     if(zmax>0) yangle=mid(yangle+dyangle/1024,0.01,0.49)
                     --zangle=mid(zangle+dzangle/256,0,zmax)
