@@ -2,7 +2,7 @@
 -- to validate archive presence
 local _magic_number=0x8764.1359
 
-local _hw_palette={[0]=0,128,130,133,5,134,137,7,136,8,138,139,3,131,129,6}
+local _hw_palette=split"128,130,133,5,134,137,7,136,8,138,139,3,131,129,6,0"
 -- editor state
 _editor_state={
     -- to be used to lookup in palette
@@ -13,8 +13,7 @@ _editor_state={
     -- 2: selection
     -- 3: fill
     edit_mode=1,
-    level=1,
-    pen_radius=1
+    level=1
 }
 
 local _grid={}
@@ -84,14 +83,14 @@ local _current_entity
 
 -- draw cube help
 local cube={
-    {0,0,0},
-    {1,0,0},
-    {1,1,0},
-    {0,1,0},
-    {0,0,1},
-    {1,0,1},
-    {1,1,1},
-    {0,1,1},
+    split"0,0,0",
+    split"1,0,0",
+    split"1,1,0",
+    split"0,1,0",
+    split"0,0,1",
+    split"1,0,1",
+    split"1,1,1",
+    split"0,1,1",
     faces={
         -- x
             [0x0.0002]={k=-1,1,4,8,5},
@@ -239,38 +238,6 @@ function collect_blocks(grid,cam,majori,minori,lasti,extents,visible_blocks)
         end
     end 
 
-    --[[
-    local draw_minor=function(mask,idx)
-        for idx=minor0|idx,minor1|idx,1>>minor_shift do
-            for idx=last0|idx,last1|idx,1>>last_shift do
-                local id=grid[idx]
-                if id then
-                    local ox,oy,oz=(idx&0x0.00ff)<<16,(idx&0x0.ff)<<8,idx&0xff
-                    local x,y,z=ox+0.5,oy+0.5,oz+0.5
-                    local ax,ay,az=m1*x+m5*y+m9*z+m13,m2*x+m6*y+m10*z+m14,m3*x+m7*y+m11*z+m15
-                    if az<-1 then
-                        -- a tiny bit of perspective
-                        local w=fov/az
-                        local x0,y0,r=xcenter+scale*ax*w,ycenter-scale*ay*w,-scale*w/4
-                        --rectfill(x0,y0,ceil(x0),ceil(y0),_palette[id])
-                        --circfill(x0,y0,r+0.5,_palette[id])
-                        if layer then
-                            local active_layer=idx&0xff
-                            if layer==active_layer then
-                                rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
-                            elseif layer>active_layer then
-                                rect(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
-                            end
-                        else
-                            rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
-                        end
-                    end
-                end
-            end
-        end
-    end    
-    ]]
-
     -- main render loop
     local major0,major1=extents[majori].lo,extents[majori].hi
     local major_fix=cam.pos[majori]\1
@@ -348,9 +315,6 @@ function draw_grid(grid,cam,mode,layer)
                 -- a tiny bit of perspective
                 local w=-0.1--fov/az
                 local x0,y0,r=xcenter+scale*ax*w,ycenter-scale*ay*w,ceil(-scale*w/4)+0.5
-                --rectfill(x0,y0,ceil(x0),ceil(y0),_palette[id])
-                --circfill(x0,y0,r+0.5,_palette[id])
-                
                 rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
             end 
         end      
@@ -420,11 +384,9 @@ function make_cam(x0,y0,scale,fov)
 			local pos=v_add(lookat,m_fwd(m),dist)   
 
             self.lookat=v_clone(lookat)
-
-            -- debug
             self.fwd=m_fwd(m)
-            self.up=m_up(m)
             self.right=m_right(m)
+            self.up=m_up(m)
 
 			-- inverse view matrix
 			-- only invert orientation part
@@ -447,7 +409,14 @@ function make_cam(x0,y0,scale,fov)
             if(z>-1) return
             local w=-0.1--focal/z
             return x0+scale*x*w,y0-scale*y*w,w
-		end,        
+		end,  
+        project3d=function(self,v)
+            local v=m_x_v(self.m,v)
+            local x,y,z=v[1],v[2],v[3]
+            if(z>-1) return
+            local w=32/z
+            return x0+scale*x*w,y0-scale*y*w,w
+		end,         
         unproject=function(self,x,y,majori,minori,lasti,layer)
             local w=-scale*0.1---scale*fov
             local xe,ye=(x-x0)/w,-(y-y0)/w
@@ -474,39 +443,39 @@ function make_voxel_editor()
     local offsetx,offsety=0,0
     local rotation_mode,ghost_dirty
     local layer={3,3,3}
-    local cam=make_cam(63.5,63.5+6,64,2)
+    local cam=make_cam(63.5,63.5,64,2)
     local quads={
         -- x major
         {        
-            {0,0,0},
-            {0,1,0},
-            {0,1,1},
-            {0,0,1}
+            split"0,0,0",
+            split"0,1,0",
+            split"0,1,1",
+            split"0,0,1"
         },
         -- y major
         {        
-            {0,0,0},
-            {1,0,0},
-            {1,0,1},
-            {0,0,1}
+            split"0,0,0",
+            split"1,0,0",
+            split"1,0,1",
+            split"0,0,1"
         },
         -- z major
         {        
-            {0,0,0},
-            {1,0,0},
-            {1,1,0},
-            {0,1,0}
+            split"0,0,0",
+            split"1,0,0",
+            split"1,1,0",
+            split"0,1,0"
         }
     }
     -- facing direction
     local arrow={
-        {0.25,0.5,0},
-        {0.25,1,0},
-        {0,1,0},
-        {0.5,1.5,0},
-        {1,1,0},
-        {0.75,1,0},
-        {0.75,0.5,0}
+        split"0.25,0.5,0",
+        split"0.25,1,0",
+        split"0,1,0",
+        split"0.5,1.5,0",
+        split"1,1,0",
+        split"0.75,1,0",
+        split"0.75,0.5,0",
     }
     local undo_stack={}
     local function apply(idx,col)
@@ -553,7 +522,7 @@ function make_voxel_editor()
                     for i=1,4 do
                         pts[i]=v_scale(face[i],_grid_size+1)
                     end
-                    cam:polyline(pts,6)
+                    cam:polyline(pts,0x66)
                     if dir==minori then
                         layer_line(minori,lasti)
                     elseif dir==lasti then
@@ -567,7 +536,7 @@ function make_voxel_editor()
                             p=v_scale(p,_grid_size/2+1)
                             pts[i]=v_add(p,{_grid_size/4,2,mask==0x2 and 0 or _grid_size+1})
                         end
-                        cam:polyline(pts,6)
+                        cam:polyline(pts,0x66)
                     end
                     
                 end
@@ -600,7 +569,7 @@ function make_voxel_editor()
             if current_voxel then
                 local pts={}
                 for i,p in pairs(quads[majori]) do
-                    p=v_add(current_voxel.origin,p,_editor_state.pen_radius)
+                    p=v_add(current_voxel.origin,p)
                     p[majori]=major_layer
                     p[minori]=mid(p[minori],0,_grid_size+1)
                     p[lasti]=mid(p[lasti],0,_grid_size+1)
@@ -610,25 +579,37 @@ function make_voxel_editor()
             end
              
             clip() 
-            if(current_voxel) print(v_tostr(current_voxel.origin),2,120,8)
+            if current_voxel then
+                local x,y,z=unpack(current_voxel.origin)
+                print("X:"..x,0,103,1)
+                print("Y:"..y,0,109,1)
+                print("LAYER:"..z,0,115,1)                
+            end
         end,
         mousemove=function(self,msg)
             local prev_mode=rotation_mode
             if msg.mmb then
+                dyangle+=msg.mdy
+                dzangle-=msg.mdx
+                rotation_mode,current_voxel=true
+            elseif msg.btn&0xf!=0 then
+                local b=msg.btn
+                local dx,dy=b\2%2-b%2,b\8%2-b\4%2
+                dyangle-=2*dy
+                dzangle+=2*dx
+                rotation_mode,current_voxel=true
+            else
+                rotation_mode=nil
+            end
+            if rotation_mode then
                 -- hide cursor
                 self:send({
                     name="cursor"
                 })
-                dyangle+=msg.mdy
-                dzangle-=msg.mdx
-                rotation_mode=true
-                current_voxel=nil
-            else
-                rotation_mode=nil
             end
+            yangle=mid(yangle+dyangle/512,-0.5,0)
+            zangle+=dzangle/512
 
-            yangle+=dyangle/512
-            zangle+=dzangle/512            
             -- friction
             dyangle=dyangle*0.7
             dzangle=dzangle*0.7
@@ -688,18 +669,14 @@ function make_voxel_editor()
                         -- click!
                         local col=_editor_state.selected_color
                         -- anything to do?
-                        for x=max(0,o[1]),min(_grid_size+1,o[1]+_editor_state.pen_radius-1) do
-                            for y=max(0,o[2]),min(_grid_size+1,o[2]+_editor_state.pen_radius-1) do
-                                local idx=x>>16|y>>8|o[3]
-            
-                                if (_grid[idx] or 0)!=col then
-                                    -- previous state for undo
-                                    add(undo_stack,{idx=idx,col=_grid[idx] or 0})
-                                    -- keep undo stack limited
-                                    if(#undo_stack>250) deli(undo_stack,1)                            
-                                    apply(idx,col)
-                                end
-                            end
+                        local idx=o[1]>>16|o[2]>>8|o[3]
+    
+                        if (_grid[idx] or 0)!=col then
+                            -- previous state for undo
+                            add(undo_stack,{idx=idx,col=_grid[idx] or 0})
+                            -- keep undo stack limited
+                            if(#undo_stack>250) deli(undo_stack,1)                            
+                            apply(idx,col)
                         end
                     elseif msg.rmbp then
                         _editor_state.selected_color=_grid[idx] or 0
@@ -715,11 +692,12 @@ function make_voxel_editor()
             apply(prev.idx,prev.col)
         end,
         copy=function(self,msg)
-            local s=str_esc(grid_tostr(_grid))
-            printh(s,"@clip")
+            printh(str_esc(grid_tostr(_grid)),"@clip")
         end,
         paste=function(self,msg)
             _grid=grid_fromstr(str_unesc(stat(4)))
+            ghost_dirty=true
+            -- todo: undo
         end,
         load=function(self,msg)            
             _grid={}
@@ -802,14 +780,10 @@ function pack_archive()
     end
     -- number of (actual) entries
     poke(count_mem,n)
-    cstore(0x0,0x0,mem,"freds72_daggers_assets.p8")
-    reload()
+    return mem
 end
 
 function unpack_archive()
-    -- load any previous cart (even if non existent)
-    reload(0x0,0x0,0x4300,"freds72_daggers_assets.p8")
-
     -- check magic number
     local mem=0x0
     if($mem!=_magic_number) printh("archive: invalid magic number") return
@@ -831,7 +805,7 @@ function unpack_archive()
 end
 
 function collect_frames(ent,cb)
-    local trans_color=15
+    local trans_color,zmin,zmax=15,32000,-32000
     local grid,frames=grid_fromstr(ent.data),{}
     local ymax,extents=31,{
         {lo=0,hi=_grid_size},
@@ -853,7 +827,6 @@ function collect_frames(ent,cb)
     local cam=make_cam(15.5,ymax/2,16,1)
 
     -- find middle of voxel entity
-    local zmin,zmax=32000,-32000
     for k=extents[3].lo,extents[3].hi do
         -- find at least one non empty voxel            
         for i=extents[1].lo,extents[1].hi do                
@@ -892,31 +865,26 @@ function collect_frames(ent,cb)
         return finish
     end
             
-    local xy,zoffset=(_grid_size+1)/2,(zmax+zmin+1)/2
-    local count,zangles,yangles=0,{},{}
-    local angles=ent.angles
-    if ent.angles&0xf!=0 then
-        local step=1/(ent.angles&0xf)
-
-        for i=0,0.5,step/2 do
+    local xy,zoffset,count,zangles,yangles,angles=(_grid_size+1)/2,(zmax+zmin+1)/2,0,{},{},ent.angles
+    local zsteps,ysteps=angles&0xf,angles\16
+    if zsteps!=0 then
+        for i=0,0.5,0.5/zsteps do
             add(zangles,i)
         end
     else
         -- single frame
         zangles={0.25}
     end
-    if ent.angles\16!=0 then
-        local step=1/(ent.angles\16)
-
-        for i=0,0.5,step/2 do
+    if ysteps!=0 then
+        for i=0,0.5,0.5/ysteps do
             add(yangles,i)
         end
     else
         -- single frame
         yangles={0.25}
     end    
-    for _,y in ipairs(yangles) do
-        for i,z in ipairs(zangles) do
+    for _,y in inext,yangles do
+        for i,z in inext,zangles do
             -- assumes color 15 is not used :)
             cls(15)
             cam:control({xy,xy,zoffset},-y,z,2*_grid_size)
@@ -936,13 +904,12 @@ function collect_frames(ent,cb)
             -- capture image in array
             for j=ymin,ymax do
                 local mem=0x6000+j*64
-                add(frame,$mem)
-                add(frame,$(mem+4))
-                add(frame,$(mem+8))
-                add(frame,$(mem+12))
+                for mem=mem,mem+12,4 do
+                    add(frame,$mem)
+                end
             end
             -- flip()
-            if(cb) cb(count)
+            if(cb) cb(count,count/(#yangles*#zangles))
             count+=1
         end
     end 
@@ -983,15 +950,13 @@ function pack_sprites()
     for i,ent in inext,sorted_entities do
         if ent.data and not ent.no_export then
             holdframe()
-            local frames,count=collect_frames(ent,function(count)
+            local frames,count=collect_frames(ent,function(count,ratio)
                 if(count%2!=0) return
                 cls()
                 fillp()
                 rectfill(0,0,127,7,8)
-                print("gENERATING gAME aSSETS ["..flr(100*(i/#sorted_entities)).."%]",1,1,7)
-                local total_frames=(ent.angles\16)+(ent.angles&0xf)
-                local x=128*count/total_frames
-                rectfill(0,9,x,10,9)
+                print("gENERATING aSSETS ["..flr(100*(i/#sorted_entities)).."%]",1,1,7)
+                rectfill(0,9,128*ratio,10,9)
                 -- print(_entities[i].text..": "..flr(100*count/40).."%",2,i*6+4,7)
                 flip()
                 pal(_hw_palette,1)
@@ -1031,10 +996,22 @@ function pack_sprites()
 end
 
 function _init()  
+    -- custom font
+    -- source: https://somepx.itch.io/humble-fonts-tiny-ii
+    ?"\^@56000800⁴⁸⁶\0\0¹\0\0\0\0\0\0\0 \0\0\0 \0²\0\0\0\0■■■■■\0\0\0▮¹■■▒■ ■■■」!■\0\0\0▮■■▮\0■!■■■■!■\0\0²\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0⁷⁷⁷⁷⁷\0\0\0\0⁷⁷⁷\0\0\0\0\0⁷⁵⁷\0\0\0\0\0⁵²⁵\0\0\0\0\0⁵\0⁵\0\0\0\0\0⁵⁵⁵\0\0\0\0⁴⁶⁷⁶⁴\0\0\0¹³⁷³¹\0\0\0⁷¹¹¹\0\0\0\0\0⁴⁴⁴⁷\0\0\0⁵⁷²⁷²\0\0\0\0\0\0\0‖\0\0\0\0\0\0¹²\0\0\0\0\0\0³³\0\0\0⁵⁵\0\0\0\0\0\0²⁵²\0\0\0\0\0\0\0\0\0\0\0\0\0²²²²\0²\0\0\n⁵\0\0\0\0\0\0\n゜\n゜⁸\0\0\0⁷³⁶⁷²\0\0\0⁵⁴²¹⁵\0\0\0\0⁴²◀\t◀\0\0²¹\0\0\0\0\0\0²¹¹¹¹²\0\0²⁴⁴⁴⁴²\0\0⁵²⁷²⁵\0\0\0\0²⁷²\0\0\0\0\0\0\0²¹\0\0\0\0\0⁷\0\0\0\0\0\0\0\0\0²\0\0\0⁴²²²¹\0\0\0⁶\t\rᵇ⁶\0\0\0²³²²⁷\0\0\0⁷ᶜ⁶¹ᶠ\0\0\0⁷ᶜ⁶⁸ᶠ\0\0\0⁵⁵ᶠ⁴⁴\0\0\0ᶠ¹⁶ᶜ⁷\0\0\0⁴²⁷\t⁶\0\0\0ᶠ⁸⁴²²\0\0\0⁶\t⁶\t⁶\0\0\0⁶\tᵉ⁴²\0\0\0\0²\0²\0\0\0\0\0²\0²¹\0\0\0⁴²¹²⁴\0\0\0\0⁷\0⁷\0\0\0\0¹²⁴²¹\0\0\0²⁵⁴²\0²\0\0²⁵⁵¹⁶\0\0\0\0⁶⁸ᵇ⁶\0\0\0¹⁵\t\t⁶\0\0\0\0⁶¹¹⁶\0\0\0⁸\n\t\t⁶\0\0\0\0ᵉ\t⁵ᵉ\0\0\0ᶜ²ᵉ³²¹\0\0\0ᵉ\t\r\n⁴\0\0¹⁵ᵇ\t\t⁴\0\0²\0³²²⁷\0\0\0ᶜ⁸⁸\t⁶\0\0¹\t⁵ᵇ\t⁴\0\0¹¹¹¹⁶\0\0\0\0\n▶‖‖\0\0\0\0⁶\t\t\t\0\0\0\0⁶\t\t⁶\0\0\0\0⁶\t\t⁵¹\0\0\0⁶\t\t\n⁸\0\0\0\rᵇ¹¹\0\0\0\0ᵉ³⁸ᶠ\0\0\0\0²ᵉ³²ᶜ\0\0\0\t\t\t⁶\0\0\0\0\t\t⁵³\0\0\0\0‖‖‖ᵇ\0\0\0\0\t⁶⁴\t\0\0\0\0\t\tᵇ⁴³\0\0\0⁷⁴²⁷\0\0\0³¹¹¹¹³\0\0¹¹³²²\0\0\0⁶⁴⁴⁴⁴⁶\0\0²⁵\0\0\0\0\0\0\0\0\0\0⁷\0\0\0²⁴\0\0\0\0\0\0⁶\tᵇ\r\t\t\0\0⁶\t⁵ᵇ\t⁷\0\0⁶\t¹¹\t⁶\0\0³⁵\t\t\t⁷\0\0⁶¹⁵³\t⁶\0\0⁶¹⁵³¹¹\0\0⁶¹¹\r\t⁶\0\0⁵⁵⁵⁷⁵⁵\0\0⁷²²²²⁷\0\0ᵉ⁸⁸⁸\t⁶\0\0\t\t⁵ᵇ\t\t\0\0²¹¹¹\t⁷\0\0\n▶‖‖‖‖\0\0\nᵇ\r\t\t\t\0\0⁶\t\t\t\t⁶\0\0⁶\t\t\r¹¹\0\0⁶\t\t\t\r\n\0\0⁶\t\t⁵ᵇ\t\0\0ᵉ³⁶⁸⁸⁷\0\0ᶜ³²²²²\0\0\t\t\t\t\t⁶\0\0\t\t\t\t⁵³\0\0‖‖‖‖▶\r\0\0\t\t\t⁶\t\t\0\0\t\t\tᵇ⁴³\0\0⁷⁴²¹¹⁷\0\0⁶²³²⁶\0\0\0²²²²²\0\0\0³²⁶²³\0\0\0\0²‖ᶜ\0\0\0\0\0²⁵²\0\0\0\0○○○○○\0\0\0U*U*U\0\0\0<~j4、\0\0\0>ccw>\0\0\0■D■D■\0\0\0⁴<、゛▮\0\0\0⁸*>、、⁸\0\0006>>、⁸\0\0\0、\"*\"、\0\0\0、、>、⁘\0\0\0、>○*:\0\0\0>gcg>\0\0\0○]○A○\0\0\0008⁸⁸ᵉᵉ\0\0\0>ckc>\0\0\0⁸、>、⁸\0\0\0\0\0U\0\0\0\0\0>scs>\0\0\0⁸、○>\"\0\0\0「$JZ$「\0\0>wcc>\0\0\0\0⁵R \0\0\0\0\0■*D\0\0\0\0>kwk>\0\0\0○\0○\0○\0\0\0UUUUU\0\0\0⁸、>\\Hp\0\0\0▮ |:□\0\0「$タししタ\0\0⁸、>⁸\">\0\0\0000JF.\0\0\0\0゛zz~x\0\0、\">>>>\0\0⁴ᶜ、、ᶜ⁴\0\0⁸>、⁸\">\0\0「<~~<「\0\0\0*\0*\0*\0\0\0>\"\"\">\0\0⁸>⁸ᶜ⁸\0\0\0□?□²、\0\0\0<▮~⁴8\0\0\0²⁷2²2\0\0\0ᶠ²ᵉ▮、\0\0\0>@@ 「\0\0\0>▮⁸⁸▮\0\0\0⁸8⁴²<\0\0\0002⁷□x「\0\0\0zB²\nr\0\0\0\t>Kmf\0\0\0¥'\"s2\0\0\0<JIIF\0\0\0□:□:¥\0\0\0#b\"\"、\0\0\0ᶜ\0⁸*M\0\0\0\0ᶜ□!@\0\0\0}y■=]\0\0\0><⁸゛.\0\0\0⁶$~&▮\0\0\0$N⁴F<\0\0\0\n<ZF0\0\0\0゛⁴゛D8\0\0\0⁘>$⁸⁸\0\0\0:VR0⁸\0\0\0⁴、⁴゛⁶\0\0\0⁸²> 、\0\0\0\"\"& 「\0\0\0>「$r0\0\0\0⁴6,&d\0\0\0>「$B0\0\0\0¥'\"#□\0\0\0ᵉd、(x\0\0\0⁴²⁶+」\0\0\0\0\0ᵉ▮⁸\0\0\0\0\n゜□⁴\0\0\0\0⁴ᶠ‖\r\0\0\0\0⁴ᶜ⁶ᵉ\0\0\0> ⁘⁴²\0\0\0000⁸ᵉ⁸⁸\0\0\0⁸>\" 「\0\0\0>⁸⁸⁸>\0\0\0▮~「⁘□\0\0\0⁴>$\"2\0\0\0⁸>⁸>⁸\0\0\0<$\"▮⁸\0\0\0⁴|□▮⁸\0\0\0>   >\0\0\0$~$ ▮\0\0\0⁶ &▮ᶜ\0\0\0> ▮「&\0\0\0⁴>$⁴8\0\0\0\"$ ▮ᶜ\0\0\0>\"-0ᶜ\0\0\0、⁸>⁸⁴\0\0\0** ▮ᶜ\0\0\0、\0>⁸⁴\0\0\0⁴⁴、$⁴\0\0\0⁸>⁸⁸⁴\0\0\0\0、\0\0>\0\0\0> (▮,\0\0\0⁸>0^⁸\0\0\0   ▮ᵉ\0\0\0▮$$DB\0\0\0²゛²²、\0\0\0>  ▮ᶜ\0\0\0ᶜ□!@\0\0\0\0⁸>⁸**\0\0\0> ⁘⁸▮\0\0\0<\0>\0゛\0\0\0⁸⁴$B~\0\0\0@(▮h⁶\0\0\0゛⁴゛⁴<\0\0\0⁴>$⁴⁴\0\0\0、▮▮▮>\0\0\0゛▮゛▮゛\0\0\0>\0> 「\0\0\0$$$ ▮\0\0\0⁘⁘⁘T2\0\0\0²²\"□ᵉ\0\0\0>\"\"\">\0\0\0>\" ▮ᶜ\0\0\0> < 「\0\0\0⁶  ▮ᵉ\0\0\0\0‖▮⁸⁶\0\0\0\0⁴゛⁘⁴\0\0\0\0\0ᶜ⁸゛\0\0\0\0、「▮、\0\0\0⁸⁴c▮⁸\0\0\0⁸▮c⁴⁸\0\0\0"
+
+    -- reset screen rebasing
+    -- enable custom font
+    -- enable tile 0 + extended memory
+    -- capture mouse
+    -- enable lock
+    -- cartdata
     -- integrated fill colors
-    poke(0x5f34, 1)
-    poke(0x5f2d, 0x5)
-    cartdata"freds72_daggers"
+  exec[[poke;0x5f58;0x81
+poke;0x5f36;0x8
+poke;0x5f2d;0x5
+poke;0x5f34;1
+cartdata;freds72_daggers]]
 
     -- init keys for cube points
     for i=1,#cube do
@@ -1050,13 +1027,14 @@ function _init()
     end
     
     -- reload previous archive (if any)
+    reload(0x0,0x0,0x4300,"freds72_daggers_assets.p8")
     unpack_archive()
 
     -- restore sprites & ramps
     local _reload=reload
     reload=function(...)
         _reload(...)
-        local data="▮■¹\0\0▮\0\0\0▮\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0qw‖\0\0q¹\0\0q¹\0\0\0\0\0p\0\0\0\0\0\0\0\0\0\0\0¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0qw¹\0▮q■\0▮\0▮\0\0p⁷\0p⁷\0\0\0\0\0\0\0\0\0\0□\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0qu▶\0qqW¹q\0p¹⁷⁷p\0pw\0\0\0\0\0\0\0\0\0\0#\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0QQw¹Qww¹▮\0▮\0w\0p\0pw\0\0\0\0\0\0\0\0\0\0004\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0▮▮‖\0▮uW¹\0q¹\0w⁷⁷\0p⁷\0\0\0\0\0\0\0\0\0\0E\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0¹\0\0q‖\0\0▮\0\0\0\0\0\0p\0\0\0\0\0\0\0\0\0\0\0&\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0▮¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0W\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0(\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0pww\0\0p\0\0⁷⁷⁷\0\0p\0\0\0p\0\0p\0\0\0w⁷\0\0웃\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0w⁷\0\0w⁷\0\0\0\0\0\0w⁷\0\0\0⁷\0w⁷\0\0p\0\0\0む\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0p\0\0pww\0⁷\0⁷\0pww\0pww\0\0\0\0\0\0\0\0\0ょ\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0⁷w⁷\0⁷w⁷\0\0\0\0\0\0\0\0\0チ\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0p\0p\0p\0p\0⁷⁷⁷\0⁷p\0\0⁷p\0\0\0\0\0\0\0\0\0\0メ\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0pww\0pww\0\0\0\0\0w⁷\0\0\0\0\0\0\0\0\0\0\0\0\0\0゛\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0に\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0p⁷\0\0\0\0\0\0\0\0\0■\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0pww⁷\0⁷p\0\0\0\0\0\0\0\0\0\"■\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0wp⁷w\0\0\0\0\0\0\0\0003\"■¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0pww⁷⁷⁷pp\0\0\0\0\0\0\0\0D33\"¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0⁷⁷pp\0\0\0\0\0\0\0\0UED3□\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0pww⁷wp⁷w\0\0\0\0\0\0\0\0ffUE4#□\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0wwgfUD3□\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0☉(\"■¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0▥▥▥☉\"¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0ちちむょメ¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0めょアツ゛\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0アツツモ¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0メモ■\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0゛■\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0◝ᵉ\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+        local data="▮■¹\0\0▮\0\0\0▮\0\0\0\0\0\0Uuᶜ\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0qw‖\0\0q¹\0\0q¹\0\0\0\0\0◝◝\n\0\0\0\0\0\0\0\0\0¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0qw¹\0▮q■\0▮\0▮\0\0\0\0\0wW⁷\0\0\0\0\0\0\0\0\0□\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0qu▶\0qqW¹q\0p¹\0\0\0\0よ∧\n\0\0\0\0\0\0\0\0\0#\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0QQw¹Qww¹▮\0▮\0\0\0\0\0コ웃ᵇ\0\0\0\0\0\0\0\0\0004\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0▮▮‖\0▮uW¹\0q¹\0\0\0\0\0ネ(\r\0\0\0\0\0\0\0\0\0E\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0¹\0\0q‖\0\0▮\0\0\0\0\0\0\"ヌᵉ\0\0\0\0\0\0\0\0\0&\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0▮¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0W\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0(\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0웃\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0む\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0ょ\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0チ\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0メ\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0゛\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0に\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0■\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\"■\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0003\"■¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0D33\"¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0UED3□\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0ffUE4#□\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0wwgfUD3□\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0☉(\"■¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0▥▥▥☉\"¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0ちちむょメ¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0めょアツ゛\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0アツツモ¹\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0メモ■\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0゛■\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0◝ᵉ\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
         poke(0x0,ord(data,1,#data))  
     end    
     reload()
@@ -1068,12 +1046,12 @@ function _init()
     end
     
     if stat(6)=="generate" then
-        pack_sprites()
         -- "commit" generation
-        dset(63,0)
-        load"freds72_daggers_title.p8"
-        load"freds72_daggers_title_mini.p8"
-        load"#freds72_daggers_title"
+        exec[[pack_sprites
+dset;63;0
+load;freds72_daggers_title.p8
+load;freds72_daggers_title_mini.p8
+load;#freds72_daggers_title]]
     end
 
     -- clear screen cache
@@ -1081,47 +1059,29 @@ function _init()
 
     -- create ui and callbacks
     _main=main_window({cursor=0,pal=_hw_palette})
-    local banner=_main:add(make_static(8),0,0,127,7)
-    local pickers=banner:add(make_list(64,8,8,bounded_binding(_editor_state,"selected_color",0,18)),64,0,80,7)
 
-    for i=0,31 do
-        pickers:add(make_color_picker({color=i,palette=_palette},binding(_editor_state,"selected_color")))
-    end 
+    -- main editor
+    _main:add(make_voxel_editor(),0,8,127,119)
 
-    -- +-
-    _main:add(make_button(21,binding(function() 
-        _editor_state.selected_color=max(0,_editor_state.selected_color-8)        
-    end)),60,0,3,4)
-    _main:add(make_button(22,binding(function() 
-        _editor_state.selected_color=min(#pickers-1,_editor_state.selected_color+8)      
-    end)),60,4,3,4)
+    -- controls 
+    _main:add(make_color_picker(_palette,binding(_editor_state,"selected_color")))
 
-    -- hamburger menu
-    _main:add(make_button(32,binding(function() 
-        local dialog=_main:dialog({border=4},0,8,64,64)
-        dialog:add(make_static(8),0,8,64,64)
-
-        -- save entities (external cart)
-        dialog:add(make_button({text="sAVE",color=2},binding(function(e)
-            pack_archive()
-
-            dialog:close()
-        end)),2,10,63)
-        -- back to menu (to be back assets)
-        dialog:add(make_button({text="cLOSE",color=2},binding(function(e)
-            --
-            pack_archive()
-
-            load"freds72_daggers_title.p8"
-            load"freds72_daggers_title_mini.p8"
-            load"#freds72_daggers_title_mini"
-        end)),2,18,63)
-        dialog:add(make_static(8,read_binding(function() return "…………………",2 end)),1,25,63)
-
-        -- objects
-        local list=dialog:add(make_list(63,62,8,bounded_binding({selected=0},"selected",0,#_entities-1)),2,33,63,40)
-        for ent in all(_entities) do
-            list:add(make_button({text=ent.text,color=2},binding(function(e)
+    local left_panel=_main:add(make_vpanel(true))
+    left_panel:add(make_button("MODELS\152",binding(function()
+        local dialog=_main:dialog()
+        dialog:add(is_window{
+            draw=function()
+                print("SELECT MODEL",32,0,6)
+            end
+        })
+        local left_panel=dialog:add(make_vpanel(true))
+        left_panel:add(make_button("BACK\138",binding(function() dialog:close() end)))
+        local lists={
+            [0]=dialog:add(make_vlist(0,8)),
+            dialog:add(make_vlist(64,8))}
+        for i,ent in inext,_entities do
+            local list=lists[i\16]
+            list:add(make_button(ent.text,binding(function(e)
                 -- save entity?
                 if _current_entity!=ent then
                     -- save current
@@ -1137,120 +1097,176 @@ function _init()
                 dialog:close()
             end)))
         end
-    end)),1,0,7)
+    end)))
+
+    left_panel:add(make_button("UNDO\158",binding(function() _main:send({name="undo"}) end)),8)
+    left_panel:add(make_button("COPY\159",binding(function() _main:send({name="copy"}) end)))
+
+    local right_panel=_main:add(make_vpanel())
 
     -- preview images
-    _main:add(make_button(33,binding(function()
-        local screenbackup={peek4(0x0,0x2000)}
+    right_panel:add(make_button("\156 PREVIEW",binding(function()
         _current_entity.data=grid_tostr(_grid)
-        local frames,count=collect_frames(_current_entity)
-        poke4(0x0,unpack(screenbackup))
+        local frames,count=collect_frames(_current_entity,function(count,ratio)
+            cls()
+            rectfill(0,1,128*ratio,2,0x99)
+            flip()
+        end)
 
-        local dyangle,dzangle,yangle,zangle,ymax,zmax=0,0,0,0,_current_entity.angles\16,_current_entity.angles&0xf
-        local dialog=_main:dialog({border=4},9,8,96,96)
-        dialog:add(make_static(8,read_binding(function() return _current_entity.text.." pREVIEW",2 end)),10,9,95,7)
-        dialog:add(is_window({
+        local dyangle,dzangle,yangle,zangle,zmax,ymax,zoom,gif_ttl,gif_mode=0,0,0.25,0,_current_entity.angles\16,_current_entity.angles&0xf,1,0
+        local dialog=_main:dialog()
+        local left_panel,right_panel=dialog:add(make_vpanel(true)),dialog:add(make_vpanel())
+        left_panel:add(make_button("BACK\138",binding(function() dialog:close() end)))
+        local preview_conf={
+            grid=true
+        }
+        left_panel:add(make_radio_button("GRID ON/OFF\164",true,bool_binding(preview_conf,"grid")),8)
+    
+        right_panel:add(make_button("\163GIF",binding(function() 
+            if(gif_mode) return
+            gif_ttl=8*30+1
+            gif_mode=true
+        end)))
+
+        dialog:add(is_window{
+            update=function()
+                gif_ttl=max(gif_ttl-1)
+                left_panel:show(not gif_mode) 
+                right_panel:show(not gif_mode) 
+            end,
             draw=function(self)
-                local r=self.rect
-                rectfill(10,17,104,103,0)
+                -- 3d points
+                if preview_conf.grid then
+                    local cam=make_cam(63.5,63.5,1)
+                    cam:control({0,0,0},-yangle,zangle,1/zoom)
+                    for i=-5,5 do
+                        for j=-5,5 do
+                            local x,y,w=cam:project3d({i,j,-1})
+                            if w then
+                                pset(x,y,mid(-w/4,1,4))
+                            end
+                        end
+                    end
+                end
 
-                -- copy to middle of spritesheet    
-                local base,frame=1,frames[zangle\1+flr(yangle)*(zmax+1)+1]
-                local h=frame.ymax-frame.ymin+1
+                local side,flip=0
+                if ymax!=0 then
+                    local step=1/(ymax<<1)
+                    side=((zangle+step/2)&0x0.ffff)\step
+                    if(side>ymax) side=ymax-(side%ymax) flip=true
+                end
+            
+                -- up/down angle
+                local yside=0
+                if zmax!=0 then
+                    local step=1/(zmax<<1)
+                    yside=((step/2+yangle)&0x0.ffff)\step
+                    if(yside>zmax) yside=zmax-(yside%zmax)
+                end
+                
+                --printh("y:"..yangle.." z: "..zangle.." => "..side.." / "..tostr(flip))
+                local base,frame=1,frames[(ymax+1)*yside+side+1]
+                local w,h=frame.xmax-frame.xmin+1,frame.ymax-frame.ymin+1
                 if h>0 then
                     for i=32,32+((h-1)<<6),64 do
                         poke4(i,frame[base],frame[base+1],frame[base+2],frame[base+3])
                         base+=4
                     end
                     palt(15,true)
-                    sspr(64,0,32,h,41,48-h/2)
+                    palt(0,false)
+                    -- copy to middle of spritesheet   
+                    local sx,sy=64-zoom*w/2,64-zoom*h/2
+                    sspr(64+frame.xmin,0,w,h,sx,sy,w*zoom+(sx&0x0.ffff),h*zoom+(sy&0x0.ffff),flip)
                     palt()
                 end
+                if not gif_mode then
+                    local s=_current_entity.text.." PREVIEW"
+                    ?s,64-print(s,0,512)/2,120,6
+                end
+                if(gif_mode) ?"#DEMIDAGGERS",2,122,8
+                if(gif_ttl==0 and gif_mode) gif_mode=nil extcmd("video") 
             end,
             mousemove=function(self,msg)
-                if msg.mmb then
-                    -- capture mouse
+                if gif_ttl>0 then
+                    zangle+=1/(8*30)
                     -- hide cursor
                     self:send({
                         name="cursor"
                     })
-                    dzangle-=msg.mdx
-                    dyangle+=msg.mdy
+                else
+                    local rotating
+                    if msg.mmb then
+                        dzangle-=msg.mdx
+                        dyangle+=msg.mdy
+                        rotating=true
+                    elseif msg.btn&0xf!=0 then
+                        local b=msg.btn
+                        local dx,dy=b\2%2-b%2,b\8%2-b\4%2
+                        dyangle-=2*dy
+                        dzangle+=2*dx
+                        rotating=true
+                    else
+                        zoom=mid(zoom+msg.wheel/4,0.25,8)
+                    end
+                    if rotating then
+                        -- hide cursor
+                        self:send({
+                            name="cursor"
+                        })
+                    end
+                        
+                    zangle+=dzangle/1024
+                    if(zmax>0) yangle=mid(yangle+dyangle/1024,0.01,0.49)
+                    --zangle=mid(zangle+dzangle/256,0,zmax)
+                    -- friction
+                    dyangle=dyangle*0.7
+                    dzangle=dzangle*0.7
                 end
-                yangle=mid(yangle+dyangle/256,0,ymax)
-                zangle=mid(zangle+dzangle/256,0,zmax)
-                -- friction
-                dyangle=dyangle*0.7
-                dzangle=dzangle*0.7
             end
-        }),11,18,96,96)
-    end)),9,0,6)
+        })
+    end)))
 
-    -- generate images to disk
-    _main:add(make_button(4,binding(function()
+    right_panel:add(make_button("\161PLAY",binding(function()
         -- commit latest changes
         if(_current_entity) _current_entity.data=grid_tostr(_grid)
         -- 
-        pack_sprites()
-    end)),18,0,6)
+        exec[[pack_sprites
+load;freds72_daggers_title.p8
+load;freds72_daggers_title_mini.p8
+load;#freds72_daggers_title_mini]]            
+    end)),8)
+    right_panel:add(make_button("\138TO TITLE",binding(function()
+        cstore(0x0,0x0,pack_archive(),"freds72_daggers_assets.p8")
+        exec[[load;freds72_daggers_title.p8
+load;freds72_daggers_title_mini.p8
+load;#freds72_daggers_title_mini]]            
+    end)))
 
-    -- pen +- radius
-    _main:add(make_button(21,binding(function()
-        _editor_state.pen_radius=min(9,_editor_state.pen_radius+1)      
-    end)),24,0,3,4)
-    _main:add(make_button(22,binding(function() 
-        _editor_state.pen_radius=max(1,_editor_state.pen_radius-1)        
-    end)),24,4,3,4)
-    _main:add(make_static(1,binding(_editor_state,"pen_radius")),28,0,5,7)
-        
-    -- edit/select/fill
-    for i,s in ipairs({19,18,20}) do
-        _main:add(make_radio_button(s,i,binding(_editor_state,"edit_mode")),27+i*8,0,6)
+    right_panel:add(make_button("\162SAVE",binding(function() 
+        cstore(0x0,0x0,pack_archive(),"freds72_daggers_assets.p8")
+        reload()    
+    end)),8)
+    right_panel:add(make_button("\157EXPORT",binding(function() 
+        printh(str_esc(chr(peek(0,pack_archive()))),"freds72_daggers_asssets")
+        reload()
+    end)))
+
+    local function reload_entity()
+        -- load "default" model
+        _current_entity=_entities[1]    
+        _main:send({
+            name="load",
+            data=_current_entity.data
+        })
     end
 
-    -- main editor
-    _main:add(make_voxel_editor(),0,8,127,119)
-    
-    -- load "default" model
-    _current_entity=_entities[1]    
-    _main:send({
-        name="load",
-        data=_current_entity.data
-    })    
-    -- clear grid
-    --[[
-    _grid={}
-    for i=0,_grid_size do
-        for j=0,_grid_size do
-            for k=0,_grid_size do
-                local idx=i>>16|j>>8|k
-                _grid[idx]=7
-            end
-        end
+    _main.ondrop=function(self,msg)        
+        exec[[serial;0x800;0x0;0x4300
+unpack_archive
+reload
+reload_entity]]
     end
-    for i=1,_grid_size-1 do
-        for j=1,_grid_size-1 do
-            for k=0,_grid_size do
-                local idx=i>>16|j>>8|k
-                _grid[idx]=nil
-            end
-        end
-    end
-    for i=1,_grid_size-1 do
-        for j=0,_grid_size do
-            for k=1,_grid_size-1 do
-                local idx=i>>16|j>>8|k
-                _grid[idx]=nil
-            end
-        end
-    end
-    for i=0,_grid_size do
-        for j=1,_grid_size-1 do
-            for k=1,_grid_size-1 do
-                local idx=i>>16|j>>8|k
-                _grid[idx]=nil
-            end
-        end
-    end
-    ]]
+
+    -- default model
+    reload_entity()
 end

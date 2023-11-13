@@ -75,8 +75,6 @@
 	// Set up the options for NGIO.
 
 	var scoreboard_id = 13319;
-	var all_scores = Array();
-	var refresh_callback;
 	var refresh_timer = 1000;
 
 	// channel 0: command channel	
@@ -108,8 +106,9 @@
 	// channel 8-11: user time
 	// channel 12-15: kill#
 	// channel 16: online scores#
-	// channel 17-32: user name
-	// channel 33-36: time
+	// channel 17-18: user rank + user id flag
+	// channel 18-33: user name
+	// channel 34-37: time
 	// ...
 
 	(function pollGPIO() {
@@ -167,13 +166,6 @@
 								if(NGIO.hasUser) {
 									// connected!
 									pico8_gpio[1] = 4;
-
-									// get all time best (max. 8)
-									NGIO.getScores(scoreboard_id, {
-										period: NGIO.PERIOD_ALL_TIME,
-										limit: 5
-									}, onScoresLoaded);			
-
 								} else {
 									pico8_gpio[1] = 0;
 									// stop polling for status
@@ -208,9 +200,9 @@
 				// still connected?
 				if(NGIO.isReady) {
 					postUserScore(8);
+					pico8_gpio[2]=0;
 				}
 		}
-		pico8_gpio[2]=0;
 
 		switch(pico8_gpio[3]) {
 			case 1:
@@ -218,28 +210,45 @@
 				if(NGIO.isReady) {
 					NGIO.getScores(scoreboard_id, {
 						period: NGIO.PERIOD_ALL_TIME,
-						limit: 5
+						limit: 100
 					}, onScoresLoaded);
+					pico8_gpio[3] = 0; 
 				}
 		}
-		pico8_gpio[3] = 0; 
 		
 		requestAnimationFrame(pollGPIO);
 	})();
 
 	function onScoresLoaded(board, scores, options) {
-		console.log("NGIO - onScoresLoaded");
+		console.log("NGIO - onScoresLoaded");		
+
+		// find player score (if beyond 5th place)
+		var user_score;
+		for(var i=0;i<scores.length;i++) {
+			var score = scores[i];
+			score.rank = i + 1;
+			if(score.user.id == NGIO.user.id) {
+				user_score = score
+			}
+		}
+		// force player best score to be in ladder (last position)
+		if(user_score && user_score.rank>4) {
+			scores[4] = user_score;
+		}
+
 		var gpioid = 16;
-		pico8_gpio[gpioid] = scores.length;
-		gpioid++;
-		// to read through the scores:
-		scores.forEach(score => {
-			console.log("Score: ", score.user.name, " ", score.value);
+		var len = Math.min(scores.length, 5);
+		pico8_gpio[gpioid++] = len;
+		console.log("Got #", len, " scores");
+		// read through the scores (max 5)
+		for(var k=0;k<len;k++) {
+			var score = scores[k];
+			console.log("Rank:", score.rank, " - ", score.user.name, "\t", score.value);
 
 			var name = score.user.name; 
 			// me?
-			pico8_gpio[gpioid++] = score.user.id == NGIO.user.id?1:0;
-			
+			pico8_gpio[gpioid++] = (score.user.id == NGIO.user.id?0x80:0x00) | score.rank;
+
 			var id = gpioid;
 			for(var i=0;i<16;i++) pico8_gpio[id + i] = 32;
 			for(var i=0;i<Math.min(name.length,16);i++) {
@@ -260,9 +269,9 @@
 			if(name.length>16) pico8_gpio[gpioid+15]=27;
 			gpioid+=16;
 			for(var i=0;i<4;i++) {
-				pico8_gpio[gpioid++] = (score.value>>(8*i)) & 255;
+				pico8_gpio[gpioid++] = (score.value>>(8*i)) & 0xff;
 			}
-		});
+		}
 	}	
 
 	// read new score from gpio

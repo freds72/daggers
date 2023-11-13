@@ -36,7 +36,7 @@ damp,0x48a4,attn,0x4ca4
 damp,0x49a4,attn,0x4ca4
 damp,0x49a4,attn,0x4ca4]], function(...) add(_noise_offsets, with_properties(...)) end)
 
-local _chatter_offsets,_vertices,_ground_extents=with_properties("8,0,12,0,16,0,20,0,24,0"),split[[384.0,0,320.0,
+local _chatter_offsets,_vertices,_ground_extents=with_properties"8,0,12,0,16,0,20,0,24,0",split[[384.0,0,320.0,
 384,0,704,
 640,0,704,
 640,0,320,
@@ -1070,7 +1070,7 @@ stat;0]]
     function()
       draw_world()   
 
-      print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      ?((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3
       --local s=_total_things.."/60 ⧗+"..tostr(_time_inc,2)
       --print(s,64-print(s,0,128)/2,2,7)
 
@@ -1167,9 +1167,8 @@ function gameover_state(obituary,height,height_attract,music_id)
   -- if online enabled, post new score
   if @0x5f81==4 then
     poke4(0x5f88,play_time)
-    poke(0x5f82,1)
-    -- force online refresh
-    poke(0x5f83,1)
+    -- post + force online refresh
+    poke2(0x5f82,0x0101)
   end
 
   -- check if new playtime enters leaderboard?
@@ -1238,14 +1237,15 @@ dset;0;2]]
       draw=function()
         local y,mem=30,0x5f91
         for i=1,@0x5f90 do
-          local c=@mem==1 and 4
-          arizona_print(i..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
+          local c=@mem&0x80!=0 and 4
+          arizona_print((@mem&0x7f)..".\t"..chr(peek(mem+1,16)),1,y,c) y+=7
           arizona_print("\t"..(peek4(mem+17)*65.536).."S",1,y,c) y+=7
           mem+=21
         end
-        if mem==0x5f91 then
-          print("NO SCORES",2,30,5)
-        end
+        -- no scores? (yet)
+        if @0x5f83==1 then
+          ?"⧗",120,30,6
+        end        
       end
     }
   }
@@ -1253,7 +1253,7 @@ dset;0;2]]
   selected_tab=buttons[2]
   -- get actual size
   for _,btn in pairs(buttons) do
-    btn.width=print(btn[1],0,130)
+    btn.width=?btn[1],0,130
   end
   -- position cursor on retry
   local _,x,y=unpack(buttons[1])

@@ -4,7 +4,12 @@ __lua__
 
 #include main_maths.lua
 #include plain.lua
-#include common.lua
+#include print.lua
+#include string.lua
+#include exec.lua
+#include env.lua
+#include sort.lua
+#include states.lua
 #include assets.lua
 #include polytex.lua
 #include localboard.p8l
