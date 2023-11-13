@@ -78,6 +78,9 @@ end
 --copy all sfx/music to daggers.p8
 cstore(0x3100,0x3100,0x1200,"../carts/freds72_daggers.p8")
 
+--copy chatter 8-18 backup for victory music to chatter.p8
+cstore(0, 0x3420, 0x2ec, "./chatter.p8")
+
 ---prepare noise engine data
 --0x0000-0x23: sfx effect bytes (title.lua)
 --0x0024-0x04a3: note high bytes (title.lua)
