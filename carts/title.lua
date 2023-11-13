@@ -981,8 +981,10 @@ cartdata;freds72_daggers]]
     payload.data = ram_to_tbl(0x6000, payload.ulen)
   end
 
-  --dump noise engine data
+  --dump audio payloads
   audio_load("noisedata", 0x4300)
+	audio_load("victory", 0x4da4)
+	audio_load("chatter", 0xfd14)
 
   -- generate assets if not there
   if reload(0x6000,0x0,0x1,"freds72_daggers_pic_0.p8")==0 or dget(63)!=0 then

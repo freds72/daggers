@@ -27,6 +27,7 @@ runtime
 0x4aa4-0x4ba3: note high bytes attn 0 (title.lua)
 0x4ba4-0x4ca3: note high bytes attn 1 (title.lua)
 0x4ca4-0x4da3: note high bytes attn 2 (title.lua)
+0x4da4-0x508f: sfx - victory (title.lua)
 
 0x8000-0x80ff - HW palette + screen fading (12 levels) + screen white (4 levels)
 0x8100-       - hit palette
@@ -41,3 +42,4 @@ runtime
 0xd500-0xd51b - hand cycle colors
 0xd51c-0xd61b - radix sort
 
+0xfd14-0xffff: sfx - chatter 8-18 (title.lua)
