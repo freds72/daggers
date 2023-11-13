@@ -773,7 +773,7 @@ function play_state()
         end
 
         --play daggercall
-        if real_distance < 64 and stat"49" ~= 14 then
+        if real_distance < 96 and stat"49" ~= 14 then
           sfx(14, 3)
         end
 
