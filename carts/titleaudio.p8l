@@ -20,7 +20,7 @@ audio = {
 	},
 	noisedata = {
 		addr = 0x34e2,
-		--clen = 0x05ab,
+		--clen = 0x05a5,
 		--data = nil,
 		ulen = 0x0aa4,
 	},
