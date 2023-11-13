@@ -24,8 +24,14 @@ audio = {
 		--data = nil,
 		ulen = 0x02ec,
 	},
-	noisedata = {
+	chatter = {
 		addr = 0x3735,
+		--clen = 0x0324,
+		--data = nil,
+		ulen = 0x02ec,
+	},
+	noisedata = {
+		addr = 0x3a59,
 		--clen = 0x05a5,
 		--data = nil,
 		ulen = 0x0aa4,

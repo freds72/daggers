@@ -13,7 +13,8 @@ title.p8
 0x2555-0x31e5: px9 - sfx - musiciii (packer.p8)
 0x31e6-0x34e1: px9 - sfx - daggercollect (packer.p8)
 0x34e2-0x3734: px9 - sfx - victory (packer.p8)
-0x3735-0x41d8: px9 - sfx - noise (packer.p8)
+0x3725-0x3753: px9 - sfx - chatter 8-18 (packer.p8)
+0x3a59-0x3ffe: px9 - sfx - noise (packer.p8)
 
 --------
 runtime

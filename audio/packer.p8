@@ -380,6 +380,11 @@ payloads = {
 		ulen = 0x2ec,
 	},
 	{
+		id = "chatter",
+		addr = 0,
+		ulen = 0x2ec,
+	},
+	{
 		id = "noisedata",
 		addr = 0,
 		ulen = 0x0aa4,
