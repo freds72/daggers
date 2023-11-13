@@ -1070,7 +1070,7 @@ stat;0]]
     function()
       draw_world()   
 
-      ?((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3
+      --?((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3
       --local s=_total_things.."/60 ⧗+"..tostr(_time_inc,2)
       --print(s,64-print(s,0,128)/2,2,7)
 
