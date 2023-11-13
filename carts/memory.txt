@@ -3,20 +3,29 @@ daggers.p8
 ----------
 0x3100-0x31ff: music - game
 0x3200-0x341f: sfx - game instruments
-0x3420-0x385f: sfx - game chatter
-0x3860-0x42ff: sfx - game miscellaneous
+0x3420-0x3daf: sfx - game noise
+0x3db0-0x42ff: sfx - game miscellaneous
 
 --------
 title.p8
 --------
-0x2000-0x24ec: px9 - sfx - chatter (packer.p8)
-0x24ed-0x27e8: px9 - sfx - daggercollect (packer.p8)
-0x27e9-0x2d3d: px9 - sfx - musicii (packer.p8)
-0x2d3e-0x39cf: px9 - sfx - musiciii (packer.p8)
+0x2000-0x2554: px9 - sfx - musicii (packer.p8)
+0x2555-0x31e5: px9 - sfx - musiciii (packer.p8)
+0x31e6-0x34e1: px9 - sfx - daggercollect (packer.p8)
+0x34e2-0x3a86: px9 - sfx - noise (packer.p8)
 
 --------
 runtime
 --------
+0x4300-0x431f: sfx effect bytes (title.lua)
+0x4324-0x47a3: note high bytes (title.lua)
+0x47a4-0x48a3: sfx effect bytes damp 0 (title.lua)
+0x48a4-0x49a3: sfx effect bytes damp 1 (title.lua)
+0x49a4-0x4aa3: sfx effect bytes damp 2 (title.lua)
+0x4aa4-0x4ba3: note high bytes attn 0 (title.lua)
+0x4ba4-0x4ca3: note high bytes attn 1 (title.lua)
+0x4ca4-0x4da3: note high bytes attn 2 (title.lua)
+
 0x8000-0x80ff - HW palette + screen fading (12 levels) + screen white (4 levels)
 0x8100-       - hit palette
 0x8180-       - fade to black (normal)
@@ -29,10 +38,4 @@ runtime
 0xc500-0xd4ff - playground tiles
 0xd500-0xd51b - hand cycle colors
 0xd51c-0xd61b - radix sort
-
-0xe570-0xeabf: sfx - chatter damp 0/1 (title.lua)
-0xeac0-0xf09f: sfx - chatter damp 2 (title.lua)
-0xf010-0xf55f: sfx - chatter damp 3 (title.lua)
-0xf560-0xfaaf: sfx - chatter damp 4 (title.lua)
-0xfab0-0xffff: sfx - chatter damp 5 (title.lua)
 

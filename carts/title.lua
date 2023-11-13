@@ -773,7 +773,7 @@ function play_state()
         end
 
         --play daggercall
-        if real_distance < 64 and stat"49" ~= 14 then
+        if real_distance < 96 and stat"49" ~= 14 then
           sfx(14, 3)
         end
 
@@ -981,23 +981,8 @@ cartdata;freds72_daggers]]
     payload.data = ram_to_tbl(0x6000, payload.ulen)
   end
 
-  ---chatter pre-rendering
-  --loop attenuation levels
-  for attn = 0, 4 do
-    --attenuated bank address
-    local addr = 0xe570 + 0x550 * attn
-
-    --dump unmodified chatter bank
-    audio_load("chatter", addr)
-
-    --attenuate chatter sfx
-    for i = 0, 19 do
-      --atennuate volume
-      sfx_volume(addr + i * 68, -ceil(attn / 2))
-      --set dampen level
-      sfx_damp(addr + i * 68, attn \ 2)
-    end
-  end
+  --dump noise engine data
+  audio_load("noisedata", 0x4300)
 
   -- generate assets if not there
   if reload(0x6000,0x0,0x1,"freds72_daggers_pic_0.p8")==0 or dget(63)!=0 then
