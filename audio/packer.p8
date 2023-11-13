@@ -375,6 +375,11 @@ payloads = {
 		ulen = 0x0448,
 	},
 	{
+		id = "victory",
+		addr = 0x3420,
+		ulen = 0x2ec,
+	},
+	{
 		id = "noisedata",
 		addr = 0,
 		ulen = 0x0aa4,
