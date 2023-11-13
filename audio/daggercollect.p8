@@ -18,8 +18,13 @@ __lua__
 --62: ambient
 --63: daggercollect
 
+--prevent run if loaded from packer.p8
+if stat(6) == "stop" then
+	stop()
+end
+
 --run packer.p8
-load("./packer.p8")
+load("./audio/packer.p8", nil, "./audio/daggercollect.p8")
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

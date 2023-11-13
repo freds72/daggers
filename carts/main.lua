@@ -1,10 +1,42 @@
 -- global arrays
-local _bsp,_things,_futures,_spiders,_squid_templates,_cam,_grid,_entities={},{},{},{},{{},{},{}}
+local _bsp,_things,_futures,_spiders,_squid_templates,_noise_offsets,_cam,_grid,_entities={},{},{},{},{{},{},{}},{}
 -- must be globals
 _fire_ttl,_piercing,_hand_pal=3,0,0xd500
 local _G,_slow_mo,_ramp_pal=_ENV,0,0x8180
 
-local _vertices,_ground_extents=split[[384.0,0,320.0,
+-- misc helpers
+function with_properties(props,dst)
+  local dst,props=dst or {},split(props)
+  for i=1,#props,2 do
+    local k,v=props[i],props[i+1]
+    -- deference
+    if tostr(k)[1]=="@" then
+      k,v=sub(k,2,-1),_ENV[v]
+    elseif k=="ent" then 
+      v=_entities[v] 
+    else
+      local fn=_ENV[v]
+      -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      -- note: assumes that function never returns a falsey value
+      v=type(fn)=="function" and fn() or v 
+    end
+    dst[k]=v
+  end
+  return dst
+end
+
+split2d([[damp,0x47a4,attn,0x4aa4
+damp,0x47a4,attn,0x4aa4
+damp,0x47a4,attn,0x4ba4
+damp,0x47a4,attn,0x4ba4
+damp,0x48a4,attn,0x4ba4
+damp,0x48a4,attn,0x4ba4
+damp,0x48a4,attn,0x4ca4
+damp,0x48a4,attn,0x4ca4
+damp,0x49a4,attn,0x4ca4
+damp,0x49a4,attn,0x4ca4]], function(...) add(_noise_offsets, with_properties(...)) end)
+
+local _chatter_offsets,_vertices,_ground_extents=with_properties"8,0,12,0,16,0,20,0,24,0",split[[384.0,0,320.0,
 384,0,704,
 640,0,704,
 640,0,320,
@@ -79,7 +111,7 @@ function levelup_async(t)
   for j=0.125,t<<2,0.125 do
     _ramp_pal=0x8280+((-127*sin(j/(t<<3)))&15)*16
     _slow_mo+=1    
-    if(j==t<<1) sfx"43"
+    if(j==t<<1) sfx"56"
     yield()
   end
 
@@ -104,26 +136,6 @@ function reserve_async(n)
   _total_things+=n
 end
 
-  -- misc helpers
-function with_properties(props,dst)
-  local dst,props=dst or {},split(props)
-  for i=1,#props,2 do
-    local k,v=props[i],props[i+1]
-    -- deference
-    if tostr(k)[1]=="@" then
-      k,v=sub(k,2,-1),_ENV[v]
-    elseif k=="ent" then 
-      v=_entities[v] 
-    else
-      local fn=_ENV[v]
-      -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      -- note: assumes that function never returns a falsey value
-      v=type(fn)=="function" and fn() or v 
-    end
-    dst[k]=v
-  end
-  return dst
-end
 
 -- grid helpers
 -- adds thing in the collision grid
@@ -140,7 +152,7 @@ function grid_register(thing)
     for idx=x0,x1,0x0.0001 do
       for idx=idx|z0,idx|z1 do
         local cell=grid[idx]
-        cell.things[thing]=true
+        cell[thing]=true
         -- for fast unregister
         if(not cells) cells={}
         cells[idx]=cell
@@ -151,27 +163,14 @@ function grid_register(thing)
     grid_x1=x1
     grid_z0=z0
     grid_z1=z1
-
-    -- noise emitter?
-    if chatter then
-      -- \64(=6) + >>16
-      local cell=grid[x>>22|z\64]
-      cell.chatter[chatter]+=1
-      -- for fast unregister
-      chatter_cell=cell
-    end
   end
 end
 
 -- removes thing from the collision grid
 function grid_unregister(_ENV)
   for idx,cell in pairs(cells) do
-    cell.things[_ENV],cells[idx]=nil
+    cell[_ENV],cells[idx]=nil
   end  
-  if chatter_cell then
-    chatter_cell.chatter[chatter]-=1
-    chatter_cell=nil
-  end    
 end
 
 function register_hit(_ENV)  
@@ -182,43 +181,8 @@ function register_hit(_ENV)
   return hp<=0
 end
 
--- range index generator
---[[
-  done={}
-
-function visit(x0,y0,len)
- local s=""
-	for x=x0,x0+len-1 do
-	 for y=y0,y0+len-1 do
-	 	local idx=(x-x0)>>16|(y-y0)
-	 	if not done[x|y<<6] then
-	 	 done[x|y<<6]=true
-	 	 s..=tostr(idx,1)..","
-	 	end
-	 end
-	end
-	return s
-end
-
-local s="{{"..visit(2,2,2).."},\n"
-s..="{"..visit(1,1,4).."},\n"
-s..="{"..visit(0,0,6).."}}"
-printh(s,"@clip")
-]]
--- concentric offset around player in chatter grid
---  2222
--- 211112
--- 210012
--- 210012
--- 211112
---  2222
-
 function make_player(_origin,_a)
-  local _chatter_ranges,on_ground,prev_jump={
-    split"0x0,0x0001,0x0.0001,0x0001.0001",
-    split"0x0,0x0001,0x0002,0x0003,0x0.0001,0x0003.0001,0x0.0002,0x0003.0002,0x0.0003,0x0001.0003,0x0002.0003,0x0003.0003",
-    split"0x0001,0x0002,0x0003,0x0004,0x0.0001,0x0005.0001,0x0.0002,0x0005.0002,0x0.0003,0x0005.0003,0x0.0004,0x0005.0004,0x0001.0005,0x0002.0005,0x0003.0005,0x0004.0005"
-  }    
+  local on_ground,prev_jump={}
   return inherit(with_properties("tilt,0,radius,24,attract_power,0,dangle,v_zero,velocity,v_zero,eye_pos,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
     -- start above floor
     origin=v_add(_origin,split"0,1,0"), 
@@ -243,13 +207,13 @@ function make_player(_origin,_a)
       -- double-click detector
       dblclick_ttl=max(dblclick_ttl-1)
       if not btn(@0xc415) then
-        sfx(48, -2)
+        sfx(60, -2)
         if not fire_released then
           if dblclick_ttl>0  then
             -- double click timer still active?
             -- shotgun (repulsive!)
             fire_ttl,fire,dblclick_ttl,attract_power=0,2,0,-1
-            sfx(29+_piercing, stat"57" and -2 or flr(rnd"4"))
+            sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
           elseif fire_frames<4 then
             -- candidate for double click?
             dblclick_ttl=8
@@ -263,7 +227,7 @@ function make_player(_origin,_a)
         fire_frames+=1
         -- regular fire      
         if dblclick_ttl==0 and fire_ttl<=0 then
-          sfx(48, stat"57" and -2)
+          sfx(60, stat"57" and -2)
           fire_ttl,fire=_fire_ttl,1
         end
         -- 
@@ -355,61 +319,6 @@ function make_player(_origin,_a)
           end
         end)
       end
-
-      --chatter stats
-      local _ambient, _chatter, _chattermax = true, {}, 3
-      for i=46,49 do
-        local cur_sfx = stat(i)
-
-        if cur_sfx>28 then
-          --reduce available channels
-          _chattermax-=1
-        elseif cur_sfx>7 then
-          --record chatter_id, unset _ambient
-          _chatter[cur_sfx-cur_sfx%4], _ambient = cur_sfx
-        end
-      end
-
-      --chatter playback
-      if _chattermax > 0 and not stat"57" then
-        local x0,z0=x>>22,z\64
-        for dist,offsets in inext,_chatter_ranges do
-          local idx=x0|z0
-          for _,idx_offset in inext,offsets do
-            local cell=_grid[idx+idx_offset]
-            for chatter_id,cnt in pairs(cell.chatter) do
-              if cnt>0 then
-                local offset, variant
-
-                if _chatter[chatter_id] then
-                  --get offset of in-progress chatter, unset ambient
-                  offset, _ambient = _chatter[chatter_id] * 68
-                else
-                  --queue new chatter, unset ambient
-                  variant=chatter_id+flr(rnd"4")
-                  offset, _chatter[chatter_id], _ambient = variant*68, variant
-                end
-
-                --copy distanced sfx, start at 0xf010-0x220 to offset sfx 0-7
-                memcpy(0x3200+offset, 0xedf0+0x550*(dist-1)+offset, 68)
-
-                --play variant if queued
-                if(variant) sfx(variant)
-
-                _chattermax -= 1
-
-                if(_chattermax < 1) goto end_noise
-              end
-            end
-          end
-          -- next range
-          x0-=0x0.0001
-          z0-=1
-        end
-
-        if(_ambient) sfx"28"
-      end
-::end_noise::
 
       -- refresh angles
       m=make_m_from_euler(unpack(angle))    
@@ -692,15 +601,12 @@ function make_skull(_ENV,_origin)
   reserve_async(cost)
 
   local _ENV=add(_things,inherit({},_ENV))
-  origin,resolved,seed,wobble=_origin,{},lerp(seed0,seed1,rnd()),lerp(wobble0,wobble1,rnd())
+  noise,origin,resolved,seed,wobble=spawnsfx or 29,_origin,{},lerp(seed0,seed1,rnd()),lerp(wobble0,wobble1,rnd())
 
   -- custom init function?
   if(init) init(_ENV)
 
   grid_register(_ENV)
-  
-  --play spawn sfx
-  sfx(spawnsfx or 40)
 
   return _ENV
 end
@@ -717,13 +623,12 @@ function make_spider()
           make_goo(v_add(origin,vel,rnd"8"),v_scale(vel,2+rnd"4"))
         end
         -- unregister
-        dead,_spiders[_ENV]=true
-        sfx"52"
+        dead,noise,_spiders[_ENV]=true,35
       end
     end,
     update=function(_ENV)
       bright=lerp(bright,1,0.022)
-      for thing in pairs(_grid[origin[1]>>21|origin[3]\32].things) do
+      for thing in pairs(_grid[origin[1]>>21|origin[3]\32]) do
         if thing.pickup and not thing.dead then
           local dir,len=v_dir(origin,thing.origin)
           if len<radius then
@@ -788,12 +693,12 @@ function make_squid(type)
             if jewel and _dist==1 then
               -- feedback
               make_particle(_lgib_template,pos,{u,-3*bullet.velocity[2],v})
-              sfx"56"
+              sfx"59"
               if register_hit(_ENV) then
                 make_jewel(origin,{u,3,v},16)
                 -- change appearance + avoid reentrancy (jewel can't be null!!)
                 ent,jewel=_entities.squid2,false
-                if(type==1) _dead=1 music"39"
+                if(type==1) _dead=1
                 -- "downgrade" squid!!
                 type-=1
               end
@@ -804,6 +709,7 @@ function make_squid(type)
               if(dead) return
               if(_dead==1) make_blood(origin) 
               dead=true
+              music"28"
               return
             end
             bright=max(2-_dist*_dist)
@@ -854,7 +760,7 @@ function make_worm(type)
   head=make_skull(inherit({
     die=function(_ENV)
       sfx"-1"
-      music"54"
+      music"37"
       -- clean segment
       do_async(function()
         while #segments>0 do
@@ -866,6 +772,7 @@ function make_worm(type)
       end)
     end,
     init=function(_ENV)
+      noise=40
       -- create segments
       for id in all(templates) do
         add(segments,add(_things,inherit({
@@ -879,7 +786,7 @@ function make_worm(type)
               make_jewel(origin,head.velocity)
               -- change sprite (no jewels)
               touched,ent=true,_entities.worm2
-              sfx"56"
+              sfx"59"
             end
           end},_ENV["_worm_seg_"..type..id])))
       end
@@ -927,9 +834,9 @@ function make_worm(type)
     post_think=function(_ENV)
       local curr_y,dirt=origin[2]
       if sgn(curr_y)!=sgn(prev_y) then
-        sfx"59"
         make_dirt(_ENV)
-        dirt=true
+        --@todo sfx40?
+        dirt,noise=true,39
       end
       prev_y=curr_y
       add(prev,{v_clone(origin),zangle,yangle,dirt},1)
@@ -957,7 +864,7 @@ function make_jewel(_origin,_velocity)
       -- no feedback when gobbed by spider
       if(spider) return
       _G._total_jewels+=1 
-      sfx"57"      
+      sfx"57"
     end,
     update=function(_ENV)
       ttl-=1
@@ -1027,8 +934,7 @@ function make_egg(_origin,_velocity)
             init=function()
               -- kill egg
               local _ENV=egg
-              sfx"51"
-              dead=true
+              dead,noise=true,34
               for i=1,2+rnd"2" do
                 local a=rnd()
                 make_goo(origin,{cos(a),rnd"5",sin(a)})
@@ -1140,26 +1046,17 @@ set;_total_hits;0
 stat;0]]
 
   -- camera & player & reset misc values
-  _plyr,_things,_spiders,_spawn_angle=make_player({512,24,512},0),{},{},rnd()
+  _plyr,_things,_spiders,_spawn_angle=make_player(split"512,24,512",0),{},{},rnd()
   
   -- spatial partitioning grid
   _grid=setmetatable({},{
       __index=function(self,k)
         -- automatic creation of buckets
-        -- + array to store things at cell
-        local t={
-          things={},
-          chatter=setmetatable({},{       
-            __index=function(self,k)
-              self[k]=0
-              return 0
-            end
-          })
-        }
+        local t={}
         self[k]=t
         return t
       end
-    })    
+    })
 
   return
     -- update
@@ -1173,7 +1070,7 @@ stat;0]]
     function()
       draw_world()   
 
-      --print(((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3)
+      --?((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3
       --local s=_total_things.."/60 ⧗+"..tostr(_time_inc,2)
       --print(s,64-print(s,0,128)/2,2,7)
 
@@ -1190,7 +1087,7 @@ stat;0]]
     -- init
     function()
       exec[[sfx;-1
-music;32
+music;44
 set;_hw_pal;0x8000]]
       -- must be done *outside* async update loop!!!
       _futures,_total_things,_total_time,_time_inc={},0,0,0x0.0001
@@ -1204,7 +1101,7 @@ set;_hw_pal;0x8000]]
         end
         exec[[wait_async;90
 set;dead;1;_plyr
-next_state;gameover_state;lIBERATED;256;0.01;61]]
+next_state;gameover_state;lIBERATED;256;0.01;41]]
       end)
 
     -- progression
@@ -1292,7 +1189,7 @@ function gameover_state(obituary,height,height_attract,music_id)
   -- time format v2
   exec[[sfx;-1
 dset;0;2]]
-  music(music_id or 36)
+  music(music_id or 48)
 
   -- number of scores
   dset(1,#_local_scores)
@@ -1347,7 +1244,7 @@ dset;0;2]]
         end
         -- no scores? (yet)
         if @0x5f83==1 then
-          print("⧗",120,30,6)
+          ?"⧗",120,30,6
         end        
       end
     }
@@ -1356,7 +1253,7 @@ dset;0;2]]
   selected_tab=buttons[2]
   -- get actual size
   for _,btn in pairs(buttons) do
-    btn.width=print(btn[1],0,130)
+    btn.width=?btn[1],0,130
   end
   -- position cursor on retry
   local _,x,y=unpack(buttons[1])
@@ -1513,9 +1410,9 @@ tline;17]]
     -- ##6: vertex index
     -- ##7: vertex index
     -- ##8: tex coords
-    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0000.1010;1; -2;32.0;0;2;58;55;52;49;0x0014.0404;0; -3;-384.0;0;1;13;22;58;49;0x0010.0404;0; 3;640.0;0;1;19;16;52;55;0x0010.0404;0; -1;-320.0;2;1;49;52;16;13;0x0010.0404;0
-2; 2;0.0;0;2;1;4;7;10;0x0000.1010;1; -2;32.0;0;2;46;43;40;37;0x0014.0404;0; -3;-320.0;0;1;1;10;46;37;0x0010.0404;0; 3;704.0;0;1;7;4;40;43;0x0010.0404;0; -1;-384.0;2;1;22;1;37;58;0x0010.0404;0; -1;-384.0;2;1;4;19;55;40;0x0010.0404;0; 1;640.0;2;1;28;7;43;64;0x0010.0404;0; 1;640.0;2;1;10;25;61;46;0x0010.0404;0
-3; 2;0.0;0;2;25;28;31;34;0x0000.1010;1; -2;32.0;0;2;70;67;64;61;0x0014.0404;0; -3;-384.0;0;1;25;34;70;61;0x0010.0404;0; 1;704.0;2;1;70;34;31;67;0x0010.0404;0; 3;640.0;0;1;31;28;64;67;0x0010.0404;0
+    split2d([[1; 2;0.0;0;2;13;16;19;22;0x0.1010;1; -2;32.0;0;2;58;55;52;49;0x0014.0404;0; -3;-384.0;0;1;13;22;58;49;0x0010.0404;0; 3;640.0;0;1;19;16;52;55;0x0010.0404;0; -1;-320.0;2;1;49;52;16;13;0x0010.0404;0
+2; 2;0.0;0;2;1;4;7;10;0x0.1010;1; -2;32.0;0;2;46;43;40;37;0x0014.0404;0; -3;-320.0;0;1;1;10;46;37;0x0010.0404;0; 3;704.0;0;1;7;4;40;43;0x0010.0404;0; -1;-384.0;2;1;22;1;37;58;0x0010.0404;0; -1;-384.0;2;1;4;19;55;40;0x0010.0404;0; 1;640.0;2;1;28;7;43;64;0x0010.0404;0; 1;640.0;2;1;10;25;61;46;0x0010.0404;0
+3; 2;0.0;0;2;25;28;31;34;0x0.1010;1; -2;32.0;0;2;70;67;64;61;0x0014.0404;0; -3;-384.0;0;1;25;34;70;61;0x0010.0404;0; 1;704.0;2;1;70;34;31;67;0x0010.0404;0; 3;640.0;0;1;31;28;64;67;0x0010.0404;0
 ]],function(id,...)
       -- localize
       local planes={...}
@@ -1602,12 +1499,10 @@ tline;17]]
   _skull_core=inherit({
     hit=function(_ENV,pos,bullet)
       if register_hit(_ENV) then
-        dead=true
+        dead,noise=true,deathsfx or 35
         -- custom death function?
         if die then
           die(_ENV)
-        else
-          sfx(death_sfx or 52)
         end
         -- drop jewel?
         if jewel then
@@ -1656,7 +1551,7 @@ tline;17]]
         -- avoid others (noted: limited to a single grid cell)
         -- 21 = (x\32)>>16
         local idx,fx,fy,fz=origin[1]>>21|origin[3]\32,unpack(forces)
-        for other in pairs(_grid[idx].things) do
+        for other in pairs(_grid[idx]) do
           -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
             local other_radius,avoid,avoid_dist=other.radius,v_dir(origin,other.origin)
@@ -1726,11 +1621,11 @@ _worm_seg_giga1;;_worm_seg_tail1
 _worm_seg_normal2;;_worm_seg_tail2
 _worm_seg_mega2;;_worm_seg_tail2
 _worm_seg_giga2;;_worm_seg_tail2
-_worm_head_normal;hit_ttl,0,wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,50,chatter,20,spawnsfx,42,obituary,sLICED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
-_worm_head_mega;hit_ttl,0,wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_radius,14,radius,20,scale,1.2,hp,200,chatter,20,spawnsfx,42,obituary,mINCED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
-_worm_head_giga;hit_ttl,0,wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_radius,16,radius,22,scale,1.5,hp,400,chatter,20,spawnsfx,42,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
+_worm_head_normal;hit_ttl,0,wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_radius,12,radius,16,hp,50,chatter,20,spawnsfx,31,obituary,sLICED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
+_worm_head_mega;hit_ttl,0,wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_radius,14,radius,20,scale,1.2,hp,200,chatter,20,spawnsfx,31,obituary,mINCED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
+_worm_head_giga;hit_ttl,0,wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_radius,16,radius,22,scale,1.5,hp,400,chatter,20,spawnsfx,31,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_template
 _jewel_template;reg,1,ent,jewel,s_radius,8,radius,12,zangle,0,ttl,300,@apply,nop
-_spiderling_template;ent,spiderling0,radius,8,hp,2,on_ground,1,death_sfx,53,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
+_spiderling_template;ent,spiderling0,radius,8,hp,2,on_ground,1,deathsfx,36,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_template,ground_limit,2;_skull_template
 _squid_core;no_render,1,s_radius,18,radius,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_template
 _squid_hood;bright,0,ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
 _squid_jewel;bright,0,hit_ttl,0,reg,1,jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
@@ -1738,8 +1633,8 @@ _squid_tentacle;bright,0,ent,tentacle0,origin,v_zero,zangle,0,is_tentacle,1,shad
 _skull_base_template;;_skull_template
 _skull1_template;chatter,12,ent,skull,radius,8,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_template
 _skull2_template;chatter,12,ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;bright,0,ent,spider1,radius,24,shadeless,1,hp,12,spawnsfx,41,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_template
-_mine_template;ent,mine,radius,12,hp,200,spawnsfx,49,death_sfx,53,obituary,pOISONED,@apply,nop,@lgib,_goo_template,gibs,0,ground_limit,12;_skull_template]],
+_spider_template;bright,0,ent,spider1,radius,24,shadeless,1,hp,12,spawnsfx,30,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_template
+_mine_template;ent,mine,radius,12,hp,30,spawnsfx,32,deathsfx,36,obituary,pOISONED,@apply,nop,@lgib,_goo_template,gibs,0,ground_limit,12;_skull_template]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
   end)
@@ -1794,6 +1689,7 @@ _squid_hood;a_offset,0.8333,r_offset,22]]} do
     end)
   end
 
+  _offset_to_dist=with_properties"0x0000.0000,1,0xfffe.ffff,1,0xffff.ffff,1,0x0000.ffff,1,0xffff.0000,1,0x0001.0000,1,0xffff.0001,1,0x0000.0001,1,0x0001.0001,1,0xfffd.fffe,2,0xfffe.fffe,2,0xffff.fffe,2,0x0000.fffe,2,0x0001.fffe,2,0xfffd.ffff,2,0x0001.ffff,2,0xfffe.0000,2,0x0002.0000,2,0xfffe.0001,2,0x0002.0001,2,0xfffe.0002,2,0xffff.0002,2,0x0000.0002,2,0x0001.0002,2,0x0002.0002,2,0xfffd.fffd,3,0xfffe.fffd,3,0xffff.fffd,3,0x0000.fffd,3,0x0001.fffd,3,0xfffc.fffe,3,0x0002.fffe,3,0xfffc.ffff,3,0x0002.ffff,3,0xfffd.0000,3,0x0003.0000,3,0xfffd.0001,3,0x0003.0001,3,0xfffd.0002,3,0x0003.0002,3,0xfffe.0003,3,0xffff.0003,3,0x0000.0003,3,0x0001.0003,3,0x0002.0003,3,0xfffd.fffc,4,0xfffe.fffc,4,0xffff.fffc,4,0x0000.fffc,4,0x0001.fffc,4,0xfffc.fffd,4,0x0002.fffd,4,0xfffb.fffe,4,0x0003.fffe,4,0xfffb.ffff,4,0x0003.ffff,4,0xfffc.0000,4,0x0004.0000,4,0xfffc.0001,4,0x0004.0001,4,0xfffc.0002,4,0x0004.0002,4,0xfffd.0003,4,0x0003.0003,4,0xfffe.0004,4,0xffff.0004,4,0x0000.0004,4,0x0001.0004,4,0x0002.0004,4,0xfffc.fffb,5,0xfffd.fffb,5,0xfffe.fffb,5,0xffff.fffb,5,0x0000.fffb,5,0x0001.fffb,5,0x0002.fffb,5,0xfffb.fffc,5,0xfffc.fffc,5,0x0002.fffc,5,0x0003.fffc,5,0xfffa.fffd,5,0xfffb.fffd,5,0x0003.fffd,5,0x0004.fffd,5,0xfffa.fffe,5,0x0004.fffe,5,0xfffa.ffff,5,0x0004.ffff,5,0xfffb.0000,5,0x0005.0000,5,0xfffb.0001,5,0x0005.0001,5,0xfffb.0002,5,0x0005.0002,5,0xfffb.0003,5,0xfffc.0003,5,0x0004.0003,5,0x0005.0003,5,0xfffc.0004,5,0xfffd.0004,5,0x0003.0004,5,0x0004.0004,5,0xfffd.0005,5,0xfffe.0005,5,0xffff.0005,5,0x0000.0005,5,0x0001.0005,5,0x0002.0005,5,0x0003.0005,5"
   -- run game
   next_state(play_state)
 end
@@ -1804,7 +1700,7 @@ function collect_grid(a,b,u,v,cb)
   -- check first cell (always)
   -- pack lookup index into a single 16:16 value
   local dest_idx,map_idx=b[3]\32|b[1]\32>>16,mapy|mapx>>16
-  cb(_grid[map_idx].things)
+  cb(_grid[map_idx])
   -- early exit
   if dest_idx==map_idx then    
     return
@@ -1832,7 +1728,7 @@ function collect_grid(a,b,u,v,cb)
       disty+=ddy
       map_idx+=mapdy
     end
-    cb(_grid[map_idx].things)
+    cb(_grid[map_idx])
   end
 end
 
@@ -1855,13 +1751,25 @@ function _update()
     -- draw on tiles setup
     exec[[_map_display;1
 poke;0x5f54;0x00;0x60
-poke;0x5f5e;0b11110110]]
+poke;0x5f5e;0b11110110]]  
+
+    -- distance based sfx
+    local _offset_to_dist,sfx_grid,px,_,pz=_offset_to_dist,{{},{},{},{},{},{},{},{},{},{}},unpack(_plyr.origin)
     -- physic must run *before* general updates
     for _,_ENV in inext,_things do
       if(physic) physic(_ENV)
     end
     for i=#_things,1,-1 do
       local _ENV=_things[i]
+      -- common sfx management
+      -- note: must be done before "dead"
+      local sfx=noise or not stat"57" and chatter
+      if sfx then
+        local dist=_offset_to_dist[((origin[1]-px)>>21)+(origin[3]-pz)\32]
+        if(dist) sfx_grid[2*dist-(noise and 1 or 0)][sfx]=dist
+      end
+      -- kill any insta sfx
+      noise=nil
       if dead then
         if(cost) _total_things=max(_total_things-cost)
         if(reg) grid_unregister(_ENV)
@@ -1869,11 +1777,65 @@ poke;0x5f5e;0b11110110]]
         if(ai) ai.co=nil
         deli(_things,i)
       else
-        -- common timers
         if(hit_ttl) hit_ttl=max(hit_ttl-1)
         if(update) update(_ENV)
       end
     end
+
+    --noise playback
+    local ambient,noise_max,noise_state=not stat"57",4,{}
+
+    for i=0,3 do
+      local sfx_id=stat(46+i)
+
+      if sfx_id>27 then
+        noise_max-=1
+      elseif sfx_id>7 then
+        ambient=nil
+      end
+
+      noise_state[sfx_id]=stat(50+i)
+    end
+
+    for dist,sfx_ids in inext,sfx_grid do
+      for sfx_id in pairs(sfx_ids) do
+        if(noise_max<1) goto end_noise
+
+        if sfx_id<28 then
+          if not noise_state[sfx_id+_chatter_offsets[sfx_id]] then
+            _chatter_offsets[sfx_id]=1
+            _chatter_offsets[sfx_id]%=4
+          end
+
+          ambient=nil
+          sfx_id+=_chatter_offsets[sfx_id]
+        end
+
+        --current note index
+        local sfx_state=noise_state[sfx_id]
+
+        --already processed
+        if(sfx_state==-1) break
+
+        --@todo test lua lookup table vs peeks
+        --effect byte
+        poke(0x3240+sfx_id*68,@(_noise_offsets[dist].damp+@(0x42f8+sfx_id)))
+        --note high bytes
+        local dst,src,attn=0x3201+sfx_id*68,0x4224+sfx_id*32,_noise_offsets[dist].attn
+        for i=max(sfx_state),31 do
+          poke(dst+i*2,@(attn+@(src+i)))
+        end
+
+        if(not sfx_state) sfx(sfx_id)
+
+        noise_state[sfx_id]=-1
+        noise_max-=1
+      end
+    end
+
+    if(ambient and not noise_state[51]) sfx"51"
+::end_noise::
+
     -- revert
     exec[[poke;0x5f5e;0xff
 poke;0x5f54;0x60;0x00
