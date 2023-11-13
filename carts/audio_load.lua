@@ -15,11 +15,11 @@ end
 
 ---load px9-compressed audio to ram
 --@param id string
---  audio table key
+--	audio table key
 --@param dest integer
---  address to decompress to
+--	address to decompress to
 function audio_load(id, dest)
-  poke4(dest or 0x3100, unpack(audio[id].data))
+	poke4(dest or 0x3100, unpack(audio[id].data))
 end
 
 ---get 4-byte ram values as table

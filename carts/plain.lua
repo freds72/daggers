@@ -10,11 +10,11 @@ function decompress(cart,cart_id,mem,fn,...)
 			cart_id+=1
 			mem=0
 			reload(0,0,0x4300,cart.."_"..cart_id..".p8")
-		end	
+		end 
 		local b=@mem
 		mem+=1
 		return b
 	end
-	-- deserialize in context	
+	-- deserialize in context 
 	return fn(...)
 end

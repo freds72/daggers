@@ -37,14 +37,14 @@ function make_m_from_euler(x,y,z)
 		local a,b = cos(x),-sin(x)
 		local c,d = cos(y),-sin(y)
 		local e,f = cos(z),-sin(z)
-  
-    -- yxz order
-  local ce,cf,de,df=c*e,c*f,d*e,d*f
+	
+		-- yxz order
+	local ce,cf,de,df=c*e,c*f,d*e,d*f
 	 return {
-	  ce+df*b,a*f,cf*b-de,0,
-	  de*b-cf,a*e,df+ce*b,0,
-	  a*d,-b,a*c,0,
-	  0,0,0,1}
+		ce+df*b,a*f,cf*b-de,0,
+		de*b-cf,a*e,df+ce*b,0,
+		a*d,-b,a*c,0,
+		0,0,0,1}
 end
 
 -- returns basis vectors from matrix

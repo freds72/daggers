@@ -1,9 +1,9 @@
 -- px9 compress
 
 -- x0,y0 where to read from
--- w,h   image width,height
--- dest  address to store
--- vget  read function (x,y)
+-- w,h	 image width,height
+-- dest	 address to store
+-- vget	 read function (x,y)
 
 function
 	px9_comp(x0,y0,w,h,dest,vget)

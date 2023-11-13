@@ -27,7 +27,7 @@ function polyfill(p,np,c)
 			ldx=(v1.x-lx)/(y1-y0)
 			--sub-pixel correction
 			lx+=(y-y0)*ldx
-		end   
+		end		
 		while ry<y do
 			local v0=p[rj]
 			rj-=1

@@ -47,27 +47,27 @@ end
 local function v_lerp(a,b,t)
 	local ax,ay,az=a[1],a[2],a[3]
 	return {
-    	ax+(b[1]-ax)*t,
-    	ay+(b[2]-ay)*t,
-    	az+(b[3]-az)*t
+			ax+(b[1]-ax)*t,
+			ay+(b[2]-ay)*t,
+			az+(b[3]-az)*t
 	}
 end
 
 -- generates a random vector
 local function v_rnd(x,y,z,r,a)
-  a=a or rnd()
-  return {x+r*cos(a),y,z-r*sin(a)}
+	a=a or rnd()
+	return {x+r*cos(a),y,z-r*sin(a)}
 end
 
 -- safe for overflow len
 -- faster than sqrt variant (23.5+14 vs. 27.5)
 -- credits: https://www.lexaloffle.com/bbs/?tid=49827
 local function v_len(a,b)
-  local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
-  local ax=atan2(x,y)
-  local d2=x*cos(ax)+y*sin(ax)
-  local az=atan2(d2,z)
-  return d2*cos(az)+z*sin(az)
+	local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
+	local ax=atan2(x,y)
+	local d2=x*cos(ax)+y*sin(ax)
+	local az=atan2(d2,z)
+	return d2*cos(az)+z*sin(az)
 end 
 
 -- normalized direction 
@@ -79,7 +79,7 @@ end
 -- fast direction/norm (abs)
 -- same as v_len without building a vector
 local function v_dir(a,b)
-  local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
+	local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
 	local d=abs(x)+abs(y)+abs(z)
 	if(d==0) return {0,0,0},d
 	return {x/d,y/d,z/d},d
@@ -89,13 +89,13 @@ end
 local function make_m_from_euler(x,y)
 	local a,b = cos(x),-sin(x)
 	local c,d = cos(y),-sin(y)
-  
-    -- yxz order
+	
+		-- yxz order
 	return {
-	  c,0,-d,0,
-	  d*b,a,c*b,0,
-	  a*d,-b,a*c,0,
-	  0,0,0,1}
+		c,0,-d,0,
+		d*b,a,c*b,0,
+		a*d,-b,a*c,0,
+		0,0,0,1}
 end
 
 -- returns basis vectors from matrix
