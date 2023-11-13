@@ -1,25 +1,42 @@
 -- global arrays
-local _bsp,_things,_futures,_spiders,_squid_templates,_chatter_offsets,_noise_offsets,_cam,_grid,_entities={},{},{},{},{{},{},{}},{},{}
+local _bsp,_things,_futures,_spiders,_squid_templates,_noise_offsets,_cam,_grid,_entities={},{},{},{},{{},{},{}},{}
 -- must be globals
 _fire_ttl,_piercing,_hand_pal=3,0,0xd500
 local _G,_slow_mo,_ramp_pal=_ENV,0,0x8180
 
-for i=8,24,4 do
-  _chatter_offsets[i]=0
+-- misc helpers
+function with_properties(props,dst)
+  local dst,props=dst or {},split(props)
+  for i=1,#props,2 do
+    local k,v=props[i],props[i+1]
+    -- deference
+    if tostr(k)[1]=="@" then
+      k,v=sub(k,2,-1),_ENV[v]
+    elseif k=="ent" then 
+      v=_entities[v] 
+    else
+      local fn=_ENV[v]
+      -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      -- note: assumes that function never returns a falsey value
+      v=type(fn)=="function" and fn() or v 
+    end
+    dst[k]=v
+  end
+  return dst
 end
 
-split2d([[0x47a4;0x4aa4
-0x47a4;0x4aa4
-0x47a4;0x4ba4
-0x47a4;0x4ba4
-0x48a4;0x4ba4
-0x48a4;0x4ba4
-0x48a4;0x4ca4
-0x48a4;0x4ca4
-0x49a4;0x4ca4
-0x49a4;0x4ca4]], function(...) add(_noise_offsets, {...}) end)
+split2d([[damp,0x47a4,attn,0x4aa4
+damp,0x47a4,attn,0x4aa4
+damp,0x47a4,attn,0x4ba4
+damp,0x47a4,attn,0x4ba4
+damp,0x48a4,attn,0x4ba4
+damp,0x48a4,attn,0x4ba4
+damp,0x48a4,attn,0x4ca4
+damp,0x48a4,attn,0x4ca4
+damp,0x49a4,attn,0x4ca4
+damp,0x49a4,attn,0x4ca4]], function(...) add(_noise_offsets, with_properties(...)) end)
 
-local _vertices,_ground_extents=split[[384.0,0,320.0,
+local _chatter_offsets,_vertices,_ground_extents=with_properties("8,0,12,0,16,0,20,0,24,0"),split[[384.0,0,320.0,
 384,0,704,
 640,0,704,
 640,0,320,
@@ -119,26 +136,6 @@ function reserve_async(n)
   _total_things+=n
 end
 
-  -- misc helpers
-function with_properties(props,dst)
-  local dst,props=dst or {},split(props)
-  for i=1,#props,2 do
-    local k,v=props[i],props[i+1]
-    -- deference
-    if tostr(k)[1]=="@" then
-      k,v=sub(k,2,-1),_ENV[v]
-    elseif k=="ent" then 
-      v=_entities[v] 
-    else
-      local fn=_ENV[v]
-      -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      -- note: assumes that function never returns a falsey value
-      v=type(fn)=="function" and fn() or v 
-    end
-    dst[k]=v
-  end
-  return dst
-end
 
 -- grid helpers
 -- adds thing in the collision grid
@@ -1692,25 +1689,6 @@ _squid_hood;a_offset,0.8333,r_offset,22]]} do
     end)
   end
 
-  -- offset to distance lookup table (for sfx)
-  -- range index generator
-  --[[
-  local clip=""
-  for dmax=0,5 do
-    local s=""
-    for i=-5,5 do
-     for j=-5,5 do
-      local dx,dy=i,j
-      local d=sqrt(dx*dx+dy*dy)\1
-       if d==dmax then
-        if(#clip!=0) clip..=","
-          clip..=tostr((dx>>16)+dy,1)..","..max(1,dmax)
-       end
-     end
-    end
-  end
-  printh(clip,"@clip")
-  ]]
   _offset_to_dist=with_properties"0x0000.0000,1,0xfffe.ffff,1,0xffff.ffff,1,0x0000.ffff,1,0xffff.0000,1,0x0001.0000,1,0xffff.0001,1,0x0000.0001,1,0x0001.0001,1,0xfffd.fffe,2,0xfffe.fffe,2,0xffff.fffe,2,0x0000.fffe,2,0x0001.fffe,2,0xfffd.ffff,2,0x0001.ffff,2,0xfffe.0000,2,0x0002.0000,2,0xfffe.0001,2,0x0002.0001,2,0xfffe.0002,2,0xffff.0002,2,0x0000.0002,2,0x0001.0002,2,0x0002.0002,2,0xfffd.fffd,3,0xfffe.fffd,3,0xffff.fffd,3,0x0000.fffd,3,0x0001.fffd,3,0xfffc.fffe,3,0x0002.fffe,3,0xfffc.ffff,3,0x0002.ffff,3,0xfffd.0000,3,0x0003.0000,3,0xfffd.0001,3,0x0003.0001,3,0xfffd.0002,3,0x0003.0002,3,0xfffe.0003,3,0xffff.0003,3,0x0000.0003,3,0x0001.0003,3,0x0002.0003,3,0xfffd.fffc,4,0xfffe.fffc,4,0xffff.fffc,4,0x0000.fffc,4,0x0001.fffc,4,0xfffc.fffd,4,0x0002.fffd,4,0xfffb.fffe,4,0x0003.fffe,4,0xfffb.ffff,4,0x0003.ffff,4,0xfffc.0000,4,0x0004.0000,4,0xfffc.0001,4,0x0004.0001,4,0xfffc.0002,4,0x0004.0002,4,0xfffd.0003,4,0x0003.0003,4,0xfffe.0004,4,0xffff.0004,4,0x0000.0004,4,0x0001.0004,4,0x0002.0004,4,0xfffc.fffb,5,0xfffd.fffb,5,0xfffe.fffb,5,0xffff.fffb,5,0x0000.fffb,5,0x0001.fffb,5,0x0002.fffb,5,0xfffb.fffc,5,0xfffc.fffc,5,0x0002.fffc,5,0x0003.fffc,5,0xfffa.fffd,5,0xfffb.fffd,5,0x0003.fffd,5,0x0004.fffd,5,0xfffa.fffe,5,0x0004.fffe,5,0xfffa.ffff,5,0x0004.ffff,5,0xfffb.0000,5,0x0005.0000,5,0xfffb.0001,5,0x0005.0001,5,0xfffb.0002,5,0x0005.0002,5,0xfffb.0003,5,0xfffc.0003,5,0x0004.0003,5,0x0005.0003,5,0xfffc.0004,5,0xfffd.0004,5,0x0003.0004,5,0x0004.0004,5,0xfffd.0005,5,0xfffe.0005,5,0xffff.0005,5,0x0000.0005,5,0x0001.0005,5,0x0002.0005,5,0x0003.0005,5"
   -- run game
   next_state(play_state)
@@ -1789,9 +1767,9 @@ poke;0x5f5e;0b11110110]]
       if sfx then
         local dist=_offset_to_dist[((origin[1]-px)>>21)+(origin[3]-pz)\32]
         if(dist) sfx_grid[2*dist-(noise and 1 or 0)][sfx]=dist
-        -- kill any insta sfx
-        noise=nil
       end
+      -- kill any insta sfx
+      noise=nil
       if dead then
         if(cost) _total_things=max(_total_things-cost)
         if(reg) grid_unregister(_ENV)
@@ -1820,19 +1798,17 @@ poke;0x5f5e;0b11110110]]
     end
 
     for dist,sfx_ids in inext,sfx_grid do
-      for base_id in pairs(sfx_ids) do
+      for sfx_id in pairs(sfx_ids) do
         if(noise_max<1) goto end_noise
 
-        local sfx_id=base_id
-
-        if base_id<28 then
-          if not noise_state[base_id+_chatter_offsets[base_id]] then
-            _chatter_offsets[base_id]+=1
-            _chatter_offsets[base_id]%=4
+        if sfx_id<28 then
+          if not noise_state[sfx_id+_chatter_offsets[sfx_id]] then
+            _chatter_offsets[sfx_id]=1
+            _chatter_offsets[sfx_id]%=4
           end
 
           ambient=nil
-          sfx_id+=_chatter_offsets[base_id]
+          sfx_id+=_chatter_offsets[sfx_id]
         end
 
         --current note index
@@ -1843,10 +1819,11 @@ poke;0x5f5e;0b11110110]]
 
         --@todo test lua lookup table vs peeks
         --effect byte
-        poke(0x3240+sfx_id*68,@(_noise_offsets[dist][1]+@(0x42f8+sfx_id)))
+        poke(0x3240+sfx_id*68,@(_noise_offsets[dist].damp+@(0x42f8+sfx_id)))
         --note high bytes
+        local dst,src,attn=0x3201+sfx_id*68,0x4224+sfx_id*32,_noise_offsets[dist].attn
         for i=max(sfx_state),31 do
-          poke(0x3201+sfx_id*68+i*2,@(_noise_offsets[dist][2]+@(0x4324+(sfx_id-8)*32+i)))
+          poke(dst+i*2,@(attn+@(src+i)))
         end
 
         if(not sfx_state) sfx(sfx_id)
