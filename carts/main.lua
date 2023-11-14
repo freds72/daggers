@@ -776,7 +776,6 @@ function make_worm(type)
       end)
     end,
     init=function(_ENV)
-      noise=40
       -- create segments
       for id in all(templates) do
         add(segments,add(_things,inherit({

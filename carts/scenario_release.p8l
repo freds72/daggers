@@ -24,6 +24,8 @@ make_squid;1
 wait_async;450
 make_squid;2
 wait_async;150
+music;40;0;1
+wait_async;9
 make_worm;normal
 wait_async;150
 make_spider;1
@@ -40,6 +42,8 @@ wait_async;300
 make_squid;2
 make_squid;1
 wait_async;300
+music;40;0;1
+wait_async;9
 make_worm;normal
 make_spider;1
 make_spider;1
@@ -71,6 +75,8 @@ make_squid;2
 wait_async;150
 make_squid;3
 wait_async;450
+music;40;0;1
+wait_async;9
 make_worm;mega
 make_worm;mega
 make_worm;mega
@@ -111,6 +117,8 @@ wait_async;180
 make_squid;1
 make_squid;2
 wait_async;180
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;150
 make_spider;1
@@ -130,6 +138,8 @@ make_squid;1
 wait_async;30
 make_squid;2
 wait_async;30
+music;40;0;1
+wait_async;9
 make_worm;giga
 wait_async;150
 make_mine
@@ -146,6 +156,8 @@ make_squid;1
 wait_async;90
 make_squid;3
 wait_async;180
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;150
 make_spider;2
@@ -178,6 +190,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;150
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;120
 make_spider;2
@@ -210,6 +224,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;120
+music;40;0;1
+wait_async;9
 make_worm;giga
 wait_async;120
 make_spider;2
@@ -241,6 +257,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;120
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;90
 make_spider;2
@@ -273,6 +291,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;90
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;120
 make_spider;2
@@ -303,6 +323,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;90
+music;40;0;1
+wait_async;9
 make_worm;giga
 wait_async;90
 make_spider;2
@@ -333,6 +355,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;90
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;90
 make_spider;2
@@ -364,6 +388,8 @@ make_squid;1
 wait_async;30
 make_squid;3
 wait_async;90
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;90
 make_spider;2
@@ -393,6 +419,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;60
+music;40;0;1
+wait_async;9
 make_worm;giga
 wait_async;90
 make_spider;2
@@ -423,6 +451,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;60
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;60
 make_spider;2
@@ -453,6 +483,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;60
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;60
 make_spider;2
@@ -482,6 +514,8 @@ make_squid;1
 wait_async;30
 make_squid;3
 wait_async;60
+music;40;0;1
+wait_async;9
 make_worm;giga
 wait_async;90
 make_spider;2
@@ -509,6 +543,8 @@ make_squid;1
 wait_async;60
 make_squid;3
 wait_async;60
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;60
 make_spider;2
@@ -538,6 +574,8 @@ make_squid;1
 wait_async;30
 make_squid;3
 wait_async;60
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;60
 make_spider;2
@@ -566,6 +604,8 @@ make_squid;1
 wait_async;30
 make_squid;3
 wait_async;60
+music;40;0;1
+wait_async;9
 make_worm;giga
 wait_async;60
 make_spider;2
@@ -594,6 +634,8 @@ make_squid;1
 wait_async;30
 make_squid;3
 wait_async;60
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;60
 make_spider;2
@@ -623,6 +665,8 @@ make_squid;1
 wait_async;30
 make_squid;3
 wait_async;30
+music;40;0;1
+wait_async;9
 make_worm;mega
 wait_async;60
 make_spider;2
@@ -653,6 +697,8 @@ make_squid;1
 wait_async;30
 make_squid;3
 wait_async;60
+music;40;0;1
+wait_async;9
 make_worm;giga
 wait_async;30
 make_spider;2
