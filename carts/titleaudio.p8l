@@ -18,9 +18,21 @@ audio = {
 		--data = nil,
 		ulen = 0x0448,
 	},
-	noisedata = {
+	victory = {
 		addr = 0x34e2,
-		--clen = 0x05a5,
+		--clen = 0x0253,
+		--data = nil,
+		ulen = 0x02ec,
+	},
+	chatter = {
+		addr = 0x3735,
+		--clen = 0x0324,
+		--data = nil,
+		ulen = 0x02ec,
+	},
+	noisedata = {
+		addr = 0x3a59,
+		--clen = 0x057d,
 		--data = nil,
 		ulen = 0x0aa4,
 	},

@@ -1043,7 +1043,8 @@ _map_display;0
 set;_total_jewels;0
 set;_total_bullets;0
 set;_total_hits;0
-stat;0]]
+stat;0
+memcpy;0x3420;0xfd14;0x2ec]]
 
   -- camera & player & reset misc values
   _plyr,_things,_spiders,_spawn_angle=make_player(split"512,24,512",0),{},{},rnd()
@@ -1099,9 +1100,11 @@ set;_hw_pal;0x8000]]
           _time_inc=0
           yield()
         end
-        exec[[wait_async;90
+        exec[[memcpy;0x3420;0x4da4;0x2ec
+music;8
+wait_async;90
 set;dead;1;_plyr
-next_state;gameover_state;lIBERATED;256;0.01;41]]
+next_state;gameover_state;lIBERATED;256;0.01]]
       end)
 
     -- progression
@@ -1160,7 +1163,7 @@ wait_jewels;0x7fff]]
   end
 end
 
-function gameover_state(obituary,height,height_attract,music_id)  
+function gameover_state(obituary,height,height_attract)
   -- remove time spent "waiting"!!
   local hw_pal,play_time,origin,target,selected_tab,clicked=0,_total_time,_plyr.eye_pos,v_add(_plyr.origin,{0,height or 4,0})
 
@@ -1189,7 +1192,7 @@ function gameover_state(obituary,height,height_attract,music_id)
   -- time format v2
   exec[[sfx;-1
 dset;0;2]]
-  music(music_id or 48)
+	if (obituary~="lIBERATED") music"48"
 
   -- number of scores
   dset(1,#_local_scores)
