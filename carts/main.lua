@@ -1122,7 +1122,7 @@ wait_jewels;10
 set;_shotgun_count;20
 set;_shotgun_spread;0.030
 sfx;-1
-music;44
+music;52
 levelup_async;3
 //;level 2
 wait_jewels;70
@@ -1132,7 +1132,7 @@ set;_shotgun_spread;0.033
 set;_hand_pal;0xd509
 set;_piercing;1
 sfx;-1
-music;44
+music;52
 levelup_async;5
 //;level 3
 wait_jewels;150
@@ -1141,7 +1141,7 @@ set;_shotgun_spread;0.037
 set;_hand_pal;0xd512
 set;_piercing;2
 sfx;-1
-music;44
+music;52
 levelup_async;7
 wait_jewels;0x7fff]]
     end)
