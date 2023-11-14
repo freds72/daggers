@@ -117,9 +117,7 @@ for attn = 0, 2 do
 				--set detune
 				byte += (i \ 8 % 3) * 8
 				--set reverb
-				--@todo test this
-				--byte += max(byte \ 24 % 3, attn) * 24
-				byte += (i \ 24 % 3) * 24
+				byte += max(byte \ 24 % 3, attn) * 24
 				--set dampen
 				byte += attn * 72
 
