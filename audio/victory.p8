@@ -12,6 +12,9 @@ end
 --copy music to daggers.p8
 cstore(0x3120,0x3120,0xc,"../carts/freds72_daggers.p8")
 
+--copy music to sfx.p8
+cstore(0x3120,0x3120,0xc,"./sfx.p8")
+
 --run packer.p8
 load("./audio/packer.p8", nil, "./audio/victory.p8")
 
