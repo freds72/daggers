@@ -4,6 +4,10 @@ __lua__
 --demi daggers victory jingle
 --by ridgek
 
+--# notice! #
+--run this cart with
+--root_path set to project root
+
 --prevent run if loaded from packer.p8
 if stat(6) == "stop" then
 	stop()
