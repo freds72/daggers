@@ -1805,8 +1805,9 @@ poke;0x5f5e;0b11110110]]
         if(noise_max<1) goto end_noise
 
         if sfx_id<28 then
+					--prev chatter done, increment offset
           if not noise_state[sfx_id+_chatter_offsets[sfx_id]] then
-            _chatter_offsets[sfx_id]=1
+            _chatter_offsets[sfx_id]+=1
             _chatter_offsets[sfx_id]%=4
           end
 
