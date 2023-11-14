@@ -615,6 +615,10 @@ end
 function make_spider()
   local spawn_angle=rnd()
   make_skull(inherit({
+		init=function(_ENV)
+			noise=nil
+			sfx"30"
+		end,
     zangle=spawn_angle,
     hit=function(_ENV,pos)
       if register_hit(_ENV) then
@@ -1636,7 +1640,7 @@ _squid_tentacle;bright,0,ent,tentacle0,origin,v_zero,zangle,0,is_tentacle,1,shad
 _skull_base_template;;_skull_template
 _skull1_template;chatter,12,ent,skull,radius,8,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_template
 _skull2_template;chatter,12,ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
-_spider_template;bright,0,ent,spider1,radius,24,shadeless,1,hp,12,spawnsfx,30,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_template
+_spider_template;bright,0,ent,spider1,radius,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_template
 _mine_template;ent,mine,radius,12,hp,30,spawnsfx,32,deathsfx,36,obituary,pOISONED,@apply,nop,@lgib,_goo_template,gibs,0,ground_limit,12;_skull_template]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
