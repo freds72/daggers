@@ -26,13 +26,13 @@ audio = {
 	},
 	chatter = {
 		addr = 0x3735,
-		--clen = 0x0324,
+		--clen = 0x0327,
 		--data = nil,
 		ulen = 0x02ec,
 	},
 	noisedata = {
-		addr = 0x3a59,
-		--clen = 0x058b,
+		addr = 0x3a5c,
+		--clen = 0x0591,
 		--data = nil,
 		ulen = 0x0aa4,
 	},
