@@ -1,6 +1,9 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
+--demi daggers audio asset packer
+--by ridgek
+
 --# notice! #
 --run this cart with
 --root_path set to project root

@@ -1,8 +1,12 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
---devil daggers daggercollect
+--demi daggers daggercollect
 --by ridgek
+
+--# notice! #
+--run this cart with
+--root_path set to project root
 
 --sfx
 --08: daggercollect
