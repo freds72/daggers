@@ -614,9 +614,6 @@ end
 -- spider
 function make_spider()
   local spawn_angle=rnd()
-
-	sfx"30"
-
   make_skull(inherit({
     zangle=spawn_angle,
     hit=function(_ENV,pos)
@@ -652,6 +649,7 @@ function make_spider()
       _spiders[_ENV]=origin
     end
   },_spider_template),v_clone(get_spawn_origin(220,spawn_angle),48))
+	sfx"30"
 end
 
 -- squid
