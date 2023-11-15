@@ -614,11 +614,10 @@ end
 -- spider
 function make_spider()
   local spawn_angle=rnd()
+
+	sfx"30"
+
   make_skull(inherit({
-		init=function(_ENV)
-			noise=nil
-			sfx"30"
-		end,
     zangle=spawn_angle,
     hit=function(_ENV,pos)
       if register_hit(_ENV) then
