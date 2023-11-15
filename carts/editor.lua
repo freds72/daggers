@@ -26,48 +26,47 @@ local _palette={}
 local default_angles=0x88
 -- note: new entities must be added at the end
 local _entities={
-    {id=1,text="sKULL",angles=default_angles,sort=1},
-    {id=2,text="rEAPER",angles=default_angles},
+    {id=1,text="sKULL i",angles=default_angles,sort=1},
+    {id=2,text="sKULL ii",angles=default_angles},
     -- animation
-    {id=3,text="bLOOD0",angles=0},
-    {id=4,text="bLOOD1",angles=0},
-    {id=5,text="bLOOD2",angles=0},
-    {id=6,text="dAGGER0",angles=default_angles},
-    {id=7,text="dAGGER1",angles=default_angles},
-    {id=8,text="dAGGER2",angles=0x08,sort=2},
+    {id=3,text="bLOOD GIB",angles=0},
+    {id=4,text="bLOOD 0",angles=0},
+    {id=5,text="bLOOD 1",angles=0},
+    {id=6,text="dAGGER 0",angles=default_angles},
+    {id=7,text="dAGGER 1",angles=default_angles},
+    {id=8,text="dAGGER TITLE",angles=0x08,sort=2},
     -- green goo
-    {id=12,text="gOOO0",angles=0},
-    {id=13,text="gOOO1",angles=0},
-    {id=14,text="gOOO2",angles=0},
+    {id=12,text="gOOO 0",angles=0},
+    {id=13,text="gOOO 1",angles=0},
+    {id=14,text="gOOO 2",angles=0},
     -- egg
     {id=15,text="eGG",angles=0x44},
     -- spider0
-    {id=16,text="sPIDERLING0",angles=default_angles},
-    {id=17,text="sPIDERLING1",angles=default_angles},
+    {id=16,text="sPIDERLING 0",angles=default_angles},
+    {id=17,text="sPIDERLING 1",angles=default_angles},
     -- worm head+segment
-    {id=18,text="wORM0",angles=default_angles},
-    {id=19,text="wORM1",angles=default_angles},
+    {id=18,text="wORM HEAD",angles=default_angles},
+    {id=19,text="wORM BODY+◆",angles=default_angles},
+    -- worm segment without jewel
+    {id=21,text="wORM BODY",angles=default_angles},
     -- jewel
     {id=20,text="jEWEL",angles=0x44},
-    -- worm segment without jewel
-    {id=21,text="wORM2",angles=default_angles},
     -- squid tentacles
-    {id=22,text="tENTACLE0",angles=default_angles},
-    {id=23,text="tENTACLE1",angles=default_angles,no_export=true},
+    {id=22,text="tENTACLE PART",angles=default_angles},
     -- squid base
-    {id=24,text="sQUID0",angles=0x08,no_export=true},
+    {id=24,text="sQUID BASE",angles=0x08,no_export=true},
     -- no jewel face
-    {id=25,text="sQUID1",angles=0x08,bottom=24},
+    {id=25,text="sQUID HEAD+◆",angles=0x08,bottom=24},
     -- face with jewel
-    {id=26,text="sQUID2",angles=0x08,bottom=24},
+    {id=26,text="sQUID HEAD",angles=0x08,bottom=24},
     -- spider "face"
-    {id=27,text="sPIDER0",angles=0x08,no_export=true},
+    {id=27,text="sPIDER BASE",angles=0x08,no_export=true},
     -- spider "top"
-    {id=28,text="sPIDER1",angles=0x08,bottom=27},
+    {id=28,text="sPIDER HEAD",angles=0x08,bottom=27},
     -- sparks
-    {id=29,text="sPARK0",angles=0},
-    {id=30,text="sPARK1",angles=0},
-    {id=31,text="sPARK2",angles=0},
+    {id=29,text="sPARK 0",angles=0},
+    {id=30,text="sPARK 1",angles=0},
+    {id=31,text="sPARK 2",angles=0},
     -- ooze mine
     {id=32,text="mINE",angles=default_angles}
 }
@@ -1249,11 +1248,13 @@ load;#freds72_daggers_title_mini]]
             local x,targetx=128,128-print(s,0,512)
             dialog:add(is_window{
                 draw=function()
+                    rectfill(-1,29,128,56,0)
+                    rect(-1,29,128,56,0x11)
                     print(s,x,32,6)
                     x=lerp(x,targetx,0.3)
                 end
             })
-            local right_panel=dialog:add(make_vpanel())
+            local right_panel=dialog:add(make_vpanel(false,true))
             right_panel:add(make_button("\023BACK",binding(function() dialog:close() end)),40)
             right_panel:add(make_button("\167DISCARD CHANGES",binding(function()
                 exec[[load;freds72_daggers_title.p8

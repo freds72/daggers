@@ -210,21 +210,22 @@ function is_button(class)
 end
 
 -- vertical list of sliding controls
-function make_vpanel(isleft)
+function make_vpanel(isleft,islocked)
   local last_y=0
   return is_window{
     add=function(self,c,vpadding)     
       last_y+=vpadding or 0
       local txt=c.txt
       local hiddenx=isleft and -print(sub(txt,1,#txt-1),0,512) or 128-print(txt[1],0,512)
+      local visiblex=isleft and 1 or 127-c.rect.w   
       c.rect.x=isleft and -c.rect.w or 128
       c.rect.y=last_y
 
       -- animation properties
       c.anim={
-        visiblex=isleft and 1 or 127-c.rect.w,
+        visiblex=visiblex,
         hiddenx=hiddenx,
-        targetx=hiddenx,
+        targetx=islocked and visiblex or hiddenx,
         ttl=0
       }
       add(self,c)
@@ -240,7 +241,7 @@ function make_vpanel(isleft)
     mousemove=function(self,msg)
       for c in all(self) do
         local anim,r=c.anim,c.rect
-        anim.targetx=anim.hiddenx
+        anim.targetx=islocked and anim.visiblex or anim.hiddenx
         if msg.mx>r.x and msg.mx<r.x+r.w and msg.my>r.y and msg.my<r.y+r.h then
           anim.ttl+=1
           if(anim.ttl>15) anim.targetx=anim.visiblex
