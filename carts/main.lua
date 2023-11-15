@@ -761,6 +761,9 @@ function make_worm(type)
     end
   end
 
+	music(40,0,1)
+	wait_async"9"
+
   head=make_skull(inherit({
     die=function(_ENV)
       sfx"-1"
