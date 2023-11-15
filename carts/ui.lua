@@ -48,7 +48,7 @@ function is_window(class)
 end
 
 -- main window: handles cursor layer
-function main_window(params,is_dialog)
+function main_window(params,is_transparent)
     local cursor=params.cursor or 0
     local mx,my,mstate,kstate=stat(32),stat(33),{},{}
 
@@ -77,9 +77,9 @@ function main_window(params,is_dialog)
             cursor=cursors[msg.cursor] or cursors.pointer
             msg.handled=true
         end,
-        dialog=function(self)
+        dialog=function(self,is_transparent)
             local prev_update,prev_draw=_update,_draw
-            local win=main_window(params,true)
+            local win=main_window(params,is_transparent)
             win.close=function()
                 -- restore previous window
                 local d=_draw
@@ -88,6 +88,15 @@ function main_window(params,is_dialog)
                     _draw=prev_draw
                 end
             end
+            if is_transparent then
+              -- finish current update/draw cycle
+              local d=_draw
+              _draw=function()
+                  prev_draw(true)
+                  memcpy(0xa000,0x6000,0x2000)
+                  _draw=d
+              end
+            end       
             return win
         end
     })
@@ -134,33 +143,41 @@ function main_window(params,is_dialog)
 
       -- drag&drop?
       if stat(120) then
-          win:onmessage({
-              name="ondrop",
-              address=0x800
-          })
+        win:onmessage({
+          name="ondrop",
+          address=0x800
+        })
       end
     end
     _draw=function(no_cursor)
-        cls(params.background or 0)
+      if is_transparent then
+          memcpy(0x6000,0xa000,0x2000)
+          -- cheap greyout
+          fillp(0xa5a5.8)
+          rectfill(0,0,127,127,0)
+          fillp()
+      else
+          cls(params.background or 0)
+      end      
 
-        -- base draw
-        win:onmessage({            
-            name="draw"
-        })
-        -- items drawn on top of all others
-        win:onmessage({
-            name="overlay"
-        })
-        if not no_cursor then
-            -- display cursor
-            if cursor then
-                spr(cursor[1],mx+cursor[2],my+(cursor[3] or 0))    
-            end
-            -- reset cursor each frame
-            cursor=cursors.pointer
-        end
-        -- palette?
-        if(params.pal) pal(params.pal,1)
+      -- base draw
+      win:onmessage({            
+          name="draw"
+      })
+      -- items drawn on top of all others
+      win:onmessage({
+          name="overlay"
+      })
+      if not no_cursor then
+          -- display cursor
+          if cursor then
+              spr(cursor[1],mx+cursor[2],my+(cursor[3] or 0))    
+          end
+          -- reset cursor each frame
+          cursor=cursors.pointer
+      end
+      -- palette?
+      if(params.pal) pal(params.pal,1)
     end
     return win
 end
@@ -193,21 +210,22 @@ function is_button(class)
 end
 
 -- vertical list of sliding controls
-function make_vpanel(isleft)
+function make_vpanel(isleft,islocked)
   local last_y=0
   return is_window{
     add=function(self,c,vpadding)     
       last_y+=vpadding or 0
       local txt=c.txt
       local hiddenx=isleft and -print(sub(txt,1,#txt-1),0,512) or 128-print(txt[1],0,512)
+      local visiblex=isleft and 1 or 127-c.rect.w   
       c.rect.x=isleft and -c.rect.w or 128
       c.rect.y=last_y
 
       -- animation properties
       c.anim={
-        visiblex=isleft and 1 or 127-c.rect.w,
+        visiblex=visiblex,
         hiddenx=hiddenx,
-        targetx=hiddenx,
+        targetx=islocked and visiblex or hiddenx,
         ttl=0
       }
       add(self,c)
@@ -223,7 +241,7 @@ function make_vpanel(isleft)
     mousemove=function(self,msg)
       for c in all(self) do
         local anim,r=c.anim,c.rect
-        anim.targetx=anim.hiddenx
+        anim.targetx=islocked and anim.visiblex or anim.hiddenx
         if msg.mx>r.x and msg.mx<r.x+r.w and msg.my>r.y and msg.my<r.y+r.h then
           anim.ttl+=1
           if(anim.ttl>15) anim.targetx=anim.visiblex
