@@ -601,7 +601,7 @@ function make_skull(_ENV,_origin)
   reserve_async(cost)
 
   local _ENV=add(_things,inherit({},_ENV))
-  noise,origin,resolved,seed,wobble=spawnsfx or 29,_origin,{},lerp(seed0,seed1,rnd()),lerp(wobble0,wobble1,rnd())
+  noise,origin,resolved,seed,wobble=spawnsfx,_origin,{},lerp(seed0,seed1,rnd()),lerp(wobble0,wobble1,rnd())
 
   -- custom init function?
   if(init) init(_ENV)
@@ -1640,8 +1640,8 @@ _squid_hood;bright,0,ent,squid2,radius,12,origin,v_zero,zangle,0,@apply,nop,obit
 _squid_jewel;bright,0,hit_ttl,0,reg,1,jewel,1,hp,7,ent,squid1,radius,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_offset,18,y_offset,24,r_offset,8
 _squid_tentacle;bright,0,ent,tentacle0,origin,v_zero,zangle,0,is_tentacle,1,shadeless,1,r_offset,12
 _skull_base_template;;_skull_template
-_skull1_template;chatter,12,ent,skull,radius,8,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_template
-_skull2_template;chatter,12,ent,reaper,radius,10,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
+_skull1_template;chatter,12,ent,skull,radius,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_template
+_skull2_template;chatter,12,ent,reaper,radius,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_template
 _spider_template;bright,0,ent,spider1,radius,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_template
 _mine_template;ent,mine,radius,12,hp,30,spawnsfx,32,deathsfx,36,obituary,pOISONED,@apply,nop,@lgib,_goo_template,gibs,0,ground_limit,12;_skull_template]],
   function(name,template,parent)
