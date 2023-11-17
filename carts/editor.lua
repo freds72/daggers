@@ -26,8 +26,8 @@ local _palette={}
 local default_angles=0x88
 -- note: new entities must be added at the end
 local _entities={
-    {id=1,text="sKULL i",angles=default_angles,sort=1},
-    {id=2,text="sKULL ii",angles=default_angles},
+    {id=1,text="sKULL",angles=default_angles,sort=1},
+    {id=2,text="rEAPER",angles=default_angles},
     -- animation
     {id=3,text="bLOOD GIB",angles=0},
     {id=4,text="bLOOD 0",angles=0},
@@ -1124,7 +1124,8 @@ load;#freds72_daggers_title]]
             grid=true
         }
         left_panel:add(make_radio_button("GRID ON/OFF\164",true,bool_binding(preview_conf,"grid")),8)
-    
+        left_panel:add(make_button("COPY\159",binding(function() _main:send({name="copy"}) end)))
+        
         right_panel:add(make_button("\163GIF",binding(function() 
             if(gif_mode) return
             gif_ttl=8*30+1
