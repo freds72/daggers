@@ -269,7 +269,7 @@ function menu_state(buttons,default)
   end
   -- position cursor on "default"
   over_btn=default or 1
-  active_btn=buttons[over_btn]
+  local active_btn=buttons[over_btn]
   local _,y=unpack(active_btn)
 
   local cam=setmetatable({
@@ -303,25 +303,28 @@ function menu_state(buttons,default)
       else
         _mx,_my=mid(_mx+stat(38)/2,0,127),mid(_my+stat(39)/2,0,127)
       end
-      -- keyboard override?
 
-      local keyboard
-      if btnp(2) or btnp(0) then
-        keyboard=true
-        over_btn-=1
-        if(over_btn<1) over_btn=#buttons
-      elseif btnp(3) or btnp(1) then
-        keyboard=true
-        over_btn=max(over_btn+1,1)
-        if(over_btn>#buttons) over_btn=1
-      end
-      -- teleport mouse
-      if keyboard then
-        if(over_btn==-1) over_btn=1
-        local btn=buttons[over_btn]
-        if btn then
-          local _,y=unpack(btn)
-          _mx,_my=1+btn.width/2,y+3
+      -- not polling for custom keys?
+      if not _active_btn then
+        -- keyboard override?
+        local keyboard
+        if btnp(2) or btnp(0) then
+          keyboard=true
+          over_btn-=1
+          if(over_btn<1) over_btn=#buttons
+        elseif btnp(3) or btnp(1) then
+          keyboard=true
+          over_btn=max(over_btn+1,1)
+          if(over_btn>#buttons) over_btn=1
+        end
+        -- teleport mouse
+        if keyboard then
+          if(over_btn==-1) over_btn=1
+          local btn=buttons[over_btn]
+          if btn then
+            local _,y=unpack(btn)
+            _mx,_my=1+btn.width/2,y+3
+          end
         end
       end
 
@@ -1051,20 +1054,26 @@ cartdata;freds72_daggers]]
   music"3"
 
   -- restore settings
-  local active_poll,active_btn
+  local active_poll
   local function print_key(btn)
     local txt=btn.ch
     if txt==" " then
       txt="<SPACE>"
     end
-    if active_btn==btn then
+    if _active_btn==btn then
       txt=(time()\0.5)%2==0 and "PRESS KEY" or "           "
     end
     return btn.action.."["..txt.."]"
   end
+  local special_keys={
+    [80]="⬅️",
+    [79]="➡️",
+    [82]="⬆️",
+    [81]="⬇️"
+  }
   local function read_key(btn)
     if(active_poll) active_poll.co=nil
-    active_btn=btn
+    _active_btn=btn
     active_poll=do_async(function()
       local t=time()
       -- wait until key press or 3s
@@ -1077,6 +1086,12 @@ cartdata;freds72_daggers]]
           end
         end
         if k then
+          local ch=special_keys[k]
+          if ch then
+            btn.ch=ch
+            btn.stat=k
+            break
+          end
           -- empty key buffer (doesn't really work)
           local gotkey
           while stat(30) do
@@ -1093,7 +1108,9 @@ cartdata;freds72_daggers]]
         end
         yield()
       end
-      active_btn=nil
+      -- "eat" bntp :)
+      yield()
+      _active_btn=nil
     end)
   end
   local function flip_bool(btn)
