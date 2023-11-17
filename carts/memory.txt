@@ -36,7 +36,7 @@ runtime
 0x9280-       - fade to black (floor)
 0x9380-       - level up palettes (floor)
 
-0xa380-       - screen copy (for tilt effect)
+0xa380-       - screen copy (for tilt effect) + noise dist grid temp buffer (title.lua)
 0xc400-0xc40a - keyboard stat id's
 0xc500-0xd4ff - playground tiles
 0xd500-0xd51b - hand cycle colors

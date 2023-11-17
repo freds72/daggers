@@ -1283,6 +1283,19 @@ cartdata;freds72_daggers]]
     poke(0x5f80,1)
   end
 
+  -- generate distance grid to memory
+  local s=""
+  for i=-5,5 do
+    for j=-5,5 do
+      local d=sqrt(i*i+j*j)\1
+      if d<6 then
+      if(#s!=0) s..=","
+      s..=tostr((i>>16)+j,1)..","..max(1,d)
+      end
+    end  
+  end
+  poke(0xa380,ord(s,1,#s))
+
   -- back to main menu
   menuitem(1,"main menu",function()
     next_state(menu_state, _main_buttons)
