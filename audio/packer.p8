@@ -392,6 +392,11 @@ payloads = {
 		addr = 0,
 		ulen = 0x0aa4,
 	},
+	{
+		id = "ui",
+		addr = 0x3200,
+		ulen = 0x110,
+	},
 }
 
 --init manifest

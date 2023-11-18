@@ -20,10 +20,10 @@ if stat(6) == "stop" then
 end
 
 --copy all sfx to editor.p8
---cstore(0x3200,0x3200,68 * 4,"../carts/freds72_daggers_editor.p8")
+cstore(0x3200,0x3200,68 * 4,"../carts/freds72_daggers_editor.p8")
 
 --run packer.p8
---load("./audio/packer.p8", nil, "./audio/ui.p8")
+load("./audio/packer.p8", nil, "./audio/ui.p8")
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
