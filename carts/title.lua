@@ -338,6 +338,7 @@ function menu_state(buttons,default)
           if not clicked and btnp(5) then
             active_btn=btn
             btn:cb()
+						ui_sfx"3"
             -- todo: fix
             clicked=nil
           end
