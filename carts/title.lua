@@ -242,7 +242,7 @@ function menu_state(buttons,default)
   end
   -- position cursor on "default"
   over_btn=default or 1
-  local active_btn=buttons[over_btn]
+  local active_btn,prev_button=buttons[over_btn]
   local _,y=unpack(active_btn)
 
   local cam=setmetatable({
@@ -318,6 +318,11 @@ function menu_state(buttons,default)
           break
         end
       end
+      -- new over?
+      if over_btn!=-1 and prev_button!=over_btn then
+        ui_sfx"0"
+      end
+      prev_button=over_btn
 
       -- skull background        
       cam:track({0,128,-64},make_m_from_euler(0,0,0)) 
@@ -1065,6 +1070,7 @@ cartdata;freds72_daggers]]
           if ch then
             btn.ch=ch
             btn.stat=k
+            ui_sfx"3"
             break
           end
           -- empty key buffer (doesn't really work)
@@ -1079,7 +1085,7 @@ cartdata;freds72_daggers]]
               gotkey=true
             end
           end
-          if(gotkey) btn.stat=k break
+          if(gotkey) btn.stat=k ui_sfx"3" break
         end
         yield()
       end
@@ -1257,7 +1263,7 @@ cartdata;freds72_daggers]]
     end
     },
     draw=function()
-      arizona_print("kEYBOARD & mOUSE",1,16,2)
+      arizona_print("cONTROLS & sETTINGS",1,16,2)
     end
   }
   -- restore previous

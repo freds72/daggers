@@ -185,11 +185,16 @@ end
 -- generic active/over class
 -- generic active/over class
 function is_button(class)    
+  local prev_focus
   return setmetatable(class,
       {__index=is_window({
           mousemove=function(self,msg)
               local r=self.rect
               local focus=msg.mx>=r.x and msg.mx<r.x+r.w and msg.my>=r.y and msg.my<r.y+r.h
+              if focus and prev_focus!=focus then
+                sfx"0"
+              end
+              prev_focus=focus
               self:onmessage(inherit({
                   name="mouseover",
                   focus=focus
@@ -245,6 +250,7 @@ function make_vpanel(isleft,islocked)
         anim.targetx=islocked and anim.visiblex or anim.hiddenx
         if msg.mx>r.x and msg.mx<r.x+r.w and msg.my>r.y and msg.my<r.y+r.h then
           anim.ttl+=1
+          if(anim.ttl==15) sfx"1"
           if(anim.ttl>15) anim.targetx=anim.visiblex
         else
           anim.ttl=max(anim.ttl-1)
