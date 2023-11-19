@@ -720,8 +720,8 @@ function make_squid(type)
             make_skull_async(_skull2_t)
             -- spawn a second skull2 for "old" squids
             if(time()-age>30) make_skull_async(_skull2_t)
-            -- wait 10s
-            wait_async"300"
+            -- wait 20s
+            wait_async"600"
           end
           yield()          
         end
