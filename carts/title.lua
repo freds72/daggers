@@ -319,7 +319,7 @@ function menu_state(buttons,default)
         end
       end
       -- new over?
-      if prev_button!=over_btn then
+      if over_btn!=-1 and prev_button!=over_btn then
         ui_sfx"0"
       end
       prev_button=over_btn
@@ -1070,6 +1070,7 @@ cartdata;freds72_daggers]]
           if ch then
             btn.ch=ch
             btn.stat=k
+            ui_sfx"3"
             break
           end
           -- empty key buffer (doesn't really work)
@@ -1084,7 +1085,7 @@ cartdata;freds72_daggers]]
               gotkey=true
             end
           end
-          if(gotkey) btn.stat=k break
+          if(gotkey) btn.stat=k ui_sfx"3" break
         end
         yield()
       end
