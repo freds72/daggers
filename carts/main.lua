@@ -367,7 +367,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
     piercing=_piercing,
     shadeless=true,
     ttl=time()+0.5+rnd"0.1",
-    ent=rnd{_entities.dagger0,_entities.dagger1},
+    ent=rnd(_daggers_ents),
     physic=function(_ENV)
       if ttl<time() then
         dead=true
@@ -806,7 +806,7 @@ function make_worm(type)
       do_async(function()
         while #segments>0 do
           local _ENV=deli(segments,1)
-          dead=true
+          grid_unregister(_ENV)
           make_blood(origin,{0,0,0})
           wait_async"3"
         end
@@ -861,7 +861,7 @@ function make_worm(type)
             if origin[2]>0 then
               goto above_ground
             end
-            dead=true
+            grid_unregister(_ENV)
           end
           break
     ::above_ground::
@@ -1069,7 +1069,7 @@ memcpy;0x3420;0xfd14;0x2ec]]
     function()
       draw_world()   
 
-      --?((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB",2,2,3
+      --?((stat(1)*1000)\10).."%\n"..flr(stat(0)).."KB\n☉:"..#_things.."\nF:"..#_futures,2,2,3
       --local s=_total_things.."/60 ⧗+"..tostr(_time_inc,2)
       --print(s,64-print(s,0,128)/2,2,7)
 
@@ -1475,14 +1475,15 @@ tline;17]]
 
   -- must be globals
   -- predefined entries (avoids constant gc)
-  _spark_trail,_blood_trail={
+  _spark_trail,_blood_trail,_daggers_ents={
     _entities.spark0,
     _entities.spark1,
     _entities.spark2
   },{
     _entities.blood1,
     _entities.blood2
-  }
+  },
+  {_entities.dagger0,_entities.dagger1}
 
   _skull_core=inherit({
     hit=function(_ENV,pos,bullet)
