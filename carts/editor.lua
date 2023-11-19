@@ -1007,7 +1007,7 @@ end
 
 function confirm_reset()
     -- revert once menu is closed
-    do_async(function()        
+    _reset_confirm_async=cocreate(function()        
         menuitem(5,"reset all",confirm_reset)
     end)
     menuitem(5,"reset all - ok?",function()
@@ -1088,7 +1088,10 @@ load;#freds72_daggers_title]]
         cursor=0,
         pal=_hw_palette}
     _main.update=function()
-        update_asyncs()
+        if _reset_confirm_async then
+            coresume(_reset_confirm_async)
+        end
+        _reset_confirm_async=nil
     end
 
     -- main editor
