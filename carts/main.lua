@@ -789,7 +789,7 @@ end
 
 -- centipede
 function make_worm(type)  
-  local head_t,_origin,segments,prev_angles,prev,head=_ENV["_worm_head_"..type],v_clone(get_spawn_origin(96),-64),{},{},{}  
+  local head_t,_origin,segments,prev,head=_ENV["_worm_head_"..type],v_clone(get_spawn_origin(96),-64),{},{} 
   local templates=split(head_t.templates,"|")
 
   local function make_dirt(_ENV)
@@ -804,9 +804,8 @@ function make_worm(type)
       music"37"
       -- clean segment
       do_async(function()
-        while #segments>0 do
-          local _ENV=deli(segments,1)
-          grid_unregister(_ENV)
+        for _ENV in all(segments) do
+          dead=true
           make_blood(origin,{0,0,0})
           wait_async"3"
         end
@@ -819,7 +818,7 @@ function make_worm(type)
         yield()
       end
       -- create segments
-      for id in all(templates) do
+      for i,id in inext,templates do
         add(segments,add(_things,inherit({
           hit=function(_ENV,pos,bullet)
             -- tail? (no jewels)
@@ -832,6 +831,14 @@ function make_worm(type)
               -- change sprite (no jewels)
               touched,ent=true,_entities.worm2
               sfx"59"
+            end
+          end,
+          update=function(_ENV)
+            local prev_state=prev[i*4]
+            if prev_state then
+              origin,zangle,yangle,dirt=unpack(prev_state)
+              grid_register(_ENV)
+              if(dirt) make_dirt(_ENV)
             end
           end},_ENV["_worm_seg_"..type..id])))
       end
@@ -861,7 +868,7 @@ function make_worm(type)
             if origin[2]>0 then
               goto above_ground
             end
-            grid_unregister(_ENV)
+            dead=true
           end
           break
     ::above_ground::
@@ -886,15 +893,6 @@ function make_worm(type)
       prev_y=curr_y
       add(prev,{v_clone(origin),zangle,yangle,dirt},1)
       if(#prev>#templates*4) deli(prev)
-      for i=3,#prev,4 do
-        local _ENV,dirt=segments[i\4+1]
-        -- can happen when centipede is dying
-        if _ENV then
-          origin,zangle,yangle,dirt=unpack(prev[i])
-          grid_register(_ENV)
-          if(dirt) make_dirt(_ENV)
-        end
-      end
     end
   },head_t),_origin)
 end
@@ -1616,8 +1614,8 @@ _worm_head_giga;hit_ttl,0,wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_r,1
 _jewel_t;reg,1,ent,jewel,s_r,8,r,12,zangle,0,ttl,300,@apply,nop
 _spiderling_t;ent,spiderling0,r,8,hp,2,on_ground,1,deathsfx,36,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_t,ground_limit,2;_skull_t
 _squid_core;no_render,1,s_r,18,r,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_t
-_squid_hood;bright,0,ent,squid2,r,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
-_squid_jewel;bright,0,hit_ttl,0,reg,1,jewel,1,hp,7,ent,squid1,r,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
+_squid_hood;reg,1,bright,0,ent,squid2,r,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
+_squid_jewel;reg,1,bright,0,hit_ttl,0,jewel,1,hp,7,ent,squid1,r,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
 _squid_tcl;bright,0,ent,tcl0,origin,v_zero,zangle,0,is_tcl,1,shadeless,1,r_off,12
 _skull_base_t;;_skull_t
 _skull1_t;chatter,12,ent,skull,r,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_t
@@ -1753,7 +1751,7 @@ poke;0x5f5e;0b11110110]]
       local _ENV=_things[i]
       -- common sfx management
       -- note: must be done before "dead"
-      local sfx=noise or ambient and chatter
+      local sfx=noise or ambient and not dead and chatter
       if sfx then
         local dist=_off_to_dist[((origin[1]-px)>>21)+(origin[3]-pz)\32]
         if(dist) sfx_grid[2*dist-(noise and 1 or 0)][sfx]=dist
