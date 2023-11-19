@@ -1006,6 +1006,10 @@ function reload_entity()
 end
 
 function confirm_reset()
+    -- revert once menu is closed
+    do_async(function()        
+        menuitem(5,"reset all",confirm_reset)
+    end)
     menuitem(5,"reset all - ok?",function()
         _reload()
         -- kill old archive
@@ -1080,7 +1084,12 @@ load;#freds72_daggers_title]]
     memset(0x8000,0,0x2000)
 
     -- create ui and callbacks
-    _main=main_window({cursor=0,pal=_hw_palette})
+    _main=main_window{
+        cursor=0,
+        pal=_hw_palette}
+    _main.update=function()
+        update_asyncs()
+    end
 
     -- main editor
     _main:add(make_voxel_editor(),0,8,127,119)
