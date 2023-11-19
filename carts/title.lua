@@ -304,18 +304,20 @@ function menu_state(buttons,default)
       -- over button?
       over_btn=-1
       for i,btn in inext,buttons do
-        local x,_,y=btn_x(btn),unpack(btn)          
-        if _mx>=x and _my>=y and _mx<=x+btn.width and _my<=y+6 then            
-          over_btn=i
-          -- click?
-          if not clicked and btnp(5) then
-            active_btn=btn
-            btn:cb()
-						ui_sfx"3"
-            -- todo: fix
-            clicked=nil
+        if not btn.static then
+          local x,_,y=btn_x(btn),unpack(btn)          
+          if _mx>=x and _my>=y and _mx<=x+btn.width and _my<=y+6 then            
+            over_btn=i
+            -- click?
+            if not clicked and btnp(5) then
+              active_btn=btn
+              btn:cb()
+              ui_sfx"3"
+              -- todo: fix
+              clicked=nil
+            end
+            break
           end
-          break
         end
       end
       -- new over?
