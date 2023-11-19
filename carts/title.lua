@@ -304,7 +304,7 @@ function menu_state(buttons,default)
       -- over button?
       over_btn=-1
       for i,btn in inext,buttons do
-        if not btn.static then
+        if not btn_static(btn) then
           local x,_,y=btn_x(btn),unpack(btn)          
           if _mx>=x and _my>=y and _mx<=x+btn.width and _my<=y+6 then            
             over_btn=i
