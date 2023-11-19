@@ -36,5 +36,11 @@ audio = {
 		--data = nil,
 		ulen = 0x0aa4,
 	},
+	ui = {
+		addr = 0x3fed,
+		--clen = 0x00a9,
+		--data = nil,
+		ulen = 0x0110,
+	},
 }
 

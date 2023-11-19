@@ -15,6 +15,7 @@ title.p8
 0x34e2-0x3734: px9 - sfx - victory (packer.p8)
 0x3735-0x3a61: px9 - sfx - chatter 8-18 (packer.p8)
 0x3a5c-0x3fec: px9 - sfx - noise (packer.p8)
+0x3fed-0x4095: px9 - sfx - ui (packer.p8)
 
 --------
 runtime
@@ -28,6 +29,7 @@ runtime
 0x4ba4-0x4ca3: note high bytes attn 1 (title.lua)
 0x4ca4-0x4da3: note high bytes attn 2 (title.lua)
 0x4da4-0x508f: sfx - victory (title.lua)
+0x5090-0x519f: sfx - ui (title.lua)
 
 0x8000-0x80ff - HW palette + screen fading (12 levels) + screen white (4 levels)
 0x8100-       - hit palette
