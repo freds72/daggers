@@ -1755,7 +1755,6 @@ poke;0x5f5e;0b11110110]]
       local sfx=noise or ambient and chatter
       if sfx then
         local dist=_off_to_dist[((origin[1]-px)>>21)+(origin[3]-pz)\32]
-        printh("dist: "..tostr(dist))
         if(dist) sfx_grid[2*dist-(noise and 1 or 0)][sfx]=dist
       end
       -- kill any insta sfx
