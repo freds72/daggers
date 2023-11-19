@@ -201,6 +201,7 @@ function is_button(class)
                   },msg))
               end
               if focus and msg.lmbp then
+									sfx"3"
                   self:onmessage(inherit({
                       name="clicked"
                   },msg))

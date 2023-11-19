@@ -46,3 +46,16 @@ function ram_to_tbl(addr, len)
 	return tbl
 end
 
+---ui sfx playback
+--write sfx from ui payload to
+--index 63 and play back on ch3
+--@see audio/ui.p8
+--@see carts/memory.txt
+--
+--@param n {number}
+--	sfx index
+function ui_sfx(n)
+	sfx(-1, 3)
+	memcpy(0x42bc, 0x5090 + n * 68, 68)
+	sfx(63, 3)
+end
