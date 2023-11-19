@@ -10,6 +10,7 @@ __lua__
 #include editor_maths.lua
 #include ui.lua
 #include poly.lua
+#include futures.lua
 #include editor.lua
 
 
