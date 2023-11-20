@@ -982,7 +982,7 @@ cartdata;freds72_daggers]]
 
   -- HW palette + fade to black
   local src,dst=0x0,0x8000
-  poke(dst,peek(src,16*16))
+  memcpy(dst,src,16*16)
   dst+=0x100
   src+=0x100
 
@@ -998,8 +998,8 @@ cartdata;freds72_daggers]]
       src+=1
     end
   end
-  -- set pal 15 as transparent for hit+upgrade+spr palette
-  for j=0,39 do
+  -- set pal 15 as transparent for hit+upgrade+distance palette
+  for j=0,279 do
     local mem=0x8100+16*j+15
     poke(mem,@mem|0x10)
   end
