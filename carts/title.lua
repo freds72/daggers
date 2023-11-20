@@ -998,6 +998,11 @@ cartdata;freds72_daggers]]
       src+=1
     end
   end
+  -- set pal 15 as transparent for hit+upgrade+spr palette
+  for j=0,39 do
+    local mem=0x8100+16*j+15
+    poke(mem,@mem|0x10)
+  end
   -- level up: hand palettes
   dst=0xd500
   split2d([[15;15;15;15;15;15;15;15;15

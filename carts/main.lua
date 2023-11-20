@@ -497,7 +497,7 @@ poke;0x5f00;0x00]]
   rsort(things)
 
   -- render in order
-  local prev_base,prev_sprites,pal0
+  local prev_base,prev_sprites,pal0,red
   for _,item in inext,things do
     local thing=item.thing
     local hit_ttl,pal1=thing.hit_ttl
@@ -506,7 +506,7 @@ poke;0x5f00;0x00]]
     else      
       pal1=min(15,(item.key*(thing.bright or 1))<<4)\1
     end    
-    if(pal0!=pal1) memcpy(0x5f00,_ramp_pal+(pal1<<4),16) palt(15,true) pal0=pal1   
+    if(pal0!=pal1) memcpy(0x5f00,_ramp_pal+(pal1<<4),16) pal0=pal1 red=%0x5f08
     -- draw things
     local w0,entity,origin=item.key,thing.ent,thing.origin
     -- zangle (horizontal)
@@ -540,7 +540,8 @@ poke;0x5f00;0x00]]
     w0*=thing.scale or 1
     local sx,sy=item.x-w*w0/2,item.y-h*w0/2
     local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
-    --
+    --  
+    poke2(0x5f08,thing.jewel and 0x0908 or red)
     sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip) 
     --if(thing.r) circ(item.x,item.y,item.key*thing.r,9) print(thing.hp,item.x,item.y-item.key*32,8)
   end
