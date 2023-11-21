@@ -348,7 +348,9 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
   -- no bullets while falling
   if(_origin[2]<2) return
 
-  local _velocity,_u,_v,_s,_zangle=vector_in_cone(_zangle,_yangle,_spread)
+  local ttl,piercing,_velocity,_u,_v,_s,_zangle=15+rnd"3",_piercing,vector_in_cone(_zangle,_yangle,_spread)
+  _u*=_s
+  _v*=_s
   add(_things,inherit({
     origin=v_clone(_origin),
     -- must be a unit vector  
@@ -356,43 +358,37 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
     -- fixed zangle
     zangle=_zangle,
     yangle=rnd(),
-    -- 2d unit vector
-    -- precomputed for collision detection
-    -- make sure to keep the sign of the y component!!
-    u=_s*_u,
-    v=_s*_v,
-    piercing=_piercing,
     shadeless=true,
-    ttl=time()+0.5+rnd"0.1",
     ent=rnd(_daggers_ents),
     physic=function(_ENV)
-      if ttl<time() then
+      ttl-=1
+      if ttl<0 then
         dead=true
       else
         _checked+=1
         yangle+=0.1
-        local cur_origin,new_origin,len=origin,v_add(origin,velocity,10),10
-        local x,y,z=unpack(new_origin)
+        local dx,dy,dz,ax,ay,az=velocity[1],velocity[2],velocity[3],origin[1],origin[2],origin[3]
+        local new_origin,len,hits=v_add(origin,velocity,10),10,{}
+        local x,y,z=new_origin[1],new_origin[2],new_origin[3]
         if y<0 then
           -- hit ground?
           -- intersection with ground
-          local dy=cur_origin[2]/(cur_origin[2]-y)
-          x,y,z=lerp(cur_origin[1],x,dy),0,lerp(cur_origin[3],z,dy)
+          local t=ay/(ay-y)
+          x,y,z=lerp(ax,x,t),0,lerp(az,z,t)
           new_origin={x,0,z}
           -- adjust length
-          len*=dy
+          len*=t
           -- no matter what - we hit the ground!
           dead=true
           -- sparkles
           for i=1,rnd"5" do
-            local vel,u,v=vector_in_cone(0.25-zangle,yangle,0.03)
+            local vel=vector_in_cone(0.25-zangle,yangle,0.03)
             make_particle(_dagger_hit_t,new_origin,v_scale(vel,1+rnd()))
           end
         end
         -- collect touched grid indices
         -- advanced bullets can traverse enemies
-        local hits={}
-        collect_grid(cur_origin,new_origin,u,v,function(things)
+        collect_grid(origin,new_origin,_u,_v,function(things)
           for thing in pairs(things) do
             -- hitable?
             -- avoid checking the same enemy twice
@@ -404,7 +400,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
               -- note: no need to scale down as check is done per 32x32 region
               local o=thing.origin
               -- slightly inflate collision radius (dagger)
-              local r,dx,dy,dz,ax,ay,az,oy=thing.r+2,velocity[1],velocity[2],velocity[3],cur_origin[1],cur_origin[2],cur_origin[3],o[2]+(thing.o_off or 0)
+              local r,oy=thing.r+2,o[2]+(thing.o_off or 0)
               -- projection on ray
               local mx,my,mz,ny=ax-o[1],ay-oy,az-o[3],y-oy
               if((my<-r and ny<-r) or (my>r and ny>r)) goto continue
