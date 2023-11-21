@@ -263,8 +263,7 @@ function make_player(_origin,_a)
       if vl>0.1 then
           local x,y,z=unpack(new_pos)
           if y<-64 then
-            y=-64
-            new_vel[2]=0
+            new_vel[2],y=0,-64
             if not dead then
               dead=true
               next_state(gameover_state,"FLOORED")
@@ -280,9 +279,7 @@ function make_player(_origin,_a)
             -- missed all ground chunks?
             if out!=#_ground_extents then
               -- stop velocity
-              y=0
-              new_vel[2]=0
-              on_ground=true
+              on_ground,new_vel[2],y=true,0,0
             end
           end
           -- use corrected velocity
@@ -540,8 +537,8 @@ poke;0x5f00;0x00]]
     w0*=thing.scale or 1
     local sx,sy=item.x-w*w0/2,item.y-h*w0/2
     local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
-    --  
-    poke2(0x5f08,thing.jewel and 0x0908 or red)
+    -- override red gradient
+    poke2(0x5f08,thing.jewel or red)
     sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip) 
     --if(thing.r) circ(item.x,item.y,item.key*thing.r,9) print(thing.hp,item.x,item.y-item.key*32,8)
   end
@@ -1598,9 +1595,9 @@ _goo_t;r,4,zangle,0,yangle,0,ttl,0,scale,1,@trail,_goo_trail,ent,goo0,rebound,-1
 _dagger_hit_t;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
 _skull_t;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,ground_limit,8,target_yangle,-0.1,gibs,-1,@gib,_gib_t,@lgib,_lgib_t,cost,1;_skull_core
 _egg_t;apply_filter,is_egg,is_egg,1,ent,egg,r,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_t,ground_limit,2;_skull_t
-_worm_seg_normal0;hit_ttl,0,reg,1,ent,worm1,s_r,9,r,12,zangle,0,origin,v_zero,@apply,nop,obituary,sLICED,scale,1.5,jewel,1,hp,5
-_worm_seg_mega0;hit_ttl,0,reg,1,ent,worm1,s_r,10,r,16,zangle,0,origin,v_zero,@apply,nop,obituary,mINCED,scale,1.7,jewel,1,hp,10
-_worm_seg_giga0;hit_ttl,0,reg,1,ent,worm1,s_r,11,r,20,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.9,jewel,1,hp,30
+_worm_seg_normal0;hit_ttl,0,reg,1,ent,worm1,s_r,9,r,12,zangle,0,origin,v_zero,@apply,nop,obituary,sLICED,scale,1.5,jewel,0x0908,hp,5
+_worm_seg_mega0;hit_ttl,0,reg,1,ent,worm1,s_r,10,r,16,zangle,0,origin,v_zero,@apply,nop,obituary,mINCED,scale,1.7,jewel,0x0908,hp,10
+_worm_seg_giga0;hit_ttl,0,reg,1,ent,worm1,s_r,11,r,20,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.9,jewel,0x0908,hp,30
 _worm_seg_tail1;reg,1,ent,worm2,r,8,zangle,0,origin,v_zero,@apply,nop,obituary,pIERCED,scale,1.2,s_r,7
 _worm_seg_tail2;reg,1,ent,worm2,r,8,zangle,0,origin,v_zero,@apply,nop,obituary,pIERCED,scale,0.8,s_r,4
 _worm_seg_normal1;;_worm_seg_tail1
@@ -1616,11 +1613,11 @@ _jewel_t;reg,1,ent,jewel,s_r,8,r,12,zangle,0,ttl,300,@apply,nop
 _spiderling_t;ent,spiderling0,r,8,hp,2,on_ground,1,deathsfx,36,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_t,ground_limit,2;_skull_t
 _squid_core;no_render,1,s_r,18,r,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_t
 _squid_hood;reg,1,bright,0,ent,squid2,r,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
-_squid_jewel;reg,1,bright,0,hit_ttl,0,jewel,1,hp,7,ent,squid1,r,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
+_squid_jewel;reg,1,bright,0,hit_ttl,0,jewel,0x0908,hp,7,ent,squid1,r,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
 _squid_tcl;bright,0,ent,tcl0,origin,v_zero,zangle,0,is_tcl,1,shadeless,1,r_off,12
 _skull_base_t;;_skull_t
 _skull1_t;chatter,12,ent,skull,r,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_t
-_skull2_t;chatter,12,ent,reaper,r,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,1,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_t
+_skull2_t;chatter,12,ent,reaper,r,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,0x0908,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_t
 _spider_t;bright,0,ent,spider1,r,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_t
 _mine_t;ent,mine,r,12,hp,30,spawnsfx,32,deathsfx,36,obituary,pOISONED,@apply,nop,@lgib,_goo_t,gibs,0,ground_limit,12;_skull_t]],
   function(name,template,parent)
