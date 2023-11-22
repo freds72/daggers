@@ -783,6 +783,7 @@ function play_state()
             while stat"57" do
               yield()
             end
+            cls()
             load("freds72_daggers.p8","back to title")
             load("freds72_daggers_mini.p8","back to title")
             load("#freds72_daggers","back to title")
@@ -908,8 +909,6 @@ function title_state()
   holdframe()
   px9_decomp(0,0,title_img,pget,pset)
 
-  print(_version,127-print(_version,0,500),120,5)
-
   local msg_ttl,launching=300
   return
     -- update
@@ -922,7 +921,6 @@ function title_state()
         music(-1, 1000)
 
         do_async(function()
-          -- todo: fade to black
           next_state(menu_state, _main_buttons)
         end)
       end
@@ -934,6 +932,7 @@ function title_state()
       if msg_ttl==0 then
         local s="mOUSE CLICK TO CONTINUE"
         print(s,64-print(s,0,130)/2,110,1+abs(flr(2.9*cos(time()/4))))
+        print(_version,127-print(_version,0,500),121,2)
       end
     end
 end
