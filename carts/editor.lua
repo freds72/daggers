@@ -1274,7 +1274,7 @@ load;#freds72_daggers_title]]
         exec[[pack_sprites
 load;freds72_daggers_title.p8
 load;freds72_daggers_title_mini.p8
-load;#freds72_daggers_title_mini]]            
+load;#freds72_daggers_title]]            
     end)),8)
     right_panel:add(make_button("\138TO TITLE",binding(function()
         if _dirty then
@@ -1294,12 +1294,12 @@ load;#freds72_daggers_title_mini]]
             right_panel:add(make_button("\167DISCARD CHANGES",binding(function()
                 exec[[load;freds72_daggers_title.p8
 load;freds72_daggers_title_mini.p8
-load;#freds72_daggers_title_mini]]
+load;#freds72_daggers_title]]
             end)))
         else
             exec[[load;freds72_daggers_title.p8
 load;freds72_daggers_title_mini.p8
-load;#freds72_daggers_title_mini]]                        
+load;#freds72_daggers_title]]                        
         end
     end)))
 

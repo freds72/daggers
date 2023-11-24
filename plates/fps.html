@@ -1326,7 +1326,7 @@ canvas{
 	{
 		if (!p8_touch_detected)
 			if (pico8_state.request_pointer_lock)
-				canvas.requestPointerLock();
+				canvas.requestPointerLock({ unadjustedMovement: true });
 	});
 	
 </script>
