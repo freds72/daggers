@@ -182,8 +182,8 @@ function register_hit(_ENV)
 end
 
 function make_player(_origin,_a)
-  local on_ground,prev_jump={}
-  return inherit(with_properties("tilt,0,r,24,attract_power,0,dangle,v_zero,velocity,v_zero,eye_pos,v_zero,fire_ttl,0,fire_released,1,fire_frames,0,dblclick_ttl,0,fire,0",{
+  local on_ground={}
+  return inherit(with_properties("tilt,0,r,24,attract_power,0,dangle,v_zero,velocity,v_zero,eye_pos,v_zero,fire,0,fire_ttl,0,shotgun_ttl,0,eye_offset,18",{
     -- start above floor
     origin=v_add(_origin,split"0,1,0"), 
     angle={0,_a,0},
@@ -196,42 +196,35 @@ function make_player(_origin,_a)
       if(stat(28,@0xc403)) dx=-3
       if(stat(28,@0xc400)) dz=3
       if(stat(28,@0xc401)) dz=-3
-      if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false sfx"58"
-      prev_jump=jump_down
+      if(on_ground and jump_down) jmp,on_ground=24 sfx"58"
 
       -- straffing = faster!
 
       -- restore atract power
       attract_power=min(attract_power+0.2,1)
 
-      -- double-click detector
-      dblclick_ttl=max(dblclick_ttl-1)
-      if not btn(@0xc415) then
-        sfx(60, -2)
-        if not fire_released then
-          if dblclick_ttl>0  then
-            -- double click timer still active?
-            -- shotgun (repulsive!)
-            fire_ttl,fire,dblclick_ttl,attract_power=0,2,0,-1
-            sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
-          elseif fire_frames<4 then
-            -- candidate for double click?
-            dblclick_ttl=8
-          end
-          fire_released,fire_frames=true,0
+      -- pressed?
+      if btn(@0xc415) then
+        -- first press 
+        if not fire_t then
+          fire_t=time()
+        elseif time()-fire_t>0.20 and fire_ttl==0 then
+          -- long press
+          fire,attract_power,fire_ttl=1,0,_fire_ttl
+          sfx(60, stat"57" and -2)
         end
       else
-        if fire_released then
-          fire_released=false
+        sfx(60, -2)
+        if fire_t then
+          -- released
+          local dt=time()-fire_t
+          -- not too fast / no too slow
+          if dt>0.125 and dt<0.3 and shotgun_ttl==0 then
+            fire,attract_power,shotgun_ttl=2,0,5
+            sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
+          end
+          fire_t=nil
         end
-        fire_frames+=1
-        -- regular fire      
-        if dblclick_ttl==0 and fire_ttl<=0 then
-          sfx(60, stat"57" and -2)
-          fire_ttl,fire=_fire_ttl,1
-        end
-        -- 
-        attract_power=0
       end
 
       dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
@@ -253,6 +246,7 @@ function make_player(_origin,_a)
       
       -- avoid overflow!
       fire_ttl=max(fire_ttl-1)
+      shotgun_ttl=max(shotgun_ttl-1)
 
       angle=v_add(angle,dangle,$0xc416/1024)
       -- limit x amplitude
@@ -261,32 +255,34 @@ function make_player(_origin,_a)
       local vn,vl=v_normz(velocity)      
       local prev_pos,new_pos,new_vel=v_clone(origin),v_add(origin,velocity),velocity
       if vl>0.1 then
-          local x,y,z=unpack(new_pos)
-          if y<-64 then
-            new_vel[2],y=0,-64
-            if not dead then
-              dead=true
-              next_state(gameover_state,"FLOORED")
-            end
-          elseif y<0 then
-            -- main grid?              
-            local out=0
-            for _,extent in pairs(_ground_extents) do
-              if x<extent[1] or x>extent[2] or z<extent[3] or z>extent[4] then
-                out+=1
-              end
-            end
-            -- missed all ground chunks?
-            if out!=#_ground_extents then
-              -- stop velocity
-              on_ground,new_vel[2],y=true,0,0
+        local x,y,z=unpack(new_pos)
+        if y<-64 then
+          new_vel[2],y=0,-64
+          if not dead then
+            dead=true
+            next_state(gameover_state,"FLOORED")
+          end
+        elseif y<0 then
+          -- main grid?              
+          local out,prev_ground=0,on_ground
+          for _,extent in pairs(_ground_extents) do
+            if x<extent[1] or x>extent[2] or z<extent[3] or z>extent[4] then
+              out+=1
             end
           end
-          -- use corrected velocity
-          origin,velocity={x,y,z},new_vel
+          -- missed all ground chunks?
+          on_ground=out!=#_ground_extents
+          if on_ground then
+            -- stop velocity
+            new_vel[2],y,eye_offset=0,0,prev_ground and eye_offset or 18+y
+          end
+        end
+        -- use corrected velocity
+        origin,velocity={x,y,z},new_vel
       end
 
-      eye_pos=v_add(origin,{0,18,0})
+      eye_pos=v_add(origin,{0,eye_offset,0})
+      eye_offset=lerp(eye_offset,18,0.2)
 
       -- check collisions
       local x,z=origin[1],origin[3]
@@ -595,7 +591,7 @@ function make_skull(_ENV,_origin)
   reserve_async(cost)
 
   local _ENV=add(_things,inherit({},_ENV))
-  noise,origin,resolved,seed,wobble=spawnsfx,_origin,{},lerp(seed0,seed1,rnd()),lerp(wobble0,wobble1,rnd())
+  noise,origin,resolved,seed,wobble,forces=spawnsfx,_origin,{},lerp(seed0,seed1,rnd()),lerp(wobble0,wobble1,rnd()),{0,y_kick,0}
 
   -- custom init function?
   if(init) init(_ENV)
@@ -931,8 +927,6 @@ function make_jewel(_origin,_velocity)
       end
       -- anyone stil alive?
       if not min_other.dead and force!=0 then
-        -- boost repulsive force
-        if(force<0) force*=2
         local new_origin=v_lerp(origin,min_other.origin,force/3)
         velocity=v_add(new_origin,origin,-1)        
         origin=new_origin
@@ -987,7 +981,7 @@ function draw_world()
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
-  if _plyr.fire_ttl==0 then
+  if _plyr.fire_ttl==0 and _plyr.shotgun_ttl==0 then
     exec(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
@@ -1477,7 +1471,7 @@ tline;17]]
   },
   {_entities.dagger0,_entities.dagger1}
 
-  _skull_core=inherit({
+  _skull_core=inherit{
     hit=function(_ENV,pos,bullet)
       if register_hit(_ENV) then
         dead,noise=true,deathsfx or 35
@@ -1580,7 +1574,7 @@ tline;17]]
       forces,resolved={0,0,0},{}
       grid_register(_ENV)
     end
-  })
+  }
 
   -- global templates
   split2d([[_gib_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,blood1,@ents,_blood_trail,rebound,0,stain,5
@@ -1589,7 +1583,7 @@ _lgib_t;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,@trail,_gib_trail,ent,blood1
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
 _goo_t;r,4,zangle,0,yangle,0,ttl,0,scale,1,@trail,_goo_trail,ent,goo0,rebound,-1
 _dagger_hit_t;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
-_skull_t;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,forces,v_zero,velocity,v_zero,min_velocity,3,ground_limit,8,target_yangle,-0.1,gibs,-1,@gib,_gib_t,@lgib,_lgib_t,cost,1;_skull_core
+_skull_t;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,y_kick,0,velocity,v_zero,min_velocity,3,ground_limit,8,target_yangle,-0.1,gibs,-1,@gib,_gib_t,@lgib,_lgib_t,cost,1;_skull_core
 _egg_t;apply_filter,is_egg,is_egg,1,ent,egg,r,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_t,ground_limit,2;_skull_t
 _worm_seg_normal0;hit_ttl,0,reg,1,ent,worm1,s_r,9,r,12,zangle,0,origin,v_zero,@apply,nop,obituary,sLICED,scale,1.5,jewel,0x0908,hp,5
 _worm_seg_mega0;hit_ttl,0,reg,1,ent,worm1,s_r,10,r,16,zangle,0,origin,v_zero,@apply,nop,obituary,mINCED,scale,1.7,jewel,0x0908,hp,10
@@ -1612,8 +1606,8 @@ _squid_hood;reg,1,bright,0,ent,squid2,r,12,origin,v_zero,zangle,0,@apply,nop,obi
 _squid_jewel;reg,1,bright,0,hit_ttl,0,jewel,0x0908,hp,7,ent,squid1,r,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
 _squid_tcl;bright,0,ent,tcl0,origin,v_zero,zangle,0,is_tcl,1,shadeless,1,r_off,12
 _skull_base_t;;_skull_t
-_skull1_t;chatter,12,ent,skull,r,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_t
-_skull2_t;chatter,12,ent,reaper,r,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,0x0908,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_t
+_skull1_t;y_kick,216,chatter,12,ent,skull,r,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_t
+_skull2_t;y_kick,216,chatter,12,ent,reaper,r,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,0x0908,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_t
 _spider_t;bright,0,ent,spider1,r,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_t
 _mine_t;ent,mine,r,12,hp,30,spawnsfx,32,deathsfx,36,obituary,pOISONED,@apply,nop,@lgib,_goo_t,gibs,0,ground_limit,12;_skull_t]],
   function(name,template,parent)
