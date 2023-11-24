@@ -315,15 +315,16 @@ function draw_grid(grid,cam,mode,layer)
                 -- a tiny bit of perspective
                 local w=-0.1--fov/az
                 local x0,y0,r=xcenter+scale*ax*w,ycenter-scale*ay*w,ceil(-scale*w/4)+0.5
-                rectfill(x0-r,y0-r,ceil(x0+r),ceil(y0+r),_palette[id])
+                local x1,y1=ceil(x0+r),ceil(y0+r)
+                rectfill(x0-r,y0-r,x1,y1,_palette[id])
             end 
         end      
         return
     end
     -- render in order
     local polydraw=function(p,np,c,side)
-        polyfill(p,np,c)
-        if(mode==2 and side&major_mask!=0) polyline(p,np,sget(57,c&0xf))            
+        polyfill(p,np,c)     
+        if(mode==2 and side&major_mask!=0) polyline(p,np,sget(57,c&0xf))
     end
     for i=1,#visible_blocks,3 do
         local id,current_mask,idx=visible_blocks[i],visible_blocks[i+1],visible_blocks[i+2]
@@ -1066,11 +1067,13 @@ cartdata;freds72_daggers]]
     reload()
 
     -- integrated fillp palette
-    for i=0,15 do
+    for i=0,14 do
         _palette[i]=i|i<<4|0x1000
-        _palette[15+i]=i|sget(57,i)<<4|0x1000.a5a5
     end
-    
+    for i=0,13 do
+        _palette[15+i]=i|sget(57,i)<<4|0x1000.a5a5
+    end    
+
     if stat(6)=="generate" then
         -- "commit" generation
         exec[[pack_sprites

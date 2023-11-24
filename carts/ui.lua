@@ -282,13 +282,14 @@ function make_color_picker(palette,binding)
       w=128
     },
     clicked=function(self,msg)
-      binding:set(msg.mx\4)
+      binding:set(mid(msg.mx\4,0,28))
     end,
     draw=function()
       rect(0,122,128,127,1)
       for i=0,31 do
         local x,y=i*4,123
-        rectfill(x,y,x+3,126,palette and palette[i] or i)
+        rectfill(x,y,x+3,126,palette[i])
+        if(i==0) line(x,y,x+3,y+3,8)
       end
       local x,y=binding:get()*4,123
       rect(x-1,y-1,x+4,127,0x77)
