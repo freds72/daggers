@@ -200,31 +200,25 @@ function make_player(_origin,_a)
 
       -- straffing = faster!
 
-      -- restore atract power
-      attract_power=min(attract_power+0.2,1)
-
       -- pressed?
       if btn(@0xc415) then
         -- first press 
         if not fire_t then
-          fire_t=time()
-        elseif time()-fire_t>0.20 and max(fire_ttl,shotgun_ttl)==0 then
-          -- long press
-          fire,attract_power,fire_ttl=1,-1,_fire_ttl
-          sfx(60, stat"57" and -2)
+            fire_t=time()
+        elseif time()-fire_t>0.20 and fire_ttl==0 and shotgun_ttl==0 then
+            -- long press
+            fire,attract_power,fire_ttl=1,-1,_fire_ttl
+            sfx(60, stat"57" and -2)
         end
       else
-        sfx(60, -2)
-        if fire_t then
-          -- released
-          local dt=time()-fire_t
-          -- not too fast / no too slow
-          if dt>0.125 and dt<0.3 and shotgun_ttl==0 then
-            fire,attract_power,shotgun_ttl=2,-2,5
-            sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
+          sfx(60, -2)
+          if fire_t then
+              if time()-fire_t<0.25 and shotgun_ttl==0 then
+                  fire,attract_power,shotgun_ttl=2,-3.5,14
+                  sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
+              end
+              fire_t=nil
           end
-          fire_t=nil
-        end
       end
       
       dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
@@ -243,6 +237,9 @@ function make_player(_origin,_a)
       velocity[3]*=0.7
       -- gravity
       velocity[2]-=0.8
+      
+      -- restore atract power
+      attract_power=min(attract_power+0.2,1)
       
       -- avoid overflow!
       fire_ttl=max(fire_ttl-1)
@@ -532,7 +529,8 @@ poke;0x5f00;0x00]]
     -- override red gradient
     poke2(0x5f08,thing.jewel or red)
     sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip) 
-    --if(thing.r) circ(item.x,item.y,item.key*thing.r,9) print(thing.hp,item.x,item.y-item.key*32,8)
+    --if(thing.hp) print(thing.hp,sx,sy-w0*24,7)
+    --if(thing.r) circ(item.x,item.y-(thing.o_off or 0)*w0,item.key*thing.r,9)
   end
 end
 
@@ -624,7 +622,7 @@ function make_spider()
           if len<r then
             thing:pickup(true)
             -- hp bonus when pickup up gems!
-            hp+=12
+            hp+=6
             do_async(function()
               wait_async"10"
               -- spit an egg
@@ -996,6 +994,7 @@ clip
 camera]],@(_hand_pal+(time()\0.1)%9),-_hand_y))    
   else          
     local r=24+rnd"8"
+    if(_plyr.fire_ttl==0 and _plyr.shotgun_ttl<8) r=0
     exec(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
@@ -1606,11 +1605,11 @@ _jewel_t;reg,1,ent,jewel,s_r,8,r,12,zangle,0,ttl,300,@apply,nop
 _spiderling_t;ent,spiderling0,r,8,hp,2,on_ground,1,deathsfx,36,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_t,ground_limit,2;_skull_t
 _squid_core;no_render,1,s_r,18,r,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_t
 _squid_hood;reg,1,bright,0,ent,squid2,r,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
-_squid_jewel;reg,1,bright,0,hit_ttl,0,jewel,0x0908,hp,7,ent,squid1,r,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
+_squid_jewel;reg,1,bright,0,hit_ttl,0,jewel,0x0908,hp,7,ent,squid1,r,10,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
 _squid_tcl;bright,0,ent,tcl0,origin,v_zero,zangle,0,is_tcl,1,shadeless,1,r_off,12
 _skull_base_t;;_skull_t
-_skull1_t;y_kick,216,chatter,12,ent,skull,r,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_t
-_skull2_t;y_kick,216,chatter,12,ent,reaper,r,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,0x0908,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_t
+_skull1_t;y_kick,180,chatter,12,ent,skull,r,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_t
+_skull2_t;y_kick,180,chatter,12,ent,reaper,r,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,0x0908,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_t
 _spider_t;bright,0,ent,spider1,r,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop,obituary,gULPED;_skull_base_t
 _mine_t;ent,mine,r,12,hp,30,spawnsfx,32,deathsfx,36,obituary,pOISONED,@apply,nop,@lgib,_goo_t,gibs,0,ground_limit,12;_skull_t]],
   function(name,template,parent)
