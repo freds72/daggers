@@ -208,7 +208,7 @@ function make_player(_origin,_a)
         -- first press 
         if not fire_t then
           fire_t=time()
-        elseif time()-fire_t>0.20 and fire_ttl==0 then
+        elseif time()-fire_t>0.20 and fire_ttl==0 and shotgun_ttl==0 then
           -- long press
           fire,attract_power,fire_ttl=1,0,_fire_ttl
           sfx(60, stat"57" and -2)
@@ -216,11 +216,8 @@ function make_player(_origin,_a)
       else
         sfx(60, -2)
         if fire_t then
-          -- released
-          local dt=time()-fire_t
-          -- not too fast / no too slow
-          if dt>0.125 and dt<0.3 and shotgun_ttl==0 then
-            fire,attract_power,shotgun_ttl=2,0,5
+          if shotgun_ttl==0 then
+            fire,attract_power,shotgun_ttl=2,0,10
             sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
           end
           fire_t=nil
