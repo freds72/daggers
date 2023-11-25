@@ -208,9 +208,9 @@ function make_player(_origin,_a)
         -- first press 
         if not fire_t then
           fire_t=time()
-        elseif time()-fire_t>0.20 and fire_ttl==0 then
+        elseif time()-fire_t>0.20 and max(fire_ttl,shotgun_ttl)==0 then
           -- long press
-          fire,attract_power,fire_ttl=1,0,_fire_ttl
+          fire,attract_power,fire_ttl=1,-1,_fire_ttl
           sfx(60, stat"57" and -2)
         end
       else
@@ -220,13 +220,13 @@ function make_player(_origin,_a)
           local dt=time()-fire_t
           -- not too fast / no too slow
           if dt>0.125 and dt<0.3 and shotgun_ttl==0 then
-            fire,attract_power,shotgun_ttl=2,0,5
+            fire,attract_power,shotgun_ttl=2,-2,5
             sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
           end
           fire_t=nil
         end
       end
-
+      
       dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
@@ -920,7 +920,7 @@ function make_jewel(_origin,_velocity)
       velocity[2]-=0.8
 
       -- pulled by player or spiders?
-      local force,min_dist,min_other=_plyr.attract_power,32000,_plyr
+      local force,min_dist,min_other=max(_plyr.attract_power),32000,_plyr
       for other,other_origin in pairs(_spiders) do
         local dist_dir,dist=v_dir(origin,other_origin)
         if(dist<min_dist) force,min_dist,min_other=0.05,dist,other
@@ -981,7 +981,7 @@ function draw_world()
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
-  if _plyr.fire_ttl==0 and _plyr.shotgun_ttl==0 then
+  if max(_plyr.fire_ttl,_plyr.shotgun_ttl)==0 then
     exec(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
@@ -1189,7 +1189,7 @@ dset;0;2]]
   end
 
   -- leaderboard/retry
-  local ttl,buttons,over_btn=90,{
+  local ttl,buttons,over_btn=120,{
     {"rETRY",1,111,cb=function() 
       do_async(function()
         for i=0,11 do
@@ -1273,7 +1273,7 @@ dset;0;2]]
     -- draw
     function()
       draw_world()
-      if ttl==0 then
+      if ttl<30 then
         exec[[palt;0;false
 poke;0x5f54;0x00
 memcpy;0x5f00;0x8200;16
@@ -1305,6 +1305,9 @@ line;1;108;126;108;4]]
       end
       -- hw palette
       memcpy(0x5f10,0x8000+hw_pal,16)
+      
+      -- auto gif!!!
+      if(ttl==1 and dget"45"==1 and new_best_i==1 and _total_time>0x0.0384) extcmd"video"
     end
 end
 
@@ -1334,10 +1337,10 @@ tline;17]]
 
   -- local score version
   _local_scores,_local_best_t={}
-  if dget(0)==2 then
+  if dget"0"==2 then
     -- number of scores    
     local mem=0x5e08
-    for i=1,dget(1) do
+    for i=1,dget"1" do
       -- duration (sec)
       -- timestamp yyyy,mm,dd
       add(_local_scores,{peek4(mem,4)})
@@ -1608,7 +1611,7 @@ _squid_tcl;bright,0,ent,tcl0,origin,v_zero,zangle,0,is_tcl,1,shadeless,1,r_off,1
 _skull_base_t;;_skull_t
 _skull1_t;y_kick,216,chatter,12,ent,skull,r,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_t
 _skull2_t;y_kick,216,chatter,12,ent,reaper,r,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,0x0908,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_t
-_spider_t;bright,0,ent,spider1,r,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_t
+_spider_t;bright,0,ent,spider1,r,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop,obituary,gULPED;_skull_base_t
 _mine_t;ent,mine,r,12,hp,30,spawnsfx,32,deathsfx,36,obituary,pOISONED,@apply,nop,@lgib,_goo_t,gibs,0,ground_limit,12;_skull_t]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])

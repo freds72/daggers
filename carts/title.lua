@@ -224,8 +224,9 @@ function btn_static(btn)
   return s
 end
 
+local _skulls={}
 function menu_state(buttons,default)
-  local skulls,ent={},_entities.skull
+  local ent=_entities.skull
   -- leaderboard/retry
   local over_btn,clicked
   -- reset hw palette offset
@@ -329,8 +330,8 @@ function menu_state(buttons,default)
       -- skull background        
       cam:track({0,128,-64},make_m_from_euler(0,0,0)) 
 
-      if #skulls<40 then
-        local s=add(skulls,{
+      if #_skulls<40 then
+        local s=add(_skulls,{
           ent=_entities.skull,
           origin={-12+rnd(24),0,-6+rnd(12)},--0.5+rnd()/2},
           velocity={(1-rnd(2))/12,rnd(0.8)+0.2,0},
@@ -343,11 +344,11 @@ function menu_state(buttons,default)
         s.key=10+8*s.origin[3]
       end      
 
-      for i=#skulls,1,-1 do
-        local s=skulls[i]
+      for i=#_skulls,1,-1 do
+        local s=_skulls[i]
         s.origin=v_add(s.origin,s.velocity)
         if s.origin[2]>200 then
-          deli(skulls,i)          
+          deli(_skulls,i)          
         else
           s.yangle+=s.yangle_vel
         end
@@ -369,7 +370,7 @@ function menu_state(buttons,default)
         print("+RIDGEK+",90,2,1)        
       end
       -- 
-      draw_things(skulls,cam,64,0.5)
+      draw_things(_skulls,cam,64,0.5)
 
       pal()
       
@@ -397,18 +398,6 @@ function menu_state(buttons,default)
       -- hw palette
       memcpy(0x5f10,0x8000+_hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
-    end,
-    -- init
-    function() 
-      reload(0, 0, 0x3100) 
-      px9_decomp(0,0,0x1240,sget,sset)
-      -- copy tiles to high mem (for shadows/splash)
-      local mem=0xc500
-      for i=0,64*64-1,64 do
-        -- copy the same row twice
-        memcpy(mem,i+32,32) mem+=32
-        memcpy(mem,i+32,32) mem+=32
-      end
     end
 end
 
@@ -416,7 +405,7 @@ end
 local _playing
 _ng_messages={
   [0]="ONLINE NOT AVAILABLE",
-  "ONLINE - INIT",
+  "ONLINE - CHECKING",
   "ONLINE - CONNECT",
   "ONLINE - CONNECTING",
   "ONLINE - CONNECTED",
@@ -932,7 +921,6 @@ function title_state()
       if msg_ttl==0 then
         local s="mOUSE CLICK TO CONTINUE"
         print(s,64-print(s,0,130)/2,110,1+abs(flr(2.9*cos(time()/4))))
-        print(_version,127-print(_version,0,500),121,2)
       end
     end
 end
@@ -1038,6 +1026,16 @@ cartdata;freds72_daggers]]
   -- play musicii
   audio_load"musicii"
   music"3"
+
+  reload(0, 0, 0x3100) 
+  px9_decomp(0,0,0x1240,sget,sset)
+  -- copy tiles to high mem (for shadows/splash)
+  local mem=0xc500
+  for i=0,64*64-1,64 do
+    -- copy the same row twice
+    memcpy(mem,i+32,32) mem+=32
+    memcpy(mem,i+32,32) mem+=32
+  end
 
   -- restore settings
   local active_poll
@@ -1199,7 +1197,7 @@ cartdata;freds72_daggers]]
     pack=pack_key
     },
     {function(btn)
-      return "iNVERT MOUSE\t"..(btn.value==1 and "YES" or "NO")
+      return "iNVERT MOUSE\t\t"..(btn.value==1 and "YES" or "NO")
     end,68,
     value=0,
     id=5,
@@ -1211,7 +1209,7 @@ cartdata;freds72_daggers]]
     end
     },
     {function(btn)
-      return "sWAP BUTTONS\t"..(btn.value==1 and "YES" or "NO")
+      return "sWAP BUTTONS\t\t"..(btn.value==1 and "YES" or "NO")
     end,75,
     value=0,
     id=6,
@@ -1225,7 +1223,7 @@ cartdata;freds72_daggers]]
     end
     },
     {function(btn)
-      return "sENSITIVITY\t"..sensitivity[btn.value+1].."%"
+      return "sENSITIVITY\t\t"..sensitivity[btn.value+1].."%"
     end,82,
     value=3,
     id=7,
@@ -1239,10 +1237,22 @@ cartdata;freds72_daggers]]
     end
     },
     {function(btn)
-      return "oNLINE LADDER\t"..(btn.value==0 and "YES" or "NO")
+      return "oNLINE LADDER\t\t"..(btn.value==0 and "YES" or "NO")
     end,88,
     value=0,
     id=8,
+    load=load_value,
+    save=save_value,
+    cb=flip_bool,
+    pack=function(btn)
+      -- uses standard dget in game
+    end
+    },
+    {function(btn)
+      return "bEST TIME GIF\t\t"..(btn.value==0 and "NO" or "YES")
+    end,94,
+    value=0,
+    id=9,
     load=load_value,
     save=save_value,
     cb=flip_bool,
@@ -1267,6 +1277,12 @@ cartdata;freds72_daggers]]
     cb=function() 
       exit_state()
     end
+    },
+    {"BUILD ".._version,119,
+      static=true,
+      x=function(self)
+        return 128-print(self[1],0,512)
+      end
     },
     draw=function()
       arizona_print("cONTROLS & sETTINGS",1,16,2)
