@@ -81,7 +81,7 @@ end
 local function v_dir(a,b)
   local x,y,z=b[1]-a[1],b[2]-a[2],b[3]-a[3]
 	local d=abs(x)+abs(y)+abs(z)
-	if(d==0) return {0,0,0},d
+	if(d==0) return {0,0,0},0
 	return {x/d,y/d,z/d},d
 end 
 

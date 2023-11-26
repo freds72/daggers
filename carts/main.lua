@@ -205,7 +205,7 @@ function make_player(_origin,_a)
         -- first press 
         if not fire_t then
             fire_t=time()
-        elseif time()-fire_t>0.20 and fire_ttl==0 and shotgun_ttl==0 then
+        elseif time()-fire_t>0.125 and fire_ttl==0 and shotgun_ttl==0 then
             -- long press
             fire,attract_power,fire_ttl=1,-1,_fire_ttl
             sfx(60, stat"57" and -2)
@@ -319,11 +319,15 @@ function make_player(_origin,_a)
         _G._total_bullets+=0x0.0001
         make_bullet(o,angle[2],angle[1],0.02)
       elseif fire==2 then
-        -- shotgun
-        _G._total_bullets+=_shotgun_count>>16
-        for i=1,_shotgun_count do
-          make_bullet(o,angle[2],angle[1],_shotgun_spread)
-        end
+        do_async(function()
+          -- shotgun
+          _G._total_bullets+=_shotgun_count>>16
+          for i=1,_shotgun_count do
+            make_bullet(o,angle[2],angle[1],_shotgun_spread)
+            -- spread bullets over multiple frames
+            if(i%11==0) yield()
+          end
+        end)
       end
       fire=nil          
     end
@@ -1511,7 +1515,7 @@ tline;17]]
         active_target=v_lerp(active_target or target,target,0.2+seed/16)
         local dir=v_dir(origin,active_target)
         forces=v_add(forces,dir,seed)
-        forces[2]+=wobble*cos(time()/seed-seed)-wobble/8
+        forces[2]+=wobble*cos(time()/seed-seed)-wobble/4
       end
       -- move head up/down
       yangle=lerp(yangle,-mid(velocity[2]/seed/2,-0.24,0.24),0.1)
@@ -1589,7 +1593,7 @@ _skull_t;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,y
 _egg_t;apply_filter,is_egg,is_egg,1,ent,egg,r,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_t,ground_limit,2;_skull_t
 _worm_seg_normal0;hit_ttl,0,reg,1,ent,worm1,s_r,9,r,12,zangle,0,origin,v_zero,@apply,nop,obituary,sLICED,scale,1.5,jewel,0x0908,hp,5
 _worm_seg_mega0;hit_ttl,0,reg,1,ent,worm1,s_r,10,r,16,zangle,0,origin,v_zero,@apply,nop,obituary,mINCED,scale,1.7,jewel,0x0908,hp,10
-_worm_seg_giga0;hit_ttl,0,reg,1,ent,worm1,s_r,11,r,20,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.9,jewel,0x0908,hp,30
+_worm_seg_giga0;hit_ttl,0,reg,1,ent,worm1,s_r,11,r,20,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.9,jewel,0x0908,hp,20
 _worm_seg_tail1;reg,1,ent,worm2,r,8,zangle,0,origin,v_zero,@apply,nop,obituary,pIERCED,scale,1.2,s_r,7
 _worm_seg_tail2;reg,1,ent,worm2,r,8,zangle,0,origin,v_zero,@apply,nop,obituary,pIERCED,scale,0.8,s_r,4
 _worm_seg_normal1;;_worm_seg_tail1
@@ -1600,7 +1604,7 @@ _worm_seg_mega2;;_worm_seg_tail2
 _worm_seg_giga2;;_worm_seg_tail2
 _worm_head_normal;hit_ttl,0,wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_r,12,r,16,hp,50,chatter,20,spawnsfx,31,obituary,sLICED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
 _worm_head_mega;hit_ttl,0,wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_r,14,r,20,scale,1.2,hp,200,chatter,20,spawnsfx,31,obituary,mINCED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
-_worm_head_giga;hit_ttl,0,wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_r,16,r,22,scale,1.5,hp,400,chatter,20,spawnsfx,31,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
+_worm_head_giga;hit_ttl,0,wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_r,16,r,22,scale,1.5,hp,300,chatter,20,spawnsfx,31,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
 _jewel_t;reg,1,ent,jewel,s_r,8,r,12,zangle,0,ttl,300,@apply,nop
 _spiderling_t;ent,spiderling0,r,8,hp,2,on_ground,1,deathsfx,36,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_t,ground_limit,2;_skull_t
 _squid_core;no_render,1,s_r,18,r,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_t
