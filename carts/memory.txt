@@ -14,8 +14,8 @@ title.p8
 0x31e6-0x34e1: px9 - sfx - daggercollect (packer.p8)
 0x34e2-0x3734: px9 - sfx - victory (packer.p8)
 0x3735-0x3a61: px9 - sfx - chatter 8-18 (packer.p8)
-0x3a5c-0x3ff6: px9 - sfx - noise (packer.p8)
-0x3ff7-0x409f: px9 - sfx - ui (packer.p8)
+0x3a5c-0x3ff7: px9 - sfx - noise (packer.p8)
+0x3ff8-0x40a0: px9 - sfx - ui (packer.p8)
 
 --------
 runtime
