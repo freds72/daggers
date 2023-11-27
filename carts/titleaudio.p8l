@@ -32,12 +32,12 @@ audio = {
 	},
 	noisedata = {
 		addr = 0x3a5c,
-		--clen = 0x0591,
+		--clen = 0x059c,
 		--data = nil,
 		ulen = 0x0aa4,
 	},
 	ui = {
-		addr = 0x3fed,
+		addr = 0x3ff8,
 		--clen = 0x00a9,
 		--data = nil,
 		ulen = 0x0110,
