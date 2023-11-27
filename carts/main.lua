@@ -1664,7 +1664,7 @@ _squid_hood;a_off,0.8333,r_off,22]]} do
     end)
   end
 
-  _off_to_dist=with_properties(chr(peek(0xa380,1525)))
+  _off_to_dist=with_properties(chr(peek(0xf71f,1525)))
 
   -- run game
   next_state(play_state)

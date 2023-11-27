@@ -1298,7 +1298,7 @@ cartdata;freds72_daggers]]
       end
     end  
   end
-  poke(0xa380,ord(s,1,#s))
+  poke(0xf71f,ord(s,1,#s))
 
   -- back to main menu
   menuitem(1,"main menu",function()
