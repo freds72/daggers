@@ -1133,8 +1133,8 @@ wait_jewels;0x7fff]]
     do_async(function()
       -- skull 1+2 circle around player
       while not _plyr.dead do      
-        local x,y,z=unpack(_plyr.origin)
-        _skull_base_t.target=v_rnd(x,y+10+rnd"4",z,24*cos(time()/8))
+        --local x,y,z=unpack(_plyr.origin)
+        _skull_base_t.target=v_clone(_plyr.origin,10+rnd"14") --v_rnd(x,y+10+rnd"4",z,24*cos(time()/8))
         wait_async(10,5)
       end
 
@@ -1515,7 +1515,7 @@ tline;17]]
         active_target=v_lerp(active_target or target,target,0.2+seed/16)
         local dir=v_dir(origin,active_target)
         forces=v_add(forces,dir,seed)
-        forces[2]+=wobble*cos(time()/seed-seed)-wobble/4
+        forces[2]+=wobble*cos(time()/seed-10*seed)-wobble/4
       end
       -- move head up/down
       yangle=lerp(yangle,-mid(velocity[2]/seed/2,-0.24,0.24),0.1)
@@ -1602,9 +1602,9 @@ _worm_seg_giga1;;_worm_seg_tail1
 _worm_seg_normal2;;_worm_seg_tail2
 _worm_seg_mega2;;_worm_seg_tail2
 _worm_seg_giga2;;_worm_seg_tail2
-_worm_head_normal;hit_ttl,0,wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_r,12,r,16,hp,50,chatter,20,spawnsfx,31,obituary,sLICED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
-_worm_head_mega;hit_ttl,0,wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_r,14,r,20,scale,1.2,hp,200,chatter,20,spawnsfx,31,obituary,mINCED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
-_worm_head_giga;hit_ttl,0,wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_r,16,r,22,scale,1.5,hp,300,chatter,20,spawnsfx,31,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
+_worm_head_normal;min_velocity,2.8,wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_r,12,r,16,hp,50,chatter,20,spawnsfx,31,obituary,sLICED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
+_worm_head_mega;min_velocity,2.7,wobble0,10,wobble1,14,seed0,3,seed1,4.5,ent,worm0,s_r,14,r,20,scale,1.2,hp,150,chatter,20,spawnsfx,31,obituary,mINCED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
+_worm_head_giga;min_velocity,2.6,wobble0,12,wobble1,18,seed0,2,seed1,3.5,ent,worm0,s_r,16,r,22,scale,1.5,hp,300,chatter,20,spawnsfx,31,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
 _jewel_t;reg,1,ent,jewel,s_r,8,r,12,zangle,0,ttl,300,@apply,nop
 _spiderling_t;ent,spiderling0,r,8,hp,2,on_ground,1,deathsfx,36,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_t,ground_limit,2;_skull_t
 _squid_core;no_render,1,s_r,18,r,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_t
