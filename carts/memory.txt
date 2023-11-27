@@ -14,8 +14,8 @@ title.p8
 0x31e6-0x34e1: px9 - sfx - daggercollect (packer.p8)
 0x34e2-0x3734: px9 - sfx - victory (packer.p8)
 0x3735-0x3a61: px9 - sfx - chatter 8-18 (packer.p8)
-0x3a5c-0x3fec: px9 - sfx - noise (packer.p8)
-0x3fed-0x4095: px9 - sfx - ui (packer.p8)
+0x3a5c-0x3ff7: px9 - sfx - noise (packer.p8)
+0x3ff8-0x40a0: px9 - sfx - ui (packer.p8)
 
 --------
 runtime
@@ -38,11 +38,11 @@ runtime
 0x9280-       - fade to black (floor)
 0x9380-       - level up palettes (floor)
 
-0xa380-       - screen copy (for tilt effect) + noise dist grid temp buffer (title.lua)
-0xc400-0xc4ff - keyboard stat id's + settings
+0xa380-       - screen copy (for tilt effect)
+0xc400-0xc40a - keyboard stat id's
 0xc500-0xd4ff - playground tiles
 0xd500-0xd51b - hand cycle colors
 0xd51c-0xd61b - radix sort
 0xd61c-0xf61b - RFU - writable texture
-0xf71f-0xfd13 - noise grid
-0xfd14-0xffff: sfx - chatter 8-18 (title.lua)
+0xf71f-0xfd13 - noise dist grid temp buffer (title.lua)
+0xfd14-0xffff - sfx - chatter 8-18 (title.lua)
