@@ -215,7 +215,6 @@ function make_player(_origin,_a)
           if fire_t then
               if time()-fire_t<0.25 and shotgun_ttl==0 then
                   fire,attract_power,shotgun_ttl=2,-3.5,14
-                  sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
               end
               fire_t=nil
           end
@@ -322,6 +321,7 @@ function make_player(_origin,_a)
         do_async(function()
           -- shotgun
           _G._total_bullets+=_shotgun_count>>16
+          sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
           for i=1,_shotgun_count do
             make_bullet(o,angle[2],angle[1],_shotgun_spread)
             -- spread bullets over multiple frames
