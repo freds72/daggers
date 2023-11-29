@@ -43,6 +43,6 @@ runtime
 0xc500-0xd4ff - playground tiles
 0xd500-0xd51b - hand cycle colors
 0xd51c-0xd61b - radix sort
-
-0xf71f-0xfd13: noise dist grid temp buffer (title.lua)
-0xfd14-0xffff: sfx - chatter 8-18 (title.lua)
+0xd61c-0xf61b - RFU - writable texture
+0xf71f-0xfd13 - noise dist grid temp buffer (title.lua)
+0xfd14-0xffff - sfx - chatter 8-18 (title.lua)

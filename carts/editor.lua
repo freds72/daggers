@@ -746,7 +746,8 @@ function grid_fromstr(data)
         idx=(idx&0xf0)>>12|(idx&0xf)
         for x=0,7 do
             local id=ord(data[base+x+1])
-            if id!=0 then
+            -- remove invalid colors
+            if id!=0 and id<29 then
                 grid[idx|x>>16]=id
                 grid[idx|(_grid_size-x)>>16]=id
             end
@@ -953,7 +954,7 @@ function pack_sprites()
         if ent.data and not ent.no_export then
             holdframe()
             local frames,count=collect_frames(ent,function(count,ratio)
-                if(count%2!=0) return
+                if(count%4<2) return
                 cls()
                 fillp()
                 rectfill(0,0,127,7,8)

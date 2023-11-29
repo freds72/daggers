@@ -200,33 +200,26 @@ function make_player(_origin,_a)
 
       -- straffing = faster!
 
-      -- restore atract power
-      attract_power=min(attract_power+0.2,1)
-
       -- pressed?
       if btn(@0xc415) then
         -- first press 
         if not fire_t then
-          fire_t=time()
-        elseif time()-fire_t>0.20 and fire_ttl==0 then
-          -- long press
-          fire,attract_power,fire_ttl=1,0,_fire_ttl
-          sfx(60, stat"57" and -2)
+            fire_t=time()
+        elseif time()-fire_t>0.125 and fire_ttl==0 and shotgun_ttl==0 then
+            -- long press
+            fire,attract_power,fire_ttl=1,-1,_fire_ttl
+            sfx(60, stat"57" and -2)
         end
       else
-        sfx(60, -2)
-        if fire_t then
-          -- released
-          local dt=time()-fire_t
-          -- not too fast / no too slow
-          if dt>0.125 and dt<0.3 and shotgun_ttl==0 then
-            fire,attract_power,shotgun_ttl=2,0,5
-            sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
+          sfx(60, -2)
+          if fire_t then
+              if time()-fire_t<0.25 and shotgun_ttl==0 then
+                  fire,attract_power,shotgun_ttl=2,-3.5,14
+              end
+              fire_t=nil
           end
-          fire_t=nil
-        end
       end
-
+      
       dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
@@ -243,6 +236,9 @@ function make_player(_origin,_a)
       velocity[3]*=0.7
       -- gravity
       velocity[2]-=0.8
+      
+      -- restore atract power
+      attract_power=min(attract_power+0.2,1)
       
       -- avoid overflow!
       fire_ttl=max(fire_ttl-1)
@@ -320,13 +316,18 @@ function make_player(_origin,_a)
       local o=v_add(origin,v_add({0,8,0},v_add(m_fwd(m),m_right(m)),4))
       if fire==1 then          
         _G._total_bullets+=0x0.0001
-        make_bullet(o,angle[2],angle[1],0.02)
+        make_bullet(o,angle[2],angle[1],0.02,15)
       elseif fire==2 then
-        -- shotgun
-        _G._total_bullets+=_shotgun_count>>16
-        for i=1,_shotgun_count do
-          make_bullet(o,angle[2],angle[1],_shotgun_spread)
-        end
+        do_async(function()
+          -- shotgun
+          _G._total_bullets+=_shotgun_count>>16
+          sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
+          for i=1,_shotgun_count do
+            make_bullet(o,angle[2],angle[1],_shotgun_spread,12)            
+            -- spread bullets over multiple frames
+            if(i%11==0) yield()
+          end
+        end)
       end
       fire=nil          
     end
@@ -340,11 +341,10 @@ function vector_in_cone(zangle,yangle,spread)
   return {s*u,sin(yangle),s*v},u,v,sgn(s),zangle,yangle
 end
 
-function make_bullet(_origin,_zangle,_yangle,_spread)
+function make_bullet(_origin,_zangle,_yangle,_spread,ttl)
   -- no bullets while falling
   if(_origin[2]<2) return
-
-  local ttl,piercing,_velocity,_u,_v,_s,_zangle=15+rnd"3",_piercing,vector_in_cone(_zangle,_yangle,_spread)
+  local ttl,piercing,_velocity,_u,_v,_s,_zangle=ttl+rnd"3",_piercing,vector_in_cone(_zangle,_yangle,_spread)
   _u*=_s
   _v*=_s
   add(_things,inherit({
@@ -353,6 +353,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
     velocity=_velocity,
     -- fixed zangle
     zangle=_zangle,
+    yangle=0,
     yangle=rnd(),
     shadeless=true,
     ent=rnd(_daggers_ents),
@@ -364,7 +365,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
         _checked+=1
         yangle+=0.1
         local dx,dy,dz,ax,ay,az=velocity[1],velocity[2],velocity[3],origin[1],origin[2],origin[3]
-        local new_origin,len,hits=v_add(origin,velocity,10),10,{}
+        local new_origin,len,hits={ax+10*dx,ay+10*dy,az+10*dz},10,{}
         local x,y,z=new_origin[1],new_origin[2],new_origin[3]
         if y<0 then
           -- hit ground?
@@ -384,6 +385,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
         end
         -- collect touched grid indices
         -- advanced bullets can traverse enemies
+        local cpu0=stat(1)
         collect_grid(origin,new_origin,_u,_v,function(things)
           for thing in pairs(things) do
             -- hitable?
@@ -468,9 +470,9 @@ poke;0x5f5e;0b10001000]]
         local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
         local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
         local az4=az<<2
-        if az>4 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
+        if az>8 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
           local w=32/az
-          things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
+          add(things,{key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w})
         end
       end
     end
@@ -511,7 +513,7 @@ poke;0x5f00;0x00]]
     local zangles,yside=entity.zangles,0
     if zangles!=0 then
       local yangle,step=thing.yangle or 0,1/(zangles<<1)
-      yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
+      yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),origin[2]-cy)-0.25+step/2+yangle)&0x0.ffff)\step
       if(yside>zangles) yside=zangles-(yside%zangles)
     end
     -- copy to spr
@@ -528,11 +530,11 @@ poke;0x5f00;0x00]]
     end
     w0*=thing.scale or 1
     local sx,sy=item.x-w*w0/2,item.y-h*w0/2
-    local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
     -- override red gradient
     poke2(0x5f08,thing.jewel or red)
-    sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip) 
-    --if(thing.r) circ(item.x,item.y,item.key*thing.r,9) print(thing.hp,item.x,item.y-item.key*32,8)
+    sspr(frame.xmin,0,w,h,sx,sy,w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff),flip) 
+    --if(thing.hp) print(thing.hp,sx,sy-w0*24,7)
+    --if(thing.r) circ(item.x,item.y-(thing.o_off or 0)*w0,item.key*thing.r,9)
   end
 end
 
@@ -557,7 +559,9 @@ function make_particle(template,_origin,_velocity)
         _velocity[2]-=0.4
         origin=v_add(origin,_velocity)        
         if origin[2]<1 and _velocity[2]<0 then
-          origin[2]=1 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
+          origin[2]=1 
+          _velocity=v_scale(_velocity,0.8) 
+          _velocity[2]*=rebound
           -- write on playground
           if stain and rebound==0 then
             -- don't drop blood each time
@@ -624,7 +628,7 @@ function make_spider()
           if len<r then
             thing:pickup(true)
             -- hp bonus when pickup up gems!
-            hp+=12
+            hp+=6
             do_async(function()
               wait_async"10"
               -- spit an egg
@@ -700,10 +704,9 @@ function make_squid(type)
       local age=time()
       -- spill skulls every x seconds
       ai=do_async(function()
-        wait_async"60"
         while true do
           -- don't spawn while outside
-          if _dist==1 then
+          if _dist==1 then            
             for i=1,_spawns do
               make_skull_async(_skull1_t)
             end
@@ -720,8 +723,7 @@ function make_squid(type)
       for part_t in all(_squid_ts[type]) do
         add(_things,inherit({
           hit=function(_ENV,pos,bullet) 
-            -- cannot shoot squids outside of playground!
-            if jewel and _dist==1 then
+            if jewel then
               -- feedback
               make_particle(_lgib_t,pos,{u,-3*bullet.velocity[2],v})
               sfx"59"
@@ -735,7 +737,7 @@ function make_squid(type)
               end
             end
           end,
-          update=function(_ENV)
+          update=function(_ENV)            
             if _dead then
               if(dead) return
               if(_dead==1) make_blood(origin) 
@@ -743,7 +745,7 @@ function make_squid(type)
               music"28"
               return
             end
-            bright=max(2-_dist*_dist)
+            bright=max(2-_dist^4)
             zangle=_angle+a_off
             -- store u/v angle
             local cc,ss,offset=cos(zangle),-sin(zangle),r_off
@@ -842,7 +844,7 @@ function make_worm(type)
         for i=1,6 do
           target=v_rnd(512,16+rnd"48",512,96+rnd"16",atan2(origin[1],origin[3])+rnd"0.05")
           wait_async(60,10)
-          wobble,target=4,v_clone(_plyr.eye_pos)          
+          wobble,target=8,v_clone(_plyr.eye_pos)
           wait_async"180"
           wobble=w
         end
@@ -920,7 +922,7 @@ function make_jewel(_origin,_velocity)
       velocity[2]-=0.8
 
       -- pulled by player or spiders?
-      local force,min_dist,min_other=_plyr.attract_power,32000,_plyr
+      local force,min_dist,min_other=max(_plyr.attract_power),32000,_plyr
       for other,other_origin in pairs(_spiders) do
         local dist_dir,dist=v_dir(origin,other_origin)
         if(dist<min_dist) force,min_dist,min_other=0.05,dist,other
@@ -981,7 +983,7 @@ function draw_world()
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
   -- using poke to avoid true/false for palt
-  if _plyr.fire_ttl==0 and _plyr.shotgun_ttl==0 then
+  if max(_plyr.fire_ttl,_plyr.shotgun_ttl)==0 then
     exec(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
@@ -996,6 +998,7 @@ clip
 camera]],@(_hand_pal+(time()\0.1)%9),-_hand_y))    
   else          
     local r=24+rnd"8"
+    if(_plyr.fire_ttl==0 and _plyr.shotgun_ttl<8) r=0
     exec(scanf([[memset;0x6000;0;512
 memset;0x7e00;0;512
 pal
@@ -1070,7 +1073,7 @@ memcpy;0x3420;0xfd14;0x2ec]]
       memcpy(0x5f10,_hw_pal,16)
     end,
     -- init
-    function()
+    function()      
       exec[[sfx;-1
 music;44
 set;_hw_pal;0x8000]]
@@ -1130,8 +1133,7 @@ wait_jewels;0x7fff]]
     do_async(function()
       -- skull 1+2 circle around player
       while not _plyr.dead do      
-        local x,y,z=unpack(_plyr.origin)
-        _skull_base_t.target=v_rnd(x,y+10+rnd"4",z,24*cos(time()/8))
+        _skull_base_t.target=v_clone(_plyr.origin,10+rnd"14")
         wait_async(10,5)
       end
 
@@ -1189,7 +1191,7 @@ dset;0;2]]
   end
 
   -- leaderboard/retry
-  local ttl,buttons,over_btn=90,{
+  local ttl,buttons,over_btn=120,{
     {"rETRY",1,111,cb=function() 
       do_async(function()
         for i=0,11 do
@@ -1273,7 +1275,7 @@ dset;0;2]]
     -- draw
     function()
       draw_world()
-      if ttl==0 then
+      if ttl<30 then
         exec[[palt;0;false
 poke;0x5f54;0x00
 memcpy;0x5f00;0x8200;16
@@ -1305,6 +1307,9 @@ line;1;108;126;108;4]]
       end
       -- hw palette
       memcpy(0x5f10,0x8000+hw_pal,16)
+      
+      -- auto gif!!!
+      if(ttl==1 and dget"45"==1 and new_best_i==1 and _total_time>0x0.0384) extcmd"video"
     end
 end
 
@@ -1334,10 +1339,10 @@ tline;17]]
 
   -- local score version
   _local_scores,_local_best_t={}
-  if dget(0)==2 then
+  if dget"0"==2 then
     -- number of scores    
     local mem=0x5e08
-    for i=1,dget(1) do
+    for i=1,dget"1" do
       -- duration (sec)
       -- timestamp yyyy,mm,dd
       add(_local_scores,{peek4(mem,4)})
@@ -1422,7 +1427,7 @@ tline;17]]
                 local d0=v0[3]-1
                 for i,v1 in inext,verts do
                   local side=d0>0
-                  if(side) res[#res+1]=v0
+                  if(side) add(res,v0)
                   local d1=v1[3]-1
                   if (d1>0)!=side then
                     -- clip!
@@ -1435,7 +1440,7 @@ tline;17]]
                     v.w=32 -- 32/1
                     v.u=lerp(v0.u,v1.u,t)
                     v.v=lerp(v0.v,v1.v,t)
-                    res[#res+1]=v
+                    add(res,v)
                   end
                   v0,d0=v1,d1
                 end
@@ -1508,8 +1513,9 @@ tline;17]]
         -- add some lag to the tracking
         active_target=v_lerp(active_target or target,target,0.2+seed/16)
         local dir=v_dir(origin,active_target)
-        forces=v_add(forces,dir,seed)
-        forces[2]+=wobble*cos(time()/seed-seed)-wobble/8
+        forces[1]+=seed*dir[1]
+        forces[2]+=seed*dir[2]+wobble*cos(time()/seed-10*seed)-wobble/4
+        forces[3]+=seed*dir[3]
       end
       -- move head up/down
       yangle=lerp(yangle,-mid(velocity[2]/seed/2,-0.24,0.24),0.1)
@@ -1525,7 +1531,7 @@ tline;17]]
       if rnd()>0.25 then
         -- avoid others (noted: limited to a single grid cell)
         -- 21 = (x\32)>>16
-        local idx,fx,fy,fz=origin[1]>>21|origin[3]\32,unpack(forces)
+        local idx,fx,fy,fz=origin[1]>>21|origin[3]\32,forces[1],forces[2],forces[3]
         for other in pairs(_grid[idx]) do
           -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
@@ -1543,10 +1549,11 @@ tline;17]]
             resolved[other]=true
           end
         end
-        forces={fx,fy,fz}
 
         -- 
-        velocity=v_add(velocity,forces,1/16)      
+        velocity[1]+=fx>>4
+        velocity[2]+=fy>>4
+        velocity[3]+=fz>>4
       end
 
       -- fixed velocity (on x/z)
@@ -1587,7 +1594,7 @@ _skull_t;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,y
 _egg_t;apply_filter,is_egg,is_egg,1,ent,egg,r,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_t,ground_limit,2;_skull_t
 _worm_seg_normal0;hit_ttl,0,reg,1,ent,worm1,s_r,9,r,12,zangle,0,origin,v_zero,@apply,nop,obituary,sLICED,scale,1.5,jewel,0x0908,hp,5
 _worm_seg_mega0;hit_ttl,0,reg,1,ent,worm1,s_r,10,r,16,zangle,0,origin,v_zero,@apply,nop,obituary,mINCED,scale,1.7,jewel,0x0908,hp,10
-_worm_seg_giga0;hit_ttl,0,reg,1,ent,worm1,s_r,11,r,20,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.9,jewel,0x0908,hp,30
+_worm_seg_giga0;hit_ttl,0,reg,1,ent,worm1,s_r,11,r,20,zangle,0,origin,v_zero,@apply,nop,obituary,gUTTED,scale,1.9,jewel,0x0908,hp,20
 _worm_seg_tail1;reg,1,ent,worm2,r,8,zangle,0,origin,v_zero,@apply,nop,obituary,pIERCED,scale,1.2,s_r,7
 _worm_seg_tail2;reg,1,ent,worm2,r,8,zangle,0,origin,v_zero,@apply,nop,obituary,pIERCED,scale,0.8,s_r,4
 _worm_seg_normal1;;_worm_seg_tail1
@@ -1596,19 +1603,19 @@ _worm_seg_giga1;;_worm_seg_tail1
 _worm_seg_normal2;;_worm_seg_tail2
 _worm_seg_mega2;;_worm_seg_tail2
 _worm_seg_giga2;;_worm_seg_tail2
-_worm_head_normal;hit_ttl,0,wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_r,12,r,16,hp,50,chatter,20,spawnsfx,31,obituary,sLICED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
-_worm_head_mega;hit_ttl,0,wobble0,8,wobble1,11,seed0,3,seed1,4.5,ent,worm0,s_r,14,r,20,scale,1.2,hp,200,chatter,20,spawnsfx,31,obituary,mINCED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
-_worm_head_giga;hit_ttl,0,wobble0,7,wobble1,10,seed0,2,seed1,3.5,ent,worm0,s_r,16,r,22,scale,1.5,hp,400,chatter,20,spawnsfx,31,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
+_worm_head_normal;min_velocity,2.8,wobble0,9,wobble1,12,seed0,5,seed1,6,ent,worm0,s_r,12,r,16,hp,50,chatter,20,spawnsfx,31,obituary,sLICED,ground_limit,-64,cost,10,gibs,0.5,templates,0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
+_worm_head_mega;min_velocity,2.7,wobble0,10,wobble1,14,seed0,3,seed1,4.5,ent,worm0,s_r,14,r,20,scale,1.2,hp,150,chatter,20,spawnsfx,31,obituary,mINCED,ground_limit,-64,cost,15,gibs,0.7,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
+_worm_head_giga;min_velocity,2.6,wobble0,12,wobble1,18,seed0,2,seed1,3.5,ent,worm0,s_r,16,r,22,scale,1.5,hp,300,chatter,20,spawnsfx,31,obituary,gUTTED,ground_limit,-64,cost,20,gibs,1,templates,0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|2;_skull_t
 _jewel_t;reg,1,ent,jewel,s_r,8,r,12,zangle,0,ttl,300,@apply,nop
 _spiderling_t;ent,spiderling0,r,8,hp,2,on_ground,1,deathsfx,36,chatter,16,obituary,wEBBED,apply_filter,on_ground,@lgib,_goo_t,ground_limit,2;_skull_t
 _squid_core;no_render,1,s_r,18,r,24,origin,v_zero,on_ground,1,is_squid_core,1,min_velocity,0.2,chatter,8,spawnsfx,33,@hit,nop,cost,5,obituary,nAILED,gibs,0.8,apply_filter,is_squid_core;_skull_t
 _squid_hood;reg,1,bright,0,ent,squid2,r,12,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
-_squid_jewel;reg,1,bright,0,hit_ttl,0,jewel,0x0908,hp,7,ent,squid1,r,8,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
+_squid_jewel;reg,1,bright,0,hit_ttl,0,jewel,0x0908,hp,7,ent,squid1,r,10,origin,v_zero,zangle,0,@apply,nop,obituary,nAILED,shadeless,1,o_off,18,y_off,24,r_off,8
 _squid_tcl;bright,0,ent,tcl0,origin,v_zero,zangle,0,is_tcl,1,shadeless,1,r_off,12
 _skull_base_t;;_skull_t
-_skull1_t;y_kick,216,chatter,12,ent,skull,r,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_t
-_skull2_t;y_kick,216,chatter,12,ent,reaper,r,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,0x0908,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_t
-_spider_t;bright,0,ent,spider1,r,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop;_skull_base_t
+_skull1_t;y_kick,180,chatter,12,ent,skull,r,8,spawnsfx,29,hp,2,obituary,bUMPED,target_yangle,0.1;_skull_base_t
+_skull2_t;y_kick,180,chatter,12,ent,reaper,r,10,spawnsfx,29,hp,4,seed0,5.5,seed1,6,jewel,0x0908,obituary,iMPALED,min_velocity,3.5,gibs,0.2;_skull_base_t
+_spider_t;bright,0,ent,spider1,r,24,shadeless,1,hp,12,chatter,24,zangle,0,yangle,0,scale,1.5,@apply,nop,obituary,gULPED;_skull_base_t
 _mine_t;ent,mine,r,12,hp,30,spawnsfx,32,deathsfx,36,obituary,pOISONED,@apply,nop,@lgib,_goo_t,gibs,0,ground_limit,12;_skull_t]],
   function(name,template,parent)
     _ENV[name]=inherit(with_properties(template),_ENV[parent])
@@ -1715,7 +1722,7 @@ function _update()
     local f=_futures[i].co
     -- still active?
     if f and costatus(f)=="suspended" then
-      assert(coresume(f))
+      coresume(f)
     else
       deli(_futures,i)
     end
