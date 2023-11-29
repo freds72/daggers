@@ -954,7 +954,7 @@ function pack_sprites()
         if ent.data and not ent.no_export then
             holdframe()
             local frames,count=collect_frames(ent,function(count,ratio)
-                if(count%2!=0) return
+                if(count%4<2) return
                 cls()
                 fillp()
                 rectfill(0,0,127,7,8)

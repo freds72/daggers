@@ -316,14 +316,14 @@ function make_player(_origin,_a)
       local o=v_add(origin,v_add({0,8,0},v_add(m_fwd(m),m_right(m)),4))
       if fire==1 then          
         _G._total_bullets+=0x0.0001
-        make_bullet(o,angle[2],angle[1],0.02)
+        make_bullet(o,angle[2],angle[1],0.02,15)
       elseif fire==2 then
         do_async(function()
           -- shotgun
           _G._total_bullets+=_shotgun_count>>16
           sfx(61+_piercing, stat"57" and -2 or flr(rnd"4"))
           for i=1,_shotgun_count do
-            make_bullet(o,angle[2],angle[1],_shotgun_spread)
+            make_bullet(o,angle[2],angle[1],_shotgun_spread,12)            
             -- spread bullets over multiple frames
             if(i%11==0) yield()
           end
@@ -341,11 +341,10 @@ function vector_in_cone(zangle,yangle,spread)
   return {s*u,sin(yangle),s*v},u,v,sgn(s),zangle,yangle
 end
 
-function make_bullet(_origin,_zangle,_yangle,_spread)
+function make_bullet(_origin,_zangle,_yangle,_spread,ttl)
   -- no bullets while falling
   if(_origin[2]<2) return
-
-  local ttl,piercing,_velocity,_u,_v,_s,_zangle=15+rnd"3",_piercing,vector_in_cone(_zangle,_yangle,_spread)
+  local ttl,piercing,_velocity,_u,_v,_s,_zangle=ttl+rnd"3",_piercing,vector_in_cone(_zangle,_yangle,_spread)
   _u*=_s
   _v*=_s
   add(_things,inherit({
@@ -354,6 +353,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
     velocity=_velocity,
     -- fixed zangle
     zangle=_zangle,
+    yangle=0,
     yangle=rnd(),
     shadeless=true,
     ent=rnd(_daggers_ents),
@@ -385,6 +385,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread)
         end
         -- collect touched grid indices
         -- advanced bullets can traverse enemies
+        local cpu0=stat(1)
         collect_grid(origin,new_origin,_u,_v,function(things)
           for thing in pairs(things) do
             -- hitable?
@@ -469,9 +470,9 @@ poke;0x5f5e;0b10001000]]
         local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
         local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
         local az4=az<<2
-        if az>4 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
+        if az>8 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
           local w=32/az
-          things[#things+1]={key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w}      
+          add(things,{key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w})
         end
       end
     end
@@ -512,7 +513,7 @@ poke;0x5f00;0x00]]
     local zangles,yside=entity.zangles,0
     if zangles!=0 then
       local yangle,step=thing.yangle or 0,1/(zangles<<1)
-      yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),-cy+origin[2])-0.25+step/2+yangle)&0x0.ffff)\step
+      yside=((atan2(dx*cos(-zangle)+dz*sin(-zangle),origin[2]-cy)-0.25+step/2+yangle)&0x0.ffff)\step
       if(yside>zangles) yside=zangles-(yside%zangles)
     end
     -- copy to spr
@@ -529,10 +530,9 @@ poke;0x5f00;0x00]]
     end
     w0*=thing.scale or 1
     local sx,sy=item.x-w*w0/2,item.y-h*w0/2
-    local sw,sh=w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff)
     -- override red gradient
     poke2(0x5f08,thing.jewel or red)
-    sspr(frame.xmin,0,w,h,sx,sy,sw,sh,flip) 
+    sspr(frame.xmin,0,w,h,sx,sy,w*w0+(sx&0x0.ffff),h*w0+(sy&0x0.ffff),flip) 
     --if(thing.hp) print(thing.hp,sx,sy-w0*24,7)
     --if(thing.r) circ(item.x,item.y-(thing.o_off or 0)*w0,item.key*thing.r,9)
   end
@@ -559,7 +559,9 @@ function make_particle(template,_origin,_velocity)
         _velocity[2]-=0.4
         origin=v_add(origin,_velocity)        
         if origin[2]<1 and _velocity[2]<0 then
-          origin[2]=1 _velocity=v_scale(_velocity,0.8) _velocity[2]*=rebound
+          origin[2]=1 
+          _velocity=v_scale(_velocity,0.8) 
+          _velocity[2]*=rebound
           -- write on playground
           if stain and rebound==0 then
             -- don't drop blood each time
@@ -702,10 +704,9 @@ function make_squid(type)
       local age=time()
       -- spill skulls every x seconds
       ai=do_async(function()
-        wait_async"60"
         while true do
           -- don't spawn while outside
-          if _dist==1 then
+          if _dist==1 then            
             for i=1,_spawns do
               make_skull_async(_skull1_t)
             end
@@ -722,8 +723,7 @@ function make_squid(type)
       for part_t in all(_squid_ts[type]) do
         add(_things,inherit({
           hit=function(_ENV,pos,bullet) 
-            -- cannot shoot squids outside of playground!
-            if jewel and _dist==1 then
+            if jewel then
               -- feedback
               make_particle(_lgib_t,pos,{u,-3*bullet.velocity[2],v})
               sfx"59"
@@ -737,7 +737,7 @@ function make_squid(type)
               end
             end
           end,
-          update=function(_ENV)
+          update=function(_ENV)            
             if _dead then
               if(dead) return
               if(_dead==1) make_blood(origin) 
@@ -745,7 +745,7 @@ function make_squid(type)
               music"28"
               return
             end
-            bright=max(2-_dist*_dist)
+            bright=max(2-_dist^4)
             zangle=_angle+a_off
             -- store u/v angle
             local cc,ss,offset=cos(zangle),-sin(zangle),r_off
@@ -844,7 +844,7 @@ function make_worm(type)
         for i=1,6 do
           target=v_rnd(512,16+rnd"48",512,96+rnd"16",atan2(origin[1],origin[3])+rnd"0.05")
           wait_async(60,10)
-          wobble,target=4,v_clone(_plyr.eye_pos)          
+          wobble,target=8,v_clone(_plyr.eye_pos)
           wait_async"180"
           wobble=w
         end
@@ -1073,7 +1073,7 @@ memcpy;0x3420;0xfd14;0x2ec]]
       memcpy(0x5f10,_hw_pal,16)
     end,
     -- init
-    function()
+    function()      
       exec[[sfx;-1
 music;44
 set;_hw_pal;0x8000]]
@@ -1133,8 +1133,7 @@ wait_jewels;0x7fff]]
     do_async(function()
       -- skull 1+2 circle around player
       while not _plyr.dead do      
-        --local x,y,z=unpack(_plyr.origin)
-        _skull_base_t.target=v_clone(_plyr.origin,10+rnd"14") --v_rnd(x,y+10+rnd"4",z,24*cos(time()/8))
+        _skull_base_t.target=v_clone(_plyr.origin,10+rnd"14")
         wait_async(10,5)
       end
 
@@ -1428,7 +1427,7 @@ tline;17]]
                 local d0=v0[3]-1
                 for i,v1 in inext,verts do
                   local side=d0>0
-                  if(side) res[#res+1]=v0
+                  if(side) add(res,v0)
                   local d1=v1[3]-1
                   if (d1>0)!=side then
                     -- clip!
@@ -1441,7 +1440,7 @@ tline;17]]
                     v.w=32 -- 32/1
                     v.u=lerp(v0.u,v1.u,t)
                     v.v=lerp(v0.v,v1.v,t)
-                    res[#res+1]=v
+                    add(res,v)
                   end
                   v0,d0=v1,d1
                 end
@@ -1514,8 +1513,9 @@ tline;17]]
         -- add some lag to the tracking
         active_target=v_lerp(active_target or target,target,0.2+seed/16)
         local dir=v_dir(origin,active_target)
-        forces=v_add(forces,dir,seed)
-        forces[2]+=wobble*cos(time()/seed-10*seed)-wobble/4
+        forces[1]+=seed*dir[1]
+        forces[2]+=seed*dir[2]+wobble*cos(time()/seed-10*seed)-wobble/4
+        forces[3]+=seed*dir[3]
       end
       -- move head up/down
       yangle=lerp(yangle,-mid(velocity[2]/seed/2,-0.24,0.24),0.1)
@@ -1531,7 +1531,7 @@ tline;17]]
       if rnd()>0.25 then
         -- avoid others (noted: limited to a single grid cell)
         -- 21 = (x\32)>>16
-        local idx,fx,fy,fz=origin[1]>>21|origin[3]\32,unpack(forces)
+        local idx,fx,fy,fz=origin[1]>>21|origin[3]\32,forces[1],forces[2],forces[3]
         for other in pairs(_grid[idx]) do
           -- apply inverse force to other (and keep track)
           if not resolved[other] and other!=_ENV then
@@ -1549,10 +1549,11 @@ tline;17]]
             resolved[other]=true
           end
         end
-        forces={fx,fy,fz}
 
         -- 
-        velocity=v_add(velocity,forces,1/16)      
+        velocity[1]+=fx>>4
+        velocity[2]+=fy>>4
+        velocity[3]+=fz>>4
       end
 
       -- fixed velocity (on x/z)
@@ -1721,7 +1722,7 @@ function _update()
     local f=_futures[i].co
     -- still active?
     if f and costatus(f)=="suspended" then
-      assert(coresume(f))
+      coresume(f)
     else
       deli(_futures,i)
     end
