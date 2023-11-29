@@ -365,7 +365,7 @@ function make_bullet(_origin,_zangle,_yangle,_spread,ttl)
         _checked+=1
         yangle+=0.1
         local dx,dy,dz,ax,ay,az=velocity[1],velocity[2],velocity[3],origin[1],origin[2],origin[3]
-        local new_origin,len,hits=v_add(origin,velocity,10),10,{}
+        local new_origin,len,hits={ax+10*dx,ay+10*dy,az+10*dz},10,{}
         local x,y,z=new_origin[1],new_origin[2],new_origin[3]
         if y<0 then
           -- hit ground?
