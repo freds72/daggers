@@ -178,7 +178,7 @@ function draw_things(things,cam,fov,lightshift)
   for _,item in inext,cache do        
     local thing=item.thing
     local pal1=min(15,(lightshift*item.key)<<4)\1
-    if(pal0!=pal1) memcpy(0x5f00,0x8180+(pal1<<4),16) palt(15,true) pal0=pal1   
+    if(pal0!=pal1) memcpy(0x5f00,0xc180+(pal1<<4),16) palt(15,true) pal0=pal1   
     -- draw things
     local w0,entity,origin=item.key,thing.ent,thing.origin
     -- zangle (horizontal)
@@ -396,7 +396,7 @@ function menu_state(buttons,default)
       -- mouse cursor
       spr(5,_mx,_my)
       -- hw palette
-      memcpy(0x5f10,0x8000+_hw_pal,16)
+      memcpy(0x5f10,0xc000+_hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end
 end
@@ -495,7 +495,7 @@ end
 -- commnon "dialog background"
 function draw_dialog()
   poke(0x5f54,0x60)
-  memcpy(0x5f00,0x8180+5*16,16)
+  memcpy(0x5f00,0xc180+5*16,16)
   sspr(0,24,128,84,0,24)
   poke(0x5f54,0x00)
   pal()
@@ -674,7 +674,7 @@ function play_state()
   }
   local function draw_radius(r,light)
     local r2=r*r
-    memcpy(0x5f00,0x8180+((light\0.0625)<<4),16)
+    memcpy(0x5f00,0xc180+((light\0.0625)<<4),16)
     for y=0,63 do      
       local yy=31.5-y
       local d=r2-yy*yy
@@ -700,17 +700,17 @@ function play_state()
       message_time+=1
 
       -- move
-      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc404)
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xe404)
       if not launching then
-        if(stat(28,@0xc402)) dx=3
-        if(stat(28,@0xc403)) dx=-3
-        if(stat(28,@0xc400)) dz=3
-        if(stat(28,@0xc401)) dz=-3
+        if(stat(28,@0xe402)) dx=3
+        if(stat(28,@0xe403)) dx=-3
+        if(stat(28,@0xe400)) dz=3
+        if(stat(28,@0xe401)) dz=-3
         if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false
       end
       prev_jump=jump_down
 
-      dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0xe410*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)
@@ -730,7 +730,7 @@ function play_state()
       velocity[3]*=0.7
       -- gravity
       velocity[2]-=0.8
-      angle=v_add(angle,dangle,$0xc416/1024)
+      angle=v_add(angle,dangle,$0xe416/1024)
       -- limit x amplitude
       angle[1]=mid(angle[1],-0.24,0.24)
 
@@ -896,7 +896,7 @@ function play_state()
       end
 
       --pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
-      memcpy(0x5f10,0x8000+_hw_pal,16)
+      memcpy(0x5f10,0xc000+_hw_pal,16)
     end
 end
 
@@ -938,7 +938,6 @@ function _init()
   -- custom font
   -- source: https://somepx.itch.io/humble-fonts-tiny-ii
   ?"\^@56000800⁴⁸⁶\0\0¹\0\0\0\0\0\0\0 \0\0\0 \0²\0\0\0\0■■■■■\0\0\0▮¹■■▒■ ■■■」!■\0\0\0▮■■▮\0■!■■■■!■\0\0²\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0⁷⁷⁷⁷⁷\0\0\0\0⁷⁷⁷\0\0\0\0\0⁷⁵⁷\0\0\0\0\0⁵²⁵\0\0\0\0\0⁵\0⁵\0\0\0\0\0⁵⁵⁵\0\0\0\0⁴⁶⁷⁶⁴\0\0\0¹³⁷³¹\0\0\0⁷¹¹¹\0\0\0\0\0⁴⁴⁴⁷\0\0\0⁵⁷²⁷²\0\0\0\0\0\0\0‖\0\0\0\0\0\0¹²\0\0\0\0\0\0³³\0\0\0⁵⁵\0\0\0\0\0\0²⁵²\0\0\0\0\0\0\0\0\0\0\0\0\0²²²²\0²\0\0\n⁵\0\0\0\0\0\0\n゜\n゜⁸\0\0\0⁷³⁶⁷²\0\0\0⁵⁴²¹⁵\0\0\0\0⁴²◀\t◀\0\0²¹\0\0\0\0\0\0²¹¹¹¹²\0\0²⁴⁴⁴⁴²\0\0⁵²⁷²⁵\0\0\0\0²⁷²\0\0\0\0\0\0\0²¹\0\0\0\0\0⁷\0\0\0\0\0\0\0\0\0²\0\0\0⁴²²²¹\0\0\0⁶\t\rᵇ⁶\0\0\0²³²²⁷\0\0\0⁷ᶜ⁶¹ᶠ\0\0\0⁷ᶜ⁶⁸ᶠ\0\0\0⁵⁵ᶠ⁴⁴\0\0\0ᶠ¹⁶ᶜ⁷\0\0\0⁴²⁷\t⁶\0\0\0ᶠ⁸⁴²²\0\0\0⁶\t⁶\t⁶\0\0\0⁶\tᵉ⁴²\0\0\0\0²\0²\0\0\0\0\0²\0²¹\0\0\0⁴²¹²⁴\0\0\0\0⁷\0⁷\0\0\0\0¹²⁴²¹\0\0\0²⁵⁴²\0²\0\0²⁵⁵¹⁶\0\0\0\0⁶⁸ᵇ⁶\0\0\0¹⁵\t\t⁶\0\0\0\0⁶¹¹⁶\0\0\0⁸\n\t\t⁶\0\0\0\0ᵉ\t⁵ᵉ\0\0\0ᶜ²ᵉ³²¹\0\0\0ᵉ\t\r\n⁴\0\0¹⁵ᵇ\t\t⁴\0\0²\0³²²⁷\0\0\0ᶜ⁸⁸\t⁶\0\0¹\t⁵ᵇ\t⁴\0\0¹¹¹¹⁶\0\0\0\0\n▶‖‖\0\0\0\0⁶\t\t\t\0\0\0\0⁶\t\t⁶\0\0\0\0⁶\t\t⁵¹\0\0\0⁶\t\t\n⁸\0\0\0\rᵇ¹¹\0\0\0\0ᵉ³⁸ᶠ\0\0\0\0²ᵉ³²ᶜ\0\0\0\t\t\t⁶\0\0\0\0\t\t⁵³\0\0\0\0‖‖‖ᵇ\0\0\0\0\t⁶⁴\t\0\0\0\0\t\tᵇ⁴³\0\0\0⁷⁴²⁷\0\0\0³¹¹¹¹³\0\0¹¹³²²\0\0\0⁶⁴⁴⁴⁴⁶\0\0²⁵\0\0\0\0\0\0\0\0\0\0⁷\0\0\0²⁴\0\0\0\0\0\0⁶\tᵇ\r\t\t\0\0⁶\t⁵ᵇ\t⁷\0\0⁶\t¹¹\t⁶\0\0³⁵\t\t\t⁷\0\0⁶¹⁵³\t⁶\0\0⁶¹⁵³¹¹\0\0⁶¹¹\r\t⁶\0\0⁵⁵⁵⁷⁵⁵\0\0⁷²²²²⁷\0\0ᵉ⁸⁸⁸\t⁶\0\0\t\t⁵ᵇ\t\t\0\0²¹¹¹\t⁷\0\0\n▶‖‖‖‖\0\0\nᵇ\r\t\t\t\0\0⁶\t\t\t\t⁶\0\0⁶\t\t\r¹¹\0\0⁶\t\t\t\r\n\0\0⁶\t\t⁵ᵇ\t\0\0ᵉ³⁶⁸⁸⁷\0\0ᶜ³²²²²\0\0\t\t\t\t\t⁶\0\0\t\t\t\t⁵³\0\0‖‖‖‖▶\r\0\0\t\t\t⁶\t\t\0\0\t\t\tᵇ⁴³\0\0⁷⁴²¹¹⁷\0\0⁶²³²⁶\0\0\0²²²²²\0\0\0³²⁶²³\0\0\0\0²‖ᶜ\0\0\0\0\0²⁵²\0\0\0\0○○○○○\0\0\0U*U*U\0\0\0<~j4、\0\0\0>ccw>\0\0\0■D■D■\0\0\0⁴<、゛▮\0\0\0⁸*>、、⁸\0\0006>>、⁸\0\0\0、\"*\"、\0\0\0、、>、⁘\0\0\0、>○*:\0\0\0>gcg>\0\0\0○]○A○\0\0\0008⁸⁸ᵉᵉ\0\0\0>ckc>\0\0\0⁸、>、⁸\0\0\0\0\0U\0\0\0\0\0>scs>\0\0\0⁸、○>\"\0\0\0「$JZ$「\0\0>wcc>\0\0\0\0⁵R \0\0\0\0\0■*D\0\0\0\0>kwk>\0\0\0○\0○\0○\0\0\0UUUUU\0\0\0⁸、>\\Hp\0\0\0▮ |:□\0\0「$タししタ\0\0⁸、>⁸\">\0\0\0000JF.\0\0\0\0゛zz~x\0\0、\">>>>\0\0⁴ᶜ、、ᶜ⁴\0\0⁸>、⁸\">\0\0「<~~<「\0\0\0*\0*\0*\0\0\0>\"\"\">\0\0\0 1•ᵉ⁴\0\0⁸>\0**>\0\0\0\0\0\0\0\0\0\0²⁷2²2\0\0\0ᶠ²ᵉ▮、\0\0\0>@@ 「\0\0\0>▮⁸⁸▮\0\0\0⁸8⁴²<\0\0\0002⁷□x「\0\0\0zB²\nr\0\0\0\t>Kmf\0\0\0¥'\"s2\0\0\0<JIIF\0\0\0□:□:¥\0\0\0#b\"\"、\0\0\0ᶜ\0⁸*M\0\0\0\0ᶜ□!@\0\0\0}y■=]\0\0\0><⁸゛.\0\0\0⁶$~&▮\0\0\0$N⁴F<\0\0\0\n<ZF0\0\0\0゛⁴゛D8\0\0\0⁘>$⁸⁸\0\0\0:VR0⁸\0\0\0⁴、⁴゛⁶\0\0\0⁸²> 、\0\0\0\"\"& 「\0\0\0>「$r0\0\0\0⁴6,&d\0\0\0>「$B0\0\0\0¥'\"#□\0\0\0ᵉd、(x\0\0\0⁴²⁶+」\0\0\0\0\0ᵉ▮⁸\0\0\0\0\n゜□⁴\0\0\0\0⁴ᶠ‖\r\0\0\0\0⁴ᶜ⁶ᵉ\0\0\0> ⁘⁴²\0\0\0000⁸ᵉ⁸⁸\0\0\0⁸>\" 「\0\0\0>⁸⁸⁸>\0\0\0▮~「⁘□\0\0\0⁴>$\"2\0\0\0⁸>⁸>⁸\0\0\0<$\"▮⁸\0\0\0⁴|□▮⁸\0\0\0>   >\0\0\0$~$ ▮\0\0\0⁶ &▮ᶜ\0\0\0> ▮「&\0\0\0⁴>$⁴8\0\0\0\"$ ▮ᶜ\0\0\0>\"-0ᶜ\0\0\0、⁸>⁸⁴\0\0\0** ▮ᶜ\0\0\0、\0>⁸⁴\0\0\0⁴⁴、$⁴\0\0\0⁸>⁸⁸⁴\0\0\0\0、\0\0>\0\0\0> (▮,\0\0\0⁸>0^⁸\0\0\0   ▮ᵉ\0\0\0▮$$DB\0\0\0²゛²²、\0\0\0>  ▮ᶜ\0\0\0ᶜ□!@\0\0\0\0⁸>⁸**\0\0\0> ⁘⁸▮\0\0\0<\0>\0゛\0\0\0⁸⁴$B~\0\0\0@(▮h⁶\0\0\0゛⁴゛⁴<\0\0\0⁴>$⁴⁴\0\0\0、▮▮▮>\0\0\0゛▮゛▮゛\0\0\0>\0> 「\0\0\0$$$ ▮\0\0\0⁘⁘⁘T2\0\0\0²²\"□ᵉ\0\0\0>\"\"\">\0\0\0>\" ▮ᶜ\0\0\0> < 「\0\0\0⁶  ▮ᵉ\0\0\0\0‖▮⁸⁶\0\0\0\0⁴゛⁘⁴\0\0\0\0\0ᶜ⁸゛\0\0\0\0、「▮、\0\0\0⁸⁴c▮⁸\0\0\0⁸▮c⁴⁸\0\0\0"
-  -- reset screen rebasing
   -- enable custom font
   -- enable tile 0 + extended memory
   -- capture mouse
@@ -947,8 +946,6 @@ function _init()
   exec[[poke;0x5f58;0x81
 poke;0x5f36;0x18
 poke;0x5f2d;0x7
-poke;0x5f54;0x00;0x60
-_map_display;0
 reload
 cartdata;freds72_daggers]]
 
@@ -976,7 +973,7 @@ cartdata;freds72_daggers]]
   end
 
   -- HW palette + fade to black
-  local src,dst=0x0,0x8000
+  local src,dst=0x0,0xc000
   memcpy(dst,src,16*16)
   dst+=0x100
   src+=0x100
@@ -995,11 +992,11 @@ cartdata;freds72_daggers]]
   end
   -- set pal 15 as transparent for hit+upgrade+distance palette
   for j=0,279 do
-    local mem=0x8100+16*j+15
+    local mem=0xc100+16*j+15
     poke(mem,@mem|0x10)
   end
   -- level up: hand palettes
-  dst=0xd500
+  dst=0xf500
   split2d([[15;15;15;15;15;15;15;15;15
 15;7;6;9;8;9;6;7;15
 15;10;11;13;14;13;11;10;15]],
@@ -1038,7 +1035,7 @@ cartdata;freds72_daggers]]
   reload(0, 0, 0x3100) 
   px9_decomp(0,0,0x1240,sget,sset)
   -- copy tiles to high mem (for shadows/splash)
-  local mem=0xc500
+  local mem=0xe500
   for i=0,64*64-1,64 do
     -- copy the same row twice
     memcpy(mem,i+32,32) mem+=32
@@ -1141,9 +1138,9 @@ cartdata;freds72_daggers]]
     dset(id,ord(btn.ch))
     dset(id+1,btn.stat)
   end
-  -- copy settings to 0xc400  
+  -- copy settings to 0xe400  
   local function pack_key(btn)
-    poke(0xc400+btn.id,btn.stat)
+    poke(0xe400+btn.id,btn.stat)
   end
   local function pack_settings()
     for _,btn in inext,_settings do
@@ -1213,7 +1210,7 @@ cartdata;freds72_daggers]]
     save=save_value,
     cb=flip_bool,
     pack=function(btn)
-      poke4(0xc410,btn.value==1 and -1 or 1)
+      poke4(0xe410,btn.value==1 and -1 or 1)
     end
     },
     {function(btn)
@@ -1227,7 +1224,7 @@ cartdata;freds72_daggers]]
     pack=function(btn)
       local a,b=4,5
       if(btn.value==1) a,b=b,a
-      poke(0xc414,a,b)
+      poke(0xe414,a,b)
     end
     },
     {function(btn)
@@ -1241,7 +1238,7 @@ cartdata;freds72_daggers]]
       btn.value=((btn.value+1)%#sensitivity)
     end,
     pack=function(btn)
-      poke4(0xc416,sensitivity[btn.value+1]/100)
+      poke4(0xe416,sensitivity[btn.value+1]/100)
     end
     },
     {function(btn)

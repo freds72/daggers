@@ -1,8 +1,8 @@
 -- global arrays
 local _bsp,_things,_futures,_spiders,_squid_ts,_noise_offs,_cam,_grid,_entities={},{},{},{},{{},{},{}},{}
 -- must be globals
-_fire_ttl,_piercing,_hand_pal=3,0,0xd500
-local _G,_slow_mo,_ramp_pal=_ENV,0,0x8180
+_fire_ttl,_piercing,_hand_pal=3,0,0xf500
+local _G,_slow_mo,_ramp_pal=_ENV,0,0xc180
 
 -- misc helpers
 function with_properties(props,dst)
@@ -86,17 +86,17 @@ function wait_jewels(n)
   local prev=_total_jewels
   while _total_jewels<n do
     if _total_jewels!=prev then
-      exec[[set;_hw_pal;0x80d0
+      exec[[set;_hw_pal;0xc0d0
 yield
-set;_hw_pal;0x80e0
+set;_hw_pal;0xc0e0
 yield
-set;_hw_pal;0x80f0
+set;_hw_pal;0xc0f0
 yield
-set;_hw_pal;0x80e0
+set;_hw_pal;0xc0e0
 yield
-set;_hw_pal;0x80d0
+set;_hw_pal;0xc0d0
 yield
-set;_hw_pal;0x8000
+set;_hw_pal;0xc000
 yield]]
     end
     -- update with current total (avoids overlapping "flash" effects)
@@ -109,14 +109,14 @@ end
 function levelup_async(t)
   -- 30 frames at 1/8 steps
   for j=0.125,t<<2,0.125 do
-    _ramp_pal=0x8280+((-127*sin(j/(t<<3)))&15)*16
+    _ramp_pal=0xc280+((-127*sin(j/(t<<3)))&15)*16
     _slow_mo+=1    
     if(j==t<<1) sfx"56"
     yield()
   end
 
   -- restore state
-  _ramp_pal,_slow_mo=0x8180,0
+  _ramp_pal,_slow_mo=0xc180,0
 end
 
 function get_spawn_origin(dist,angle)       
@@ -191,17 +191,17 @@ function make_player(_origin,_a)
     control=function(_ENV)
       if(dead) return
       -- move
-      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc404)
-      if(stat(28,@0xc402)) dx=3
-      if(stat(28,@0xc403)) dx=-3
-      if(stat(28,@0xc400)) dz=3
-      if(stat(28,@0xc401)) dz=-3
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xe404)
+      if(stat(28,@0xe402)) dx=3
+      if(stat(28,@0xe403)) dx=-3
+      if(stat(28,@0xe400)) dz=3
+      if(stat(28,@0xe401)) dz=-3
       if(on_ground and jump_down) jmp,on_ground=24 sfx"58"
 
       -- straffing = faster!
 
       -- pressed?
-      if btn(@0xc415) then
+      if btn(@0xe415) then
         -- first press 
         if not fire_t then
             fire_t=time()
@@ -220,7 +220,7 @@ function make_player(_origin,_a)
           end
       end
       
-      dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0xe410*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
@@ -244,7 +244,7 @@ function make_player(_origin,_a)
       fire_ttl=max(fire_ttl-1)
       shotgun_ttl=max(shotgun_ttl-1)
 
-      angle=v_add(angle,dangle,$0xc416/1024)
+      angle=v_add(angle,dangle,$0xe416/1024)
       -- limit x amplitude
       angle[1]=mid(angle[1],-0.24,0.24)
       -- check next position
@@ -449,9 +449,8 @@ function draw_grid(cam)
   local m1,m5,m9,m2,m6,m10,m3,m7,m11=m[1],m[5],m[9],m[2],m[6],m[10],m[3],m[7],m[11]
 
   -- clear shadows
-	-- draw shadows
-  exec[[_map_display;1
-poke;0x5f54;0x00;0x60
+	-- draw shadows to writable texture
+  exec[[poke;0x5f55;0x80
 poke;0x5f5e;0b00001000
 rectfill;0;0;127;127;0
 poke;0x5f5e;0b10001000]]
@@ -477,10 +476,9 @@ poke;0x5f5e;0b10001000]]
       end
     end
   end
-  -- default transparency
-  exec[[poke;0x5f5e;0xff
-poke;0x5f54;0x60;0x00
-_map_display;0
+  -- draw offscreen + reset transparency
+  exec[[poke;0x5f55;0xa0
+poke;0x5f5e;0xff
 poke;0x5f0f;0x1f
 poke;0x5f00;0x00]]
 
@@ -960,25 +958,25 @@ local _hand_y=0
 function draw_world()
   cls()
 
-  -- draw mini bsp
+  -- draw mini bsp 
+  -- draw to offscreen buffer   
+  poke(0x5f55,0xa0)
+  memset(0xa000,0,0x2000)
   _bsp[0](_cam)
+  poke(0x5f55,0x60)
 
   -- tilt!
-  -- screen = gfx
-  -- reset palette
-  
   local yshift=sin(_cam.tilt)>>3
-  memcpy(0xa380,0x6000,0x2000)
   for i=0,63,4 do
-    -- 0xbc80 = 0x6000-0xa380
+    -- 0xc000 = 0x6000-0xa000
     -- offset = dst -  src
-    local off=((((i-31.5)*yshift+0.5)\1)<<6)+0xbc80
+    local off=((((i-31.5)*yshift+0.5)\1)<<6)+0xc000
     -- copy from y=4 to y=123 
-    for src=0xa480+i,0xc240+i,64 do
+    for src=0xa100+i,0xbec0+i,64 do
       poke4(src+off,$src)
     end
   end
-
+  
   -- hide trick top/bottom 8 pixel rows :)
   -- draw player hand (unless player is dead)
   _hand_y=lerp(_hand_y,_plyr.dead and 127 or abs(_plyr.xz_vel*cos(time()/2)*4),0.2)
@@ -1021,12 +1019,11 @@ end
 
 -- gameplay state
 function play_state()
-  -- clean up stains!
+  -- clean up stains on writable texture
   -- force GC
-  exec[[_map_display;1
-memcpy;0;0xc500;4096
-memcpy;4096;0xc500;4096
-_map_display;0
+  exec[[memcpy;0x8000;0xe500;0x1000
+memcpy;0x9000;0xe500;0x1000
+poke;0x5f55;0x60
 set;_total_jewels;0
 set;_total_bullets;0
 set;_total_hits;0
@@ -1076,7 +1073,7 @@ memcpy;0x3420;0xfd14;0x2ec]]
     function()      
       exec[[sfx;-1
 music;44
-set;_hw_pal;0x8000]]
+set;_hw_pal;0xc000]]
       -- must be done *outside* async update loop!!!
       _futures,_total_things,_total_time,_time_inc={},0,0,0x0.0001
       -- scenario
@@ -1099,7 +1096,7 @@ next_state;gameover_state;lIBERATED;256;0.01]]
       exec[[set;_fire_ttl;3
 set;_shotgun_count;10
 set;_shotgun_spread;0.025
-set;_hand_pal;0xd500
+set;_hand_pal;0xf500
 set;_piercing;0
 //;level 1
 wait_jewels;10
@@ -1113,7 +1110,7 @@ wait_jewels;70
 set;_fire_ttl;2
 set;_shotgun_count;25
 set;_shotgun_spread;0.033
-set;_hand_pal;0xd509
+set;_hand_pal;0xf509
 set;_piercing;1
 sfx;-1
 music;52
@@ -1277,11 +1274,11 @@ dset;0;2]]
       draw_world()
       if ttl<30 then
         exec[[palt;0;false
-poke;0x5f54;0x00
-memcpy;0x5f00;0x8200;16
-sspr;0;24;128;84;0;24
 poke;0x5f54;0x60
-memcpy;0x5f00;0x8270;16
+memcpy;0x5f00;0xc200;16
+sspr;0;24;128;84;0;24
+poke;0x5f54;0x00
+memcpy;0x5f00;0xc270;16
 poke;0x5f00;0x10
 arizona_print;hIGHSCORES;1;8
 line;1;24;126;24;4
@@ -1306,7 +1303,7 @@ line;1;108;126;108;4]]
         spr(20,mx,my)
       end
       -- hw palette
-      memcpy(0x5f10,0x8000+hw_pal,16)
+      memcpy(0x5f10,0xc000+hw_pal,16)
       
       -- auto gif!!!
       if(ttl==1 and dget"45"==1 and new_best_i==1 and _total_time>0x0.0384) extcmd"video"
@@ -1325,14 +1322,9 @@ function _init()
   -- copy tiles to spritesheet 1
   -- todo: put back tline precision
   exec[[poke;0x5f58;0x81
-poke;0x5f36;9
+poke;0x5f36;8
 poke;0x5f2d;0x7
-poke;0x5f54;0x60;0x00
-memcpy;0x0;0x6000;0x2000
-_map_display;1
-memcpy;0;0xc500;4096
-memcpy;4096;0xc500;4096
-_map_display;0
+poke;0x5f54;0x00;0x60
 cls
 cartdata;freds72_daggers
 tline;17]]
@@ -1447,14 +1439,14 @@ tline;17]]
                 verts=res
               end
     
-              -- texture
+              -- texture selection
               poke4(0x5f38,planes[i+8])
-              _map_display(planes[i+9])
+              poke(0x5f54,0x80)-- planes[i+9])
               mode7(verts,#verts,_ramp_pal+0x1100)  
             end
           end
         end
-        _map_display(0)
+        poke(0x5f54,0x0)
       end
     end)
   -- attach world draw as a named BSP node
@@ -1732,8 +1724,7 @@ function _update()
   --
   if _slow_mo%2==0 then
     -- draw on tiles setup
-    exec[[_map_display;1
-poke;0x5f54;0x00;0x60
+    exec[[poke;0x5f55;0x80
 poke;0x5f5e;0b11110110]]  
 
     -- distance based sfx
@@ -1820,8 +1811,7 @@ poke;0x5f5e;0b11110110]]
 
     -- revert
     exec[[poke;0x5f5e;0xff
-poke;0x5f54;0x60;0x00
-_map_display;0]]
+poke;0x5f55;0x60]]
   end
 
   _update_state()
