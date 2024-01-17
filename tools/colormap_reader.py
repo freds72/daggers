@@ -318,6 +318,7 @@ def main():
   parser.add_argument("--jewel-color", type=int, help="jewel grab color index")
   parser.add_argument("--ramp-mode", type=str, default="rgb", help="Interpolation space (default: rgb)")
   parser.add_argument("--export", type=str, help="Export image only")
+  parser.add_argument("--export-gif", type=str, help="Export animated palette")
 
   args = parser.parse_args()
   
@@ -328,8 +329,7 @@ def main():
   # fade to white - logical colors (8 levels)
   # upgrade ramps - logical colors (16 ramps)
 
-  tmp = Image.new("RGB",(16, 16*16*2+16*3+8),0)
-
+  palette_strip = Image.new("RGB",(16, 16*16*2+16*3+8),0)
   out = bytearray()  
   palette = Palette(args.palette)
   global yoffset
@@ -338,8 +338,8 @@ def main():
     global yoffset
     for i,idx in enumerate(data):
       rgb = pico8_to_rgb[pal(idx)]
-      tmp.putpixel((i%16,(i//16 + yoffset)),rgb)
-    yoffset += len(data)//16
+      palette_strip.putpixel((i%16,(i//16 + yoffset)),rgb)
+    yoffset += len(data)//16    
     return data
 
   palette.register("shadows", args.shadow_palette)
@@ -355,7 +355,40 @@ def main():
   out += squeeze(with_export_to_img(palette.animate(args.upgrade_color, palette="shadows")))
 
   if args.export:
+    tmp = Image.new("RGB",(512, 512),0)
+    base = 0
+    y = 0
+    for i in (12,4,8):
+      pals = palette_strip.crop((0,base,16,base+i))
+      tmp.paste(pals,(0,y))
+      base+=i
+      y+=i+2
+    tmp.save("tmp.png","PNG")
+
+    pals = palette_strip.crop((0,base,16,base+16))
+    tmp.paste(pals,(18,0))
+    base += 16+16*16
+    pals = palette_strip.crop((0,base,16,base+16))
+    tmp.paste(pals,(18,18))
+
+    # animated strips
+    base = 12+4+8+16
+    for i in range(16):
+      pals = palette_strip.crop((0,base+i*16,16,base+(i+1)*16))
+      tmp.paste(pals,(36 + i*16,0))
+
+    base += 16*16+16
+    for i in range(16):
+      pals = palette_strip.crop((0,base+i*16,16,base+(i+1)*16))
+      tmp.paste(pals,(36 + i*16,18))
     tmp.save(args.export,"PNG")
+  elif args.export_gif:
+    gifs = []
+    for i in range(16):
+      y0 = 12+4+8+16+i*16
+      frame = palette_strip.crop((0,y0,16,y0+16)).resize((384,384),resample=Image.Resampling.NEAREST)
+      gifs.append(frame)
+    gifs[0].save(f'{args.export_gif}',save_all=True, append_images=gifs[1:], optimize=False, duration=40, loop=0)    
   else:
     cstore(out,"D:\\pico-8_0.2.5","..\\carts","freds72_daggers_title",0x0)
     run_cart("D:\\pico-8_0.2.5","..\\carts","title_assets",len(out))

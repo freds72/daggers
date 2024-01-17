@@ -853,7 +853,7 @@ function play_state()
         draw_radius(32-r*r,0.99)
         poke(0x5f55,0x60) 
 
-        mode7(verts,#verts,0x9280)        
+        mode7(verts,#verts,0xd280)    
       end
 
       if not launching then
