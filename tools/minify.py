@@ -81,11 +81,15 @@ cstore(0,0,mem,"freds72_daggers_editor.p8")
       with open(f"carts/{game_file}_mini.p8", "w", encoding='UTF-8') as dst:
         dst.write("\n".join(cart))
 
-  print("BINARY EXPORTS")
+  print("HMTL EXPORTS")
 
-  print("Manual steps: ")
   print("load freds72_daggers_title_mini.p8")
   print(f"export daggers_{args.release}.html -p fps freds72_daggers_mini.p8 freds72_daggers_editor_mini.p8")
+
+  print("BINARY EXPORTS")
+
+  print("load freds72_daggers_title_mini.p8")
+  print(f"export daggers_{args.release}.bin freds72_daggers_mini.p8 freds72_daggers_editor_mini.p8")
 
   # run_cart([os.path.join(args.pico,"pico8"),"-home",".",f"carts/freds72_daggers_title_mini.p8","-export",f"dagger_{args.release}.html","-p","fps.html","freds72_daggers_mini.p8","freds72_daggers_editor_mini.p8"])
 
