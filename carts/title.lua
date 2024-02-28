@@ -603,14 +603,14 @@ function credits_state()
     "cODE & GFX: fREDS72",
     "mUSIC & SFX: rIDGEK",
     "eXTRA GFX: aRTYOM bRULLOV",
-    "tITLE aRT: hERACLUM",
+    "tITLE aRT: hERACLEUM",
     "fONT: LITHIFY BY SOMEPEX",
     "",
     "sPECIAL tHANKS TO:",
     "sORATH & zEP",
     "mISS mOUSE",
     "eXTRA TESTING: wERXZY",
-    "fAMILLY & PICO8 dISCORD"},true)
+    "fAMILY & PICO8 dISCORD"},true)
   next_state(menu_state,{
     {"bACK",111,
     cb=function() 
