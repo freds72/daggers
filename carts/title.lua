@@ -2,7 +2,7 @@
 local _entities={}
 local _hw_pal=0
 
-local title_img="◝◝ヲ○◝◝♥や²うめ◝◝ネり◝ョヘ○フ█ュaりaᶠ◝ネれス~□ ヌ\0▮B★▮\n$◆◜0∧⁸	\n@BるHカDロ\0、█\0█`$?ワ…t█▤▮`BPHY◀D✽「1 \0♥◝そcらN@゜⬅️wXけBC★▮◝ムbQ\0ナ\0\n○◝ス。³◝◝◝◝◝マ3◆チ◝◝I◝き◝◜セラ○□エら◝◜qオLセ○░チ@つセ◝ュC█さHた◝😐⬇️⌂Y▶こ◝ホゅ➡️\n○マL,Hえ゜ョウ\"@Cロル\0ョょENᶠ◜f$☉ᶠク…*t~░)🅾️Oョす\"HCリd…かの~d⁘c⧗◝1☉そcレヒ,🅾️ャら2~つま⁵NOュ&⁘SヲオさフQカPかろつ@ノ◝ᶜC゜ん0)9XおQ▮かもな\nr○⁶!◆ヌHEのs(|ᵇ$ョハpS⧗レ8!◆ヌHI#▥゜▤,⧗ワ➡️り🅾️ᶠアわ1ュI	$s#レ⁵?웃'⁶9=)そ♥ワd★ょ8ˇャ🐱I?✽✽こ⬇️。⁘を?ょ$∧ゃ⬆️○▮のOマW⁷⁷⁶)😐○★BI」!ュ∧ゃ?キう▤⁘ひcュ★□Yfち◜ゃ%'ロqF1カゃ◜セ%へMiョ∧ょ?れこの▤んョ#Uあつャ-の○せ&1そんョdあセ2◝し★⧗◝¹hナナノ◝りdあょ?リゃ	◝。¥⁘ノ◝れ#웃⁴◝イ$'◜³これ⬇️◝ᶜ⧗い$ぬ◜ウ*?ユえ⁘す?ヨっマI◆ュVI◝☉ノケp○ヌの;★X○'(Oュ19けうかヲけᵉノ▤ョエᶠュ2Nっr○ネ…*ᵇ$んマ@p○ヌ★tS⬇️◝、…Xq$んヒXr○ネ★tᵉOュˇ■‖&Bcネ\"さ◝ク$ヘ「◝ゅ🐱BC░「ヘニ1◝すGPナ◝ょQ!aア◆◝ナゃ:⁶?ラスHhr⬇️ラNᶠョ2?⁙◝4@♥\0ヒGゃカOュゃヲ゜ッ*▮ヘ●➡️ソx○マ웃ヨ◝けりᶠJ$Tッけかンさ|○ヘのE★~0$Oろせ◜⬇️ネ◝L!◝ュヲ|○マ█◝ケ○ホ>?レ$のOり□I$レ1◝けIヨ◝ちIᶠり:★~'◜こネ◝\\◀。ろ★N)9,◆ョ)ヲ゜ャ$⬅️ᵉK$モI⬅️#◝Z|○メヌD⁸AさDN⁙た'◜ひュᶠョキB⁙$Hえせ)◝まッ◆ョのD⧗お$E=Oョゃン゜ャカax웃、。せ◜ノュエ◜HHX☉えI⁷◜ルュエ◜ ☉AソI゜ュ\"~g◝4✽N◆◜➡️?C◝★u⁙⬆️▮◝ト$ョO◝\0ル◝ツ⬇️レ?ャれユ?ワCワこ◝😐😐\0²⧗◝t?⧗◝|➡️\nv!◝ひ◜エ◜⁷◝ユᶠル◝◝a◜か◝ヘこ◝¹◝◜cル♥ヌ○◝…ョAヲかつPXxb🐱るるるるれ゜★~…ュエキ9D█▤⁴♥²▮▮▮▮▮▮…ッれル!ンかすきA\0▮ミ\0ぬ███ま⁷んモᶠサ◆ろ`BC∧ナうき~Pフ⁷⬆️○⁴?sハヒゅ゜ウ⁸⁸⁵¹E♥Gルcワ=➡️れ/'rよ⁸XXAら⁵:★○+ゃャか9L□、▮ヘQく¹¹(²C⬇️ッ;?z?◝う○Gせラ○◝0◜◆ら◜h◝◜'\0◜◆っ◜ヘ◝ャGュ~♥ャG◝z?ユかね◝🐱◆◜g◜3ヲ?ヨQ◝へ◆ュgル○ノナ゜ヲヲ⁷◜S◜?リ○ネ\0\0\0³◝9◝😐◝◝)◝⬆️◝◝」ッN_の○◝tョエナ◝◜セャし?d◝◜ゃャせ⁷ユか◝ク?░ム◜⧗◝ンせルか゜ゅ○◝,◜⧗ヨ?ひ◝◜)ョせヘ○た◝ヲ◝Sワ?ユせ◝C◝□○'◜4◝チ○ネOュ⁷◜さョエョI◝⬆️◝◝」ッ4?C◝ャせメ\n~♥◝ロエスノョ◆◝マかみホッか◝ク?sヨ?⧗◝ン⁷ラ~んラ○◝ᶜ◜エナ◝ᶠ◝Gュ○♥ッ○ラ?ユ゜ヲOュg◜s◝!◝😐◝オ○'◜⧗◝Y◝ョ⧗◝➡️◝ョc◝た◝ョ⁙◝ニ◝ュ⧗◝ヲg◝ヨᶠ◝ハ゜◜エ◝ム゜ッᶠ◝リかカ◝◝ワ`"
+local title_img="◝◝ヲ○◝◝♥テ█➡️け◝k○◝◝ュ█?◝やᶠュユ゜😐8,!◝ュx{ᶠるD、@²⁸RB¹D➡️◝を□り¹!H⁸XI¥(おら³…\0▮ᶜ⁴♥◜ラᵉ…⁙²ᶜ⁸J	ᵇ\"っ…こ⁶$\0▮◝レᶜx	っ³ヨnミ⁘HHrB゜ョ😐J 、\0¹O◝ャ³き○◝◝◝◝ョIqユり◝◜う、\rを♪`dの$\0◝◜ニ■Q³」3ょ\0…ヒ%サ/◝ル(さ😐⬅️mけ▶ノ▒')n³U…♥◝ヨ!‖$5ユ★ミ⁴ョ8⁴わのaA⁸♪ᶠ◝る🐱へ▥{れSト\0•まめ[R♪-ねRを♥◝x⁶5rふ□)⁷t$む マLヤD✽D▤Rを゜ュゃHア\"★#HtH☉░フ█m▮BBろq8★U♥◜キけゃ\n、ゃ³웃‖ら…⁸Oら▤¥I²っ☉FXDつ⁙◝1➡️けをS▤4W「Jうリら8K■⁷!Zᵇ□A\"-Oュ&•░⁴!¹$も웃!9まムノおBH8◀ハヌテ+웃'ヲaヲY5➡️²➡️E-²Zf♪ハ¥くア★■³🐱pけょ!V7ユjG■ nRᶜ⬆️░➡️アぬか³⌂웃Qi\"⁵ᵉ\"く9?S█Mり⁴'	▮▮[□'S?8!ᵉ⁷□Hq$➡️bZ░9?3☉²(ゆ⁴\n^⁴■\r#ワ░☉⁸!,	て。@N◆L(け□ᵉ⁴4♥4Kᵉ▮~t⁴8カ□「🐱²D⁸ᵉᵉ😐K⁸🐱😐³さニ⁸そキ?う\n(BI⁸★@$☉を⁙⧗◀□Bる□る⁸xろネDp!ン。2ノナノ⌂▮のT)っ)&,😐L▮◀A4A,8AャらH!$I□D⬇️I&…く…ん5&DKb\"Dね$$A	D◀゜くて$DE➡️わ¹★N□⌂ア\\Eぬᵉ¹ 6ぬA☉たオ?そA▮ \"$▤の4JS▶■⁸j웃➡️8,▮P)イ⁸|r▒PD★⌂4!!\"C⬇️BらK⁸▮…¹B	ᵉ🐱「せメ\rっB⁙D…⁴さ░D█4%\"■ け q²すそQ□XsGオ◀	⁸☉□カ	Rn□A⁷も…8▮(웃`░ろ▒ろ□➡️)Oテ웃░\r¹⁘⁸□ヘ░@りaH♪⁸⁷‖\"¥るC▶🐱@ひvZ⁴I	!ゃ¹$★∧⁴く⁶)▮!■⁙⬆️R %@「u⁴▒¹っJ`,)4□²	▮%、ら⬆️░ナ🐱ノ⁸yけ,⌂なく$なさHB「ん⁵ナ☉H▒$HI.⁴⁴の=の⁴░D'⁸FへA■Q*▮('□$\0웃ᵇA、り「うり%2I ぬ🐱🅾️🐱j★B□Wナ◀ᵉケT⁸I,E✽ノ░ね¹	*K☉\n゛!\0!\0□⁴¥さ²A)く:カ¹\"\"I\0B⁸░ナ X★…▒■E✽²\n웃ˇ$G■⁴▮u□⬆️I⁸II⁘Ta⁶★⁵'□BX	ら$]²L➡️■eX-、\"9のH そ…²つA$☉4★Dれふ⁴ᶜ¹ゅ-➡️*りEキ\"り□A▒$A\"ゅKH…く(☉のてへY²D	□⁘ケ!ケしEノ	☉⁸░XDiV⁴⁸ ▮さヒ▮QT♪◀M\0e$🐱ᵇら▮ぬTBDQ	D⬇️█⁴	y\"▮@➡️゜⬆️★웃!#▒aPhU¹イI□ B。@✽★とˇろし,の9□えさひ ★\"\0◀□くAI%★■*ワ★%HLr9(p★し⁙▒⁴🐱➡️➡️‖!⁘(Bワ■■$BI,へ□Wミ□Q%…ロ$カ゜RD■%G█s$#ま☉⬅️さH…k□゜ケ★$くᶠi>░□⁸⁷メJ🐱ゃ⁵●\"$☉\"○…ぬp➡️=★⁴;$Kっ➡️ョれDぬ………H◝t²DXお░…ユネ■◝🅾️¹Q*N ?ユB@あG\\@Qカ!8░○ヌ웃⁸▤っHかヲMDる□I■	l★□F…Oュ★⁴っCI‖゜ンノ**Z🐱⁷‖!#▥g◜tD っKそ◝カB ∧□ \"W2$は◝N☉$M░T○マ,⁸Kろ□そへ⁵◝シ	`D★ Y゜ッきN★P✽,⁷◜ア░웃@ら?レっXTpA@$■?レ⬆️%.ᶠ◜⁴⁷@ム…◝ケX\"⁴\" 웃◝ゆ\"りと⌂XU◝ソRケX웃%?ワ•$ねB³◝♪D%ˇ⁴5゜ャさ⬆️	Eh	%○ミ▮☉キ$(▮゜ャオ[\n⬅️!ᶠョへ¹bm³K!P◝タ#r▒0H○メ…★1H4!-★○メD⌂S\"゜ャt⁸Bし✽ね‖'◜ゃ\"$░…⬆️オ○ミの%E∧p)$★H◝ス=∧$🐱X█かン$Z█☉⬆️D∧りF□O◜6け➡️ …◝オ=⁸★U웃Q⁶■\"かャ□☉rかッらろM▮N\0さX0かッムGき⁷◜☉⁸Aる\"I9IE■!◝た*c◝q`の「Aチ⁴H²(◝サT◝シ⁴ 웃ろ⁶░うリ'U⁶NミNsNく²I\"hうろたケ$⧗Dたろ★せ⁵ サゃ8Y░¥l@yしな&mぬ◀ゅっqヲへ➡️れイe…ナん⁶Mウ🐱q|ラ&ツN2TEネ▤❎#웃8ひ⌂Kゅス🅾️9★O-「ゅBpH✽(░え.キソ¥Y\" ;おL\n▒。Mᵇ⁴ヌヨカZAeヒ⁘Cテ🐱ヒ4,なね。⁴へ、^◀⁷Rkて)¥rm∧‖L⌂つ<?゛Eつe⁙⬇️ン⬆️3▮$W3た{ほ\\sイ🅾️.も*\"Hナz~[🐱qま웃りョミj(Yo▮MᵉR,#█tちお_▶🅾️4の^⁷ュろ⬇️▥-…pS★❎∧◀■R'い]i⁸N🐱。¹⁸ニ⬅️$Aホョuxほ✽さNᵇ*▥RIク!る*R9★りツナ9「NE⧗Hヌかンひカ★(マr▮🐱ヨまuり⁙⬅️ちm▶の‖⁶Jハdの[Hう゜あ!イˇ★'⁶*Y⁸…は☉⬆️★js⁴な'、ミちyg、n.のHC⬅️jdHしH$⬇️█Y■d∧E⬅️R[$⬅️✽チFク⬅️、Y/$/,もAwIxな¥pコRAy⧗ $'\r★ 🐱¥pNg⁙M9フUれお、⁸チ░]るシ■$U➡️1ウ	⁙い🅾️ん³웃xQ\nヌシ□ゅけH,🅾️g2 ⬅️キQわけそホ³⁷も²ヲ¹くpu@わ9✽カ7$★🅾️て;…ね;✽?ュQヲR@}@レ:█Qゃ$@C◝aッh⁘⌂🅾️て!(レ0!ャHきき゜セ!ヲh!!ヲ$0:…-Dノ⬇️ヨ;➡️!カヨャXp1゛QᵉAヲ\"▮BQaン゛っ◜ノZ;ぬロ@♥`C▥◀□れ⌂$?ャカル□=♥ナᶠわ,O$	ᶠョpひ~W ミ…?*=Jか♪◀⁸yᵇᶠくわ゜➡️🅾️$⁸vノi\0!ゃb~to@ᶠ!くx⁷ホGゃᵉム…y⁙み。゜🅾️ᶠ|\0XZ?cヨオ{ J4✽゜😐▒◝こ³⁷ヤGr▮Qチ▒\np∧◆セ?◜゜あCケ♥ ホ)ンっせ◝CCみ\n!ツ░;⁘t⌂▮ュ$S◝q!ンさ=LzSさせミ#らᶠル…ュ$(♥zᵉあ。 ヨ、³ロ…░♥ら⁘ヒ゜ちCめ⁸u\"え\"◆□カ◜っ…Bれョヒ²C⬆️♥웃ゃヌ(ヨ-◀゜◜8⁴=ぬ♥iホマ(ン⁘○レナ▮オヒる゛せヌx⬆️モE⁘○ヤけ¥゛さ=Oケン⁘w\"🅾️¹ケ?ゆ@オュ,!マ~フゃOdᵉ:¹くア'█\rGニろ⁸~	ョか\"◆わ<り9²Cはルぬノレ?ユおしこレ@⁷⁵?⁸{aゃヲ'◜3ルナ゜⬆️웃	ᵉaャhNᶠわ?レか⌂(◝ネG'ゃ◝っュ➡️ら?て□•█cリO◜せマ◆チ\0\0CB`んヘか◝Oセ?8~Gヒか◝ろ?リ'⁷ラか◝ょ?ョ゜◝セ?リかュら"
 
 -- px9 decompress
 
@@ -178,7 +178,7 @@ function draw_things(things,cam,fov,lightshift)
   for _,item in inext,cache do        
     local thing=item.thing
     local pal1=min(15,(lightshift*item.key)<<4)\1
-    if(pal0!=pal1) memcpy(0x5f00,0x8180+(pal1<<4),16) palt(15,true) pal0=pal1   
+    if(pal0!=pal1) memcpy(0x5f00,0xc180+(pal1<<4),16) palt(15,true) pal0=pal1   
     -- draw things
     local w0,entity,origin=item.key,thing.ent,thing.origin
     -- zangle (horizontal)
@@ -396,7 +396,7 @@ function menu_state(buttons,default)
       -- mouse cursor
       spr(5,_mx,_my)
       -- hw palette
-      memcpy(0x5f10,0x8000+_hw_pal,16)
+      memcpy(0x5f10,0xc000+_hw_pal,16)
       -- pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
     end
 end
@@ -495,7 +495,7 @@ end
 -- commnon "dialog background"
 function draw_dialog()
   poke(0x5f54,0x60)
-  memcpy(0x5f00,0x8180+5*16,16)
+  memcpy(0x5f00,0xc180+5*16,16)
   sspr(0,24,128,84,0,24)
   poke(0x5f54,0x00)
   pal()
@@ -603,11 +603,12 @@ function credits_state()
     "cODE & GFX: fREDS72",
     "mUSIC & SFX: rIDGEK",
     "eXTRA GFX: aRTYOM bRULLOV",
+    "tITLE aRT: hERACLUM",
     "fONT: LITHIFY BY SOMEPEX",
     "",
     "sPECIAL tHANKS TO:",
     "sORATH & zEP",
-    "hERACLUM & mISS mOUSE",
+    "mISS mOUSE",
     "eXTRA TESTING: wERXZY",
     "fAMILLY & PICO8 dISCORD"},true)
   next_state(menu_state,{
@@ -674,7 +675,7 @@ function play_state()
   }
   local function draw_radius(r,light)
     local r2=r*r
-    memcpy(0x5f00,0x8180+((light\0.0625)<<4),16)
+    memcpy(0x5f00,0xc180+((light\0.0625)<<4),16)
     for y=0,63 do      
       local yy=31.5-y
       local d=r2-yy*yy
@@ -700,17 +701,17 @@ function play_state()
       message_time+=1
 
       -- move
-      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xc404)
+      local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xe404)
       if not launching then
-        if(stat(28,@0xc402)) dx=3
-        if(stat(28,@0xc403)) dx=-3
-        if(stat(28,@0xc400)) dz=3
-        if(stat(28,@0xc401)) dz=-3
+        if(stat(28,@0xe402)) dx=3
+        if(stat(28,@0xe403)) dx=-3
+        if(stat(28,@0xe400)) dz=3
+        if(stat(28,@0xe401)) dz=-3
         if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false
       end
       prev_jump=jump_down
 
-      dangle=v_add(dangle,{$0xc410*stat(39),stat(38),0})
+      dangle=v_add(dangle,{$0xe410*stat(39),stat(38),0})
       tilt+=dx/40
       local c,s=cos(a),-sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)
@@ -730,7 +731,7 @@ function play_state()
       velocity[3]*=0.7
       -- gravity
       velocity[2]-=0.8
-      angle=v_add(angle,dangle,$0xc416/1024)
+      angle=v_add(angle,dangle,$0xe416/1024)
       -- limit x amplitude
       angle[1]=mid(angle[1],-0.24,0.24)
 
@@ -853,7 +854,7 @@ function play_state()
         draw_radius(32-r*r,0.99)
         poke(0x5f55,0x60) 
 
-        mode7(verts,#verts,0x9280)        
+        mode7(verts,#verts,0xd280)    
       end
 
       if not launching then
@@ -896,7 +897,7 @@ function play_state()
       end
 
       --pal({128, 130, 133, 5, 134, 6, 7, 136, 8, 138, 139, 3, 131, 1, 135, 0},1)
-      memcpy(0x5f10,0x8000+_hw_pal,16)
+      memcpy(0x5f10,0xc000+_hw_pal,16)
     end
 end
 
@@ -938,7 +939,6 @@ function _init()
   -- custom font
   -- source: https://somepx.itch.io/humble-fonts-tiny-ii
   ?"\^@56000800⁴⁸⁶\0\0¹\0\0\0\0\0\0\0 \0\0\0 \0²\0\0\0\0■■■■■\0\0\0▮¹■■▒■ ■■■」!■\0\0\0▮■■▮\0■!■■■■!■\0\0²\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0⁷⁷⁷⁷⁷\0\0\0\0⁷⁷⁷\0\0\0\0\0⁷⁵⁷\0\0\0\0\0⁵²⁵\0\0\0\0\0⁵\0⁵\0\0\0\0\0⁵⁵⁵\0\0\0\0⁴⁶⁷⁶⁴\0\0\0¹³⁷³¹\0\0\0⁷¹¹¹\0\0\0\0\0⁴⁴⁴⁷\0\0\0⁵⁷²⁷²\0\0\0\0\0\0\0‖\0\0\0\0\0\0¹²\0\0\0\0\0\0³³\0\0\0⁵⁵\0\0\0\0\0\0²⁵²\0\0\0\0\0\0\0\0\0\0\0\0\0²²²²\0²\0\0\n⁵\0\0\0\0\0\0\n゜\n゜⁸\0\0\0⁷³⁶⁷²\0\0\0⁵⁴²¹⁵\0\0\0\0⁴²◀\t◀\0\0²¹\0\0\0\0\0\0²¹¹¹¹²\0\0²⁴⁴⁴⁴²\0\0⁵²⁷²⁵\0\0\0\0²⁷²\0\0\0\0\0\0\0²¹\0\0\0\0\0⁷\0\0\0\0\0\0\0\0\0²\0\0\0⁴²²²¹\0\0\0⁶\t\rᵇ⁶\0\0\0²³²²⁷\0\0\0⁷ᶜ⁶¹ᶠ\0\0\0⁷ᶜ⁶⁸ᶠ\0\0\0⁵⁵ᶠ⁴⁴\0\0\0ᶠ¹⁶ᶜ⁷\0\0\0⁴²⁷\t⁶\0\0\0ᶠ⁸⁴²²\0\0\0⁶\t⁶\t⁶\0\0\0⁶\tᵉ⁴²\0\0\0\0²\0²\0\0\0\0\0²\0²¹\0\0\0⁴²¹²⁴\0\0\0\0⁷\0⁷\0\0\0\0¹²⁴²¹\0\0\0²⁵⁴²\0²\0\0²⁵⁵¹⁶\0\0\0\0⁶⁸ᵇ⁶\0\0\0¹⁵\t\t⁶\0\0\0\0⁶¹¹⁶\0\0\0⁸\n\t\t⁶\0\0\0\0ᵉ\t⁵ᵉ\0\0\0ᶜ²ᵉ³²¹\0\0\0ᵉ\t\r\n⁴\0\0¹⁵ᵇ\t\t⁴\0\0²\0³²²⁷\0\0\0ᶜ⁸⁸\t⁶\0\0¹\t⁵ᵇ\t⁴\0\0¹¹¹¹⁶\0\0\0\0\n▶‖‖\0\0\0\0⁶\t\t\t\0\0\0\0⁶\t\t⁶\0\0\0\0⁶\t\t⁵¹\0\0\0⁶\t\t\n⁸\0\0\0\rᵇ¹¹\0\0\0\0ᵉ³⁸ᶠ\0\0\0\0²ᵉ³²ᶜ\0\0\0\t\t\t⁶\0\0\0\0\t\t⁵³\0\0\0\0‖‖‖ᵇ\0\0\0\0\t⁶⁴\t\0\0\0\0\t\tᵇ⁴³\0\0\0⁷⁴²⁷\0\0\0³¹¹¹¹³\0\0¹¹³²²\0\0\0⁶⁴⁴⁴⁴⁶\0\0²⁵\0\0\0\0\0\0\0\0\0\0⁷\0\0\0²⁴\0\0\0\0\0\0⁶\tᵇ\r\t\t\0\0⁶\t⁵ᵇ\t⁷\0\0⁶\t¹¹\t⁶\0\0³⁵\t\t\t⁷\0\0⁶¹⁵³\t⁶\0\0⁶¹⁵³¹¹\0\0⁶¹¹\r\t⁶\0\0⁵⁵⁵⁷⁵⁵\0\0⁷²²²²⁷\0\0ᵉ⁸⁸⁸\t⁶\0\0\t\t⁵ᵇ\t\t\0\0²¹¹¹\t⁷\0\0\n▶‖‖‖‖\0\0\nᵇ\r\t\t\t\0\0⁶\t\t\t\t⁶\0\0⁶\t\t\r¹¹\0\0⁶\t\t\t\r\n\0\0⁶\t\t⁵ᵇ\t\0\0ᵉ³⁶⁸⁸⁷\0\0ᶜ³²²²²\0\0\t\t\t\t\t⁶\0\0\t\t\t\t⁵³\0\0‖‖‖‖▶\r\0\0\t\t\t⁶\t\t\0\0\t\t\tᵇ⁴³\0\0⁷⁴²¹¹⁷\0\0⁶²³²⁶\0\0\0²²²²²\0\0\0³²⁶²³\0\0\0\0²‖ᶜ\0\0\0\0\0²⁵²\0\0\0\0○○○○○\0\0\0U*U*U\0\0\0<~j4、\0\0\0>ccw>\0\0\0■D■D■\0\0\0⁴<、゛▮\0\0\0⁸*>、、⁸\0\0006>>、⁸\0\0\0、\"*\"、\0\0\0、、>、⁘\0\0\0、>○*:\0\0\0>gcg>\0\0\0○]○A○\0\0\0008⁸⁸ᵉᵉ\0\0\0>ckc>\0\0\0⁸、>、⁸\0\0\0\0\0U\0\0\0\0\0>scs>\0\0\0⁸、○>\"\0\0\0「$JZ$「\0\0>wcc>\0\0\0\0⁵R \0\0\0\0\0■*D\0\0\0\0>kwk>\0\0\0○\0○\0○\0\0\0UUUUU\0\0\0⁸、>\\Hp\0\0\0▮ |:□\0\0「$タししタ\0\0⁸、>⁸\">\0\0\0000JF.\0\0\0\0゛zz~x\0\0、\">>>>\0\0⁴ᶜ、、ᶜ⁴\0\0⁸>、⁸\">\0\0「<~~<「\0\0\0*\0*\0*\0\0\0>\"\"\">\0\0\0 1•ᵉ⁴\0\0⁸>\0**>\0\0\0\0\0\0\0\0\0\0²⁷2²2\0\0\0ᶠ²ᵉ▮、\0\0\0>@@ 「\0\0\0>▮⁸⁸▮\0\0\0⁸8⁴²<\0\0\0002⁷□x「\0\0\0zB²\nr\0\0\0\t>Kmf\0\0\0¥'\"s2\0\0\0<JIIF\0\0\0□:□:¥\0\0\0#b\"\"、\0\0\0ᶜ\0⁸*M\0\0\0\0ᶜ□!@\0\0\0}y■=]\0\0\0><⁸゛.\0\0\0⁶$~&▮\0\0\0$N⁴F<\0\0\0\n<ZF0\0\0\0゛⁴゛D8\0\0\0⁘>$⁸⁸\0\0\0:VR0⁸\0\0\0⁴、⁴゛⁶\0\0\0⁸²> 、\0\0\0\"\"& 「\0\0\0>「$r0\0\0\0⁴6,&d\0\0\0>「$B0\0\0\0¥'\"#□\0\0\0ᵉd、(x\0\0\0⁴²⁶+」\0\0\0\0\0ᵉ▮⁸\0\0\0\0\n゜□⁴\0\0\0\0⁴ᶠ‖\r\0\0\0\0⁴ᶜ⁶ᵉ\0\0\0> ⁘⁴²\0\0\0000⁸ᵉ⁸⁸\0\0\0⁸>\" 「\0\0\0>⁸⁸⁸>\0\0\0▮~「⁘□\0\0\0⁴>$\"2\0\0\0⁸>⁸>⁸\0\0\0<$\"▮⁸\0\0\0⁴|□▮⁸\0\0\0>   >\0\0\0$~$ ▮\0\0\0⁶ &▮ᶜ\0\0\0> ▮「&\0\0\0⁴>$⁴8\0\0\0\"$ ▮ᶜ\0\0\0>\"-0ᶜ\0\0\0、⁸>⁸⁴\0\0\0** ▮ᶜ\0\0\0、\0>⁸⁴\0\0\0⁴⁴、$⁴\0\0\0⁸>⁸⁸⁴\0\0\0\0、\0\0>\0\0\0> (▮,\0\0\0⁸>0^⁸\0\0\0   ▮ᵉ\0\0\0▮$$DB\0\0\0²゛²²、\0\0\0>  ▮ᶜ\0\0\0ᶜ□!@\0\0\0\0⁸>⁸**\0\0\0> ⁘⁸▮\0\0\0<\0>\0゛\0\0\0⁸⁴$B~\0\0\0@(▮h⁶\0\0\0゛⁴゛⁴<\0\0\0⁴>$⁴⁴\0\0\0、▮▮▮>\0\0\0゛▮゛▮゛\0\0\0>\0> 「\0\0\0$$$ ▮\0\0\0⁘⁘⁘T2\0\0\0²²\"□ᵉ\0\0\0>\"\"\">\0\0\0>\" ▮ᶜ\0\0\0> < 「\0\0\0⁶  ▮ᵉ\0\0\0\0‖▮⁸⁶\0\0\0\0⁴゛⁘⁴\0\0\0\0\0ᶜ⁸゛\0\0\0\0、「▮、\0\0\0⁸⁴c▮⁸\0\0\0⁸▮c⁴⁸\0\0\0"
-  -- reset screen rebasing
   -- enable custom font
   -- enable tile 0 + extended memory
   -- capture mouse
@@ -947,8 +947,6 @@ function _init()
   exec[[poke;0x5f58;0x81
 poke;0x5f36;0x18
 poke;0x5f2d;0x7
-poke;0x5f54;0x00;0x60
-_map_display;0
 reload
 cartdata;freds72_daggers]]
 
@@ -976,7 +974,7 @@ cartdata;freds72_daggers]]
   end
 
   -- HW palette + fade to black
-  local src,dst=0x0,0x8000
+  local src,dst=0x0,0xc000
   memcpy(dst,src,16*16)
   dst+=0x100
   src+=0x100
@@ -995,11 +993,11 @@ cartdata;freds72_daggers]]
   end
   -- set pal 15 as transparent for hit+upgrade+distance palette
   for j=0,279 do
-    local mem=0x8100+16*j+15
+    local mem=0xc100+16*j+15
     poke(mem,@mem|0x10)
   end
   -- level up: hand palettes
-  dst=0xd500
+  dst=0xf500
   split2d([[15;15;15;15;15;15;15;15;15
 15;7;6;9;8;9;6;7;15
 15;10;11;13;14;13;11;10;15]],
@@ -1038,7 +1036,7 @@ cartdata;freds72_daggers]]
   reload(0, 0, 0x3100) 
   px9_decomp(0,0,0x1240,sget,sset)
   -- copy tiles to high mem (for shadows/splash)
-  local mem=0xc500
+  local mem=0xe500
   for i=0,64*64-1,64 do
     -- copy the same row twice
     memcpy(mem,i+32,32) mem+=32
@@ -1141,9 +1139,9 @@ cartdata;freds72_daggers]]
     dset(id,ord(btn.ch))
     dset(id+1,btn.stat)
   end
-  -- copy settings to 0xc400  
+  -- copy settings to 0xe400  
   local function pack_key(btn)
-    poke(0xc400+btn.id,btn.stat)
+    poke(0xe400+btn.id,btn.stat)
   end
   local function pack_settings()
     for _,btn in inext,_settings do
@@ -1213,7 +1211,7 @@ cartdata;freds72_daggers]]
     save=save_value,
     cb=flip_bool,
     pack=function(btn)
-      poke4(0xc410,btn.value==1 and -1 or 1)
+      poke4(0xe410,btn.value==1 and -1 or 1)
     end
     },
     {function(btn)
@@ -1227,7 +1225,7 @@ cartdata;freds72_daggers]]
     pack=function(btn)
       local a,b=4,5
       if(btn.value==1) a,b=b,a
-      poke(0xc414,a,b)
+      poke(0xe414,a,b)
     end
     },
     {function(btn)
@@ -1241,7 +1239,7 @@ cartdata;freds72_daggers]]
       btn.value=((btn.value+1)%#sensitivity)
     end,
     pack=function(btn)
-      poke4(0xc416,sensitivity[btn.value+1]/100)
+      poke4(0xe416,sensitivity[btn.value+1]/100)
     end
     },
     {function(btn)
