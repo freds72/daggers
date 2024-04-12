@@ -182,7 +182,7 @@ function register_hit(_ENV)
 end
 
 function make_player(_origin,_a)
-  local on_ground={}
+  local on_ground,jumpp
   return inherit(with_properties("tilt,0,r,24,attract_power,0,dangle,v_zero,velocity,v_zero,eye_pos,v_zero,fire,0,fire_ttl,0,shotgun_ttl,0,eye_offset,18",{
     -- start above floor
     origin=v_add(_origin,split"0,1,0"), 
@@ -196,7 +196,8 @@ function make_player(_origin,_a)
       if(stat(28,@0xe403)) dx=-3
       if(stat(28,@0xe400)) dz=3
       if(stat(28,@0xe401)) dz=-3
-      if(on_ground and jump_down) jmp,on_ground=24 sfx"58"
+      if(on_ground and jump_down!=jumpp) jmp,on_ground=24 sfx"58"
+      jumpp=jump_down
 
       -- straffing = faster!
 
@@ -469,9 +470,11 @@ poke;0x5f5e;0b10001000]]
         local x,y,z=origin[1]-cx,origin[2]-cy,origin[3]-cz
         local ax,ay,az=m1*x+m5*y+m9*z,m2*x+m6*y+m10*z,m3*x+m7*y+m11*z
         local az4=az<<2
+        local w=32/az
         if az>8 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
-          local w=32/az
           add(things,{key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w})
+        elseif az<8 and obj.radar then
+          add(_radar,63.5-ax*w)
         end
       end
     end
@@ -962,6 +965,7 @@ function draw_world()
   -- draw to offscreen buffer   
   poke(0x5f55,0xa0)
   memset(0xa000,0,0x2000)
+  _radar={}
   _bsp[0](_cam)
   poke(0x5f55,0x60)
 
@@ -1014,6 +1018,9 @@ poke;0x5f00;0x0
 sspr;0;64;64;64;72;64
 clip
 camera]],-_hand_y,r,0.9*r,0.9*r))
+  end
+  for _,x in next,_radar do
+    pset(x,124,8)
   end
 end
 
@@ -1581,7 +1588,7 @@ _lgib_t;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,@trail,_gib_trail,ent,blood1
 _goo_trail;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,goo0,rebound,0,stain,7
 _goo_t;r,4,zangle,0,yangle,0,ttl,0,scale,1,@trail,_goo_trail,ent,goo0,rebound,-1
 _dagger_hit_t;shadeless,1,zangle,0,yangle,0,ttl,0,scale,1,ent,spark0,@ents,_spark_trail,rebound,1.2
-_skull_t;reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,y_kick,0,velocity,v_zero,min_velocity,3,ground_limit,8,target_yangle,-0.1,gibs,-1,@gib,_gib_t,@lgib,_lgib_t,cost,1;_skull_core
+_skull_t;radar,1,reg,1,wobble0,2,wobble1,3,seed0,6,seed1,7,zangle,0,yangle,0,hit_ttl,0,y_kick,0,velocity,v_zero,min_velocity,3,ground_limit,8,target_yangle,-0.1,gibs,-1,@gib,_gib_t,@lgib,_lgib_t,cost,1;_skull_core
 _egg_t;apply_filter,is_egg,is_egg,1,ent,egg,r,8,hp,2,zangle,0,@apply,nop,obituary,aCIDIFIED,min_velocity,-1,@lgib,_goo_t,ground_limit,2;_skull_t
 _worm_seg_normal0;hit_ttl,0,reg,1,ent,worm1,s_r,9,r,12,zangle,0,origin,v_zero,@apply,nop,obituary,sLICED,scale,1.5,jewel,0x0908,hp,5
 _worm_seg_mega0;hit_ttl,0,reg,1,ent,worm1,s_r,10,r,16,zangle,0,origin,v_zero,@apply,nop,obituary,mINCED,scale,1.7,jewel,0x0908,hp,10

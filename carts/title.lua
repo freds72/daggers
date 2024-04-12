@@ -1149,12 +1149,12 @@ cartdata;freds72_daggers]]
     end
   end
 
-  local sensitivity={25,50,75,100,125,150,200}
+  local sensitivity={1,5,10,25,50,75,100,125,150,200}
 
   _settings={
     {print_key,30,
       action="fORWARD\t\t",
-      ch="E",
+      ch="W",
       stat=8,
       id=0,
       load=load_key,
@@ -1164,7 +1164,7 @@ cartdata;freds72_daggers]]
     },
     {print_key,37,
     action="bACKWARD\t\t",
-    ch="D",
+    ch="S",
     stat=7,
     id=1,
     load=load_key,
@@ -1174,7 +1174,7 @@ cartdata;freds72_daggers]]
     },
     {print_key,44,
     action="lEFT\t\t\t",
-    ch="S",
+    ch="A",
     stat=22,
     id=2,
     load=load_key,
@@ -1184,7 +1184,7 @@ cartdata;freds72_daggers]]
     },
     {print_key,51,
     action="rIGHT\t\t\t",
-    ch="F",
+    ch="D",
     stat=9,
     id=3,
     load=load_key,
@@ -1229,9 +1229,9 @@ cartdata;freds72_daggers]]
     end
     },
     {function(btn)
-      return "sENSITIVITY\t\t"..sensitivity[btn.value+1].."%"
+      return "sENSITIVITY\t\t"..sensitivity[btn.value+1].."X"
     end,82,
-    value=3,
+    value=1,
     id=7,
     load=load_value,
     save=save_value,
