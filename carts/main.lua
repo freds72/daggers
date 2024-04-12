@@ -473,7 +473,7 @@ poke;0x5f5e;0b10001000]]
         local w=32/az
         if az>8 and az<192 and ax<az4 and -ax<az4 and ay<az4 and -ay<az4 then
           add(things,{key=w,thing=obj,x=63.5+ax*w,y=63.5-ay*w})
-        elseif az<8 and obj.radar then
+        elseif az<8 and az>-96 and obj.radar then
           add(_radar,63.5-ax*w)
         end
       end
