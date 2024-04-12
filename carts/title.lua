@@ -1231,7 +1231,7 @@ cartdata;freds72_daggers]]
     {function(btn)
       return "sENSITIVITY\t\t"..sensitivity[btn.value+1].."X"
     end,82,
-    value=1,
+    value=4,
     id=7,
     load=load_value,
     save=save_value,
