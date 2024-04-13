@@ -192,10 +192,10 @@ function make_player(_origin,_a)
       if(dead) return
       -- move
       local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xe404)
-      if(stat(28,@0xe402)) dx=3
-      if(stat(28,@0xe403)) dx=-3
-      if(stat(28,@0xe400)) dz=3
-      if(stat(28,@0xe401)) dz=-3
+      if(stat(28,@0xe402)) dx=1
+      if(stat(28,@0xe403)) dx=-1
+      if(stat(28,@0xe400)) dz=1
+      if(stat(28,@0xe401)) dz=-1
       if(on_ground and jump_down!=jumpp) jmp,on_ground=24 sfx"58"
       jumpp=jump_down
 
@@ -222,8 +222,8 @@ function make_player(_origin,_a)
       end
       
       dangle=v_add(dangle,{$0xe410*stat(39),stat(38),0})
-      tilt+=dx/40
-      local c,s=cos(a),-sin(a)
+      tilt+=0.075/40
+      local c,s=3.5*cos(a),-3.5*sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)                 
     end,
     update=function(_ENV)
