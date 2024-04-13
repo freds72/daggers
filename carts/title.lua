@@ -1149,7 +1149,7 @@ cartdata;freds72_daggers]]
     end
   end
 
-  local sensitivity={1,5,10,25,50,75,100,125,150,200}
+  local sensitivity={25,50,75,100,125,150,200,1,5,10}
 
   _settings={
     {print_key,30,
