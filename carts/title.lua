@@ -661,7 +661,7 @@ function play_state()
   -- start above floor
   local a=rnd()
   local angle,dangle={0,a-0.25+rnd(0.1),0},v_zero()
-  local tilt,on_ground,prev_jump=0
+  local tilt,on_ground,jumpp=0
   local velocity=v_zero()
   local origin={192*cos(a),0,192*sin(a)}
   local eye_pos=v_add(origin,split"0,24,0")
@@ -703,17 +703,17 @@ function play_state()
       -- move
       local dx,dz,a,jmp,jump_down=0,0,angle[2],0,stat(28,@0xe404)
       if not launching then
-        if(stat(28,@0xe402)) dx=3
-        if(stat(28,@0xe403)) dx=-3
-        if(stat(28,@0xe400)) dz=3
-        if(stat(28,@0xe401)) dz=-3
-        if(on_ground and prev_jump and not jump_down) jmp=24 on_ground=false
+        if(stat(28,@0xe402)) dx=1
+        if(stat(28,@0xe403)) dx=-1
+        if(stat(28,@0xe400)) dz=1
+        if(stat(28,@0xe401)) dz=-1
+        if(on_ground and jumpp!=jump_down) jmp,on_ground=24
       end
-      prev_jump=jump_down
+      jumpp=jump_down
 
       dangle=v_add(dangle,{$0xe410*stat(39),stat(38),0})
-      tilt+=dx/40
-      local c,s=cos(a),-sin(a)
+      tilt+=0.075*dx
+      local c,s=3.5*cos(a),-3.5*sin(a)
       velocity=v_add(velocity,{s*dz-c*dx,jmp,c*dz+s*dx},0.35)
       origin=v_add(origin,velocity)
       if velocity[2]<0 and origin[2]<0 then
@@ -1149,7 +1149,7 @@ cartdata;freds72_daggers]]
     end
   end
 
-  local sensitivity={25,50,75,100,125,150,200}
+  local sensitivity={25,50,75,100,125,150,200,1,5,10}
 
   _settings={
     {print_key,30,
@@ -1229,7 +1229,7 @@ cartdata;freds72_daggers]]
     end
     },
     {function(btn)
-      return "sENSITIVITY\t\t"..sensitivity[btn.value+1].."%"
+      return "sENSITIVITY\t\t"..sensitivity[btn.value+1].."X"
     end,82,
     value=3,
     id=7,
